@@ -24,9 +24,13 @@ import { createRng, erlangC, interpolate, pick, sampleExponential, WeightedSampl
 import type { AppServerSpec, Design, Level, LoadBalancerSpec, ScenarioEvent } from './schema.ts';
 
 export type FailureReason =
-  /** The backlog was longer than the instance could clear before the timeout. */
+  /** A load balancer received more requests than it can handle. */
   | 'overloaded'
-  /** The request was unlucky in the queue and waited past the timeout. */
+  /**
+   * The request waited in an app server's queue past the timeout: either the backlog was longer than the instance
+   * could clear in time (sustained overload), or random queueing near capacity. One reason, because to the player
+   * both are the same thing: that server can't keep up.
+   */
   | 'timeout'
   /** The request was sent to, or was queued on, a crashed instance. */
   | 'instance_down'
@@ -435,8 +439,7 @@ class Simulation {
       const lateProbability =
         waitProbability * Math.exp(-drainRate * Math.max(0, this.timeoutSec - backlogWaitSec));
 
-      this.fail(spec.id, 'overloaded', overflow, atSec);
-      this.fail(spec.id, 'timeout', (arriving - overflow) * lateProbability, atSec);
+      this.fail(spec.id, 'timeout', overflow + (arriving - overflow) * lateProbability, atSec);
       return {
         up: true,
         overflowFraction: arriving > 0 ? overflow / arriving : 0,

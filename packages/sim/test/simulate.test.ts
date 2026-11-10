@@ -16,7 +16,7 @@ describe('capacity and queueing', () => {
     // small = 200 req/s capacity, 300 offered: a third should fail.
     const result = simulate(makeLevel(), singleServer('small'));
     expect(result.availability).toBeCloseTo(2 / 3, 1);
-    expect(result.causes[0]).toMatchObject({ nodeId: 'app', reason: 'overloaded' });
+    expect(result.causes).toEqual([expect.objectContaining({ nodeId: 'app', reason: 'timeout' })]);
     // The queue absorbs the first second of excess (capacity × timeout) before anything fails.
     expect(result.causes[0]!.firstAtSec).toBeGreaterThan(1);
     expect(result.causes[0]!.firstAtSec).toBeLessThan(3);
@@ -106,7 +106,7 @@ describe('instance failure', () => {
     // 4 large = 3,200 req/s; after a crash, 3 large = 2,400 req/s for 3,000 offered.
     const tight = makeLevel({ events: CRASH_AT_30, workload: { traffic: [{ atSec: 0, rps: 3000 }] } });
     const result = simulate(tight, balanced(4, 'large', { retryOnConnectFailure: true }));
-    expect(result.causes.map((cause) => cause.reason)).toContain('overloaded');
+    expect(result.causes.map((cause) => cause.reason)).toContain('timeout');
     expect(result.availability).toBeLessThan(0.99);
   });
 
