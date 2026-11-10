@@ -1,18 +1,26 @@
 /**
- * Run mode. PHASE 1 PLACEHOLDER: the playback agent replaces this file's implementation (and owns `src/playback/`),
- * keeping `PlaybackProps` and the `Playback` export so `screens/LevelScreen.tsx` doesn't change.
+ * Run mode: plays back a graded simulation on the read-only canvas.
  *
- * Canvas APIs to build on (all from `../canvas/index.ts`):
- * - `<DesignCanvas mode="readOnly" draft live={frame} marks={{ [rootCauseId]: 'focus' }} overlay={<Particles/>}>`
- * - inside `overlay`: `useCanvasHandle()` → `getViewport()`, `subscribeViewport()`, `getSize()`, `getNodeRects()`,
- *   `getEdgeGeometry()`, `focusNode(id, { zoom })`, `fitView()`; map with `flowToContainer(point, viewport)` and
- *   walk edges with `pointOnEdge(source, target, t)` from `canvas/geometry.ts`.
- * - `describeCause(cause)` in `../describe.ts` phrases failure causes for the postmortem card.
+ * - `controller.ts` owns the clock and the requestAnimationFrame loop; React only sees throttled snapshots (~20 Hz).
+ * - `ParticleLayer` draws request dots and failure marks on a Canvas2D overlay, every frame, outside React.
+ * - `TimelineStrip`, `BudgetBar` and `ControlBar` make up the dock under the canvas.
+ * - On the freeze-frame (the error budget runs out) the root-cause node is highlighted and `PostmortemCard` shows.
+ *
+ * The maths (clock, interpolation, edge flows, spawn rates, budget) lives in pure modules with unit tests.
  */
-import type { Level } from '@five-nines/sim';
-import { useEffect, useState, type CSSProperties } from 'react';
-import { DesignCanvas, type Draft } from '../canvas/index.ts';
+import { AVAILABILITY_TIERS, type Level } from '@five-nines/sim';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { DesignCanvas, type CanvasHandle, type Draft, type NodeMark } from '../canvas/index.ts';
 import type { GradedEvaluation } from '../engine/index.ts';
+import { BudgetBar } from './BudgetBar.tsx';
+import { ControlBar } from './ControlBar.tsx';
+import { PlaybackController } from './controller.ts';
+import { ParticleLayer } from './ParticleLayer.tsx';
+import { PostmortemCard } from './PostmortemCard.tsx';
+import { prepareSeries } from './series.ts';
+import { TimelineStrip } from './TimelineStrip.tsx';
+import { useReducedMotion } from './useReducedMotion.ts';
+import './playback.css';
 
 export interface PlaybackProps {
   /** The level that was run. */
@@ -30,48 +38,147 @@ export interface PlaybackProps {
   onExit(): void;
 }
 
-/** Minimal placeholder: steps quickly through the timeline with live node stats, then shows results. */
-export function Playback({ draft, evaluation, onFinished, onExit }: PlaybackProps) {
-  const timeline = evaluation.simulation.timeline;
-  const [index, setIndex] = useState(0);
-  const step = Math.max(1, Math.ceil(timeline.length / 40));
+/** The beat between reaching the end and moving on to the results. */
+const FINISH_DELAY_MS = 900;
+const NO_MARKS: Readonly<Record<string, NodeMark>> = {};
+
+export function Playback({ level, draft, evaluation, onFinished, onExit }: PlaybackProps) {
+  const { simulation } = evaluation;
+  const reducedMotion = useReducedMotion();
+  const [controller] = useState(
+    () => new PlaybackController(prepareSeries(simulation, evaluation.errorBudgetExhaustedAtSec)),
+  );
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
+  const { clock } = snapshot;
 
   useEffect(() => {
-    if (index >= timeline.length - 1) {
-      const done = setTimeout(onFinished, 400);
-      return () => clearTimeout(done);
-    }
-    const tick = setTimeout(() => setIndex((i) => Math.min(timeline.length - 1, i + step)), 50);
-    return () => clearTimeout(tick);
-  }, [index, step, timeline.length, onFinished]);
+    controller.start();
+    return () => controller.stop();
+  }, [controller]);
 
-  const frame = timeline[index] ?? null;
+  // ---- freeze-frame: highlight the root cause and bring it into view ----
+
+  const frozen = clock.freeze.kind === 'frozen';
+  const rootCauseId = simulation.causes[0]?.nodeId ?? null;
+  const marks = useMemo(
+    () => (frozen && rootCauseId ? { [rootCauseId]: 'focus' as const } : NO_MARKS),
+    [frozen, rootCauseId],
+  );
+  const handleRef = useRef<CanvasHandle | null>(null);
+  const onReady = useCallback((handle: CanvasHandle) => {
+    handleRef.current = handle;
+  }, []);
+  const wasFrozen = useRef(false);
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (frozen && !wasFrozen.current && handle && rootCauseId) {
+      const zoom = Math.min(1.2, Math.max(1, handle.getViewport().zoom));
+      void handle.focusNode(rootCauseId, { zoom, durationMs: reducedMotion ? 0 : 800 });
+    } else if (!frozen && wasFrozen.current && handle) {
+      void handle.fitView({ durationMs: reducedMotion ? 0 : 500, padding: 0.25 });
+    }
+    wasFrozen.current = frozen;
+  }, [frozen, rootCauseId, reducedMotion]);
+
+  // ---- finishing: after a short beat at the end, go to the results ----
+
+  useEffect(() => {
+    if (!clock.finished) return;
+    const timer = setTimeout(onFinished, FINISH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [clock.finished, onFinished]);
+
+  // ---- keyboard: Space plays/pauses (and leaves the freeze-frame) ----
+
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) =>
+      target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+      event.preventDefault();
+      if (!event.repeat) controller.togglePlay();
+    };
+    // A focused button would also "click" on Space keyup; the shortcut owns Space during playback.
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space' && !isTyping(event.target)) event.preventDefault();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [controller]);
+
+  // ---- scrubbing: hold playback while dragging, then carry on as before ----
+
+  const resumeAfterScrub = useRef(false);
+  const onScrubStart = useCallback(() => {
+    resumeAfterScrub.current = controller.getSnapshot().clock.playing;
+    controller.pause();
+  }, [controller]);
+  const onScrubEnd = useCallback(() => {
+    const { clock: now } = controller.getSnapshot();
+    // Scrubbing onto the end stops there rather than restarting the run.
+    if (resumeAfterScrub.current && now.timeSec < now.durationSec) controller.play();
+    resumeAfterScrub.current = false;
+  }, [controller]);
+
+  const overlay = useMemo(
+    () => <ParticleLayer controller={controller} design={draft.design} reducedMotion={reducedMotion} />,
+    [controller, draft.design, reducedMotion],
+  );
+
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
-      <DesignCanvas mode="readOnly" draft={draft} live={frame} />
-      <div style={barStyle}>
-        <span className="num">Running… t={frame?.atSec ?? 0}s</span>
-        <button type="button" className="btn btn--sm" onClick={onFinished}>
-          See results
-        </button>
-        <button type="button" className="btn btn--sm btn--ghost" onClick={onExit}>
-          Back to editor
-        </button>
+    <div className="playback">
+      <div className="playback__stage">
+        <DesignCanvas
+          mode="readOnly"
+          draft={draft}
+          live={snapshot.frame}
+          marks={marks}
+          overlay={overlay}
+          onReady={onReady}
+        />
+        {frozen && evaluation.errorBudgetExhaustedAtSec !== null && (
+          <PostmortemCard
+            exhaustedAtSec={evaluation.errorBudgetExhaustedAtSec}
+            causes={simulation.causes}
+            events={simulation.events}
+            availability={snapshot.availability}
+            onKeepWatching={controller.keepWatching}
+            onSeeResults={onFinished}
+          />
+        )}
+      </div>
+      <div className="playback__dock">
+        <ControlBar
+          playing={clock.playing}
+          speed={clock.speed}
+          timeSec={clock.timeSec}
+          durationSec={clock.durationSec}
+          availability={snapshot.availability}
+          passAvailability={AVAILABILITY_TIERS.pass}
+          onTogglePlay={controller.togglePlay}
+          onSpeed={controller.setSpeed}
+          onSkipToEnd={controller.skipToEnd}
+          onExit={onExit}
+        />
+        <div className="playback__panels">
+          <TimelineStrip
+            timeline={simulation.timeline}
+            events={simulation.events}
+            p99RequirementMs={level.requirements.p99Ms}
+            timeSec={clock.timeSec}
+            frame={snapshot.frame}
+            exhaustedAtSec={evaluation.errorBudgetExhaustedAtSec}
+            onSeek={controller.seek}
+            onScrubStart={onScrubStart}
+            onScrubEnd={onScrubEnd}
+          />
+          <BudgetBar usage={snapshot.budget} />
+        </div>
       </div>
     </div>
   );
 }
-
-const barStyle: CSSProperties = {
-  position: 'absolute',
-  left: 16,
-  bottom: 16,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  padding: 8,
-  background: 'var(--surface-1)',
-  border: '1px solid var(--border)',
-  borderRadius: 10,
-  zIndex: 10,
-};
