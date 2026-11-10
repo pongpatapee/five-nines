@@ -36,6 +36,7 @@ const nodeTypes: NodeTypes = { clients: ClientsNode, appServer: AppServerNode, l
 const edgeTypes: EdgeTypes = { flow: FlowEdge };
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--edge-color)' } as const;
 const NO_MARKS: Readonly<Record<string, NodeMark>> = {};
+const DELETE_KEYS = ['Backspace', 'Delete'];
 /** How far out the player can zoom. */
 export const MIN_ZOOM = 0.25;
 
@@ -76,6 +77,11 @@ export interface DesignCanvasProps {
   /** Receives the imperative handle once mounted. Same object `useCanvasHandle()` returns inside `overlay`. */
   onReady?: (handle: CanvasHandle) => void;
 
+  /**
+   * Editable mode only: whether Delete/Backspace deletes the selection. Default true. Turn it off while something
+   * covers the canvas (e.g. a modal), since React Flow listens on the whole document.
+   */
+  deleteKey?: boolean;
   /** Allow panning and wheel zoom. Default true. Turn off for small embedded previews so the page scrolls. */
   panZoom?: boolean;
   className?: string;
@@ -103,6 +109,7 @@ function DesignCanvasInner({
   overlay,
   children,
   onReady,
+  deleteKey = true,
   panZoom = true,
   className,
 }: DesignCanvasProps) {
@@ -228,7 +235,7 @@ function DesignCanvasInner({
             elementsSelectable={editable}
             edgesFocusable={editable}
             nodesFocusable={editable}
-            deleteKeyCode={editable ? ['Backspace', 'Delete'] : null}
+            deleteKeyCode={editable && deleteKey ? DELETE_KEYS : null}
             selectionKeyCode={null}
             multiSelectionKeyCode={null}
             snapToGrid

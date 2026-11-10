@@ -52,6 +52,16 @@ export function LevelScreen({ level }: LevelScreenProps) {
     dispatch({ type: 'edit' });
   }, [level.id]);
 
+  // Esc closes the debrief overlay over the editor.
+  useEffect(() => {
+    if (!debriefOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDebriefOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [debriefOpen]);
+
   // Evaluating: run the engine in the worker and feed the result back into the state machine.
   const evaluating = mode.kind === 'evaluating' ? mode : null;
   useEffect(() => {
@@ -106,6 +116,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
                 onRun={handleRun}
                 onReset={handleReset}
                 notice={mode.notice}
+                active={!debriefOpen}
               />
               {debriefOpen && (
                 <div className="results-overlay">
