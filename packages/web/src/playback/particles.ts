@@ -14,6 +14,8 @@ export interface Dot {
   speed: number;
   /** Sideways offset from the edge's centre line, in flow pixels. */
   lane: number;
+  /** A write rather than a read or a plain request: drawn in the write colour. */
+  write: boolean;
 }
 
 export interface FailureMark {
@@ -87,7 +89,8 @@ export class ParticleSystem {
       for (let i = 0; i < count; i++) {
         const speed = between(rng, 0.88, 1.12) / tuning.travelSec;
         // Spread spawns across the step so dots don't bunch at low frame rates.
-        dots.push({ u: rng() * speed * dt, speed, lane: between(rng, -3, 3) });
+        const write = flow.writeRps > 0 && rng() < flow.writeRps / flow.rps;
+        dots.push({ u: rng() * speed * dt, speed, lane: between(rng, -3, 3), write });
       }
     }
 

@@ -8,8 +8,8 @@ import { isFailingRate } from '../types.ts';
 
 export interface NodeShellProps {
   id: string;
-  /** Which doodle to draw beside the kind label. */
-  doodle: DoodleKind;
+  /** The component kind (or "clients"): picks the doodle and is exposed as `data-kind` so themes can style each kind. */
+  kind: DoodleKind;
   /** Uppercase kind label, e.g. "App server". */
   kindLabel: string;
   /** Key configuration in one line, e.g. "xlarge × 4". */
@@ -24,7 +24,7 @@ export interface NodeShellProps {
 }
 
 /** The frame every node shares: handles, header, marks, selection and the failing glow. */
-export function NodeShell({ id, doodle, kindLabel, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
+export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
   const { live, marks } = useDecorations();
   const failing = isFailingRate(live?.nodes[id]?.failedRps ?? 0);
   const mark = marks[id];
@@ -34,12 +34,12 @@ export function NodeShell({ id, doodle, kindLabel, config, costUsdPerMonth, sele
   if (mark) classes.push(`is-mark-${mark}`);
 
   return (
-    <div className={classes.join(' ')} data-node-id={id}>
+    <div className={classes.join(' ')} data-node-id={id} data-kind={kind}>
       {mark === 'focus' && <RootCauseCircle />}
       {hasTarget && <Handle type="target" position={Position.Left} className="design-node__handle" />}
       <div className="design-node__header">
         <span className="design-node__kind">
-          <ComponentDoodle kind={doodle} size={20} />
+          <ComponentDoodle kind={kind} size={20} />
           {kindLabel}
         </span>
         {costUsdPerMonth !== undefined && <span className="design-node__cost num">{formatUsdPerMonth(costUsdPerMonth)}</span>}

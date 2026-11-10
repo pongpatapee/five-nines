@@ -1,12 +1,6 @@
-import {
-  APP_SERVER_SIZES,
-  COMPONENT_LABELS,
-  designCostUsdPerMonth,
-  LOAD_BALANCER,
-  type AppServerSize,
-  type Design,
-  type Level,
-} from '@five-nines/sim';
+import { designCostUsdPerMonth, type Design, type Level } from '@five-nines/sim';
+import { Fragment } from 'react';
+import { COMPONENTS } from '../components/registry.ts';
 import { formatDuration, formatMs, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
 import { bossBriefingLine, CastLine, troublemakerTease } from '../notebook/index.ts';
 import { tierPercent } from '../results/grading.ts';
@@ -91,6 +85,18 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
               <dt>Budget</dt>
               <dd className="num">≤ {formatUsdPerMonth(level.requirements.budgetUsdPerMonth)}</dd>
             </div>
+            {level.requirements.maxStalenessSec !== undefined && (
+              <div>
+                <dt>Staleness</dt>
+                <dd className="num">reads ≤ {level.requirements.maxStalenessSec} s out of date</dd>
+              </div>
+            )}
+            {level.workload.data?.readAfterWrite && (
+              <div>
+                <dt>Consistency</dt>
+                <dd>users always see their own writes</dd>
+              </div>
+            )}
             <div>
               <dt>Run length</dt>
               <dd className="num">{formatDuration(level.durationSec)}</dd>
@@ -111,32 +117,23 @@ function ReferenceCard({ components }: { components: Level['components'] }) {
   return (
     <table className="reference-card">
       <tbody>
-        {components.includes('appServer') && (
-          <>
-            <tr className="reference-card__group">
-              <th colSpan={3}>{COMPONENT_LABELS.appServer} (per instance)</th>
-            </tr>
-            {(Object.keys(APP_SERVER_SIZES) as AppServerSize[]).map((size) => (
-              <tr key={size}>
-                <td>{size}</td>
-                <td className="num">{APP_SERVER_SIZES[size].vcpu} vCPU</td>
-                <td className="num">{formatUsdPerMonth(APP_SERVER_SIZES[size].usdPerMonth)}</td>
+        {components.map((kind) => {
+          const { heading, rows } = COMPONENTS[kind].reference;
+          return (
+            <Fragment key={kind}>
+              <tr className="reference-card__group">
+                <th colSpan={3}>{heading}</th>
               </tr>
-            ))}
-          </>
-        )}
-        {components.includes('loadBalancer') && (
-          <>
-            <tr className="reference-card__group">
-              <th colSpan={3}>{COMPONENT_LABELS.loadBalancer}</th>
-            </tr>
-            <tr>
-              <td>any</td>
-              <td className="num">{formatMs(LOAD_BALANCER.latencyMs)} added</td>
-              <td className="num">{formatUsdPerMonth(LOAD_BALANCER.usdPerMonth)}</td>
-            </tr>
-          </>
-        )}
+              {rows.map(([option, capacity, price]) => (
+                <tr key={option}>
+                  <td>{option}</td>
+                  <td className="num">{capacity}</td>
+                  <td className="num">{price}</td>
+                </tr>
+              ))}
+            </Fragment>
+          );
+        })}
       </tbody>
     </table>
   );

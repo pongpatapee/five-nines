@@ -3,7 +3,8 @@
  * whether to apply them and uses these helpers to do so. None of them validate the design: that's
  * `validateDesign`'s job, so the player can build invalid intermediate states.
  */
-import { CLIENTS_ID, type ComponentKind, type Edge, type NodeSpec } from '@five-nines/sim';
+import { CLIENTS_ID, edgeKey as engineEdgeKey, type ComponentKind, type Edge, type NodeSpec } from '@five-nines/sim';
+import { COMPONENTS } from '../components/registry.ts';
 import type { DeleteRequest, Draft, XY } from './types.ts';
 
 /** The starting draft of every level: just the clients node. */
@@ -11,34 +12,28 @@ export function emptyDraft(): Draft {
   return { design: { nodes: [], edges: [] }, layout: { [CLIENTS_ID]: { x: 0, y: 0 } } };
 }
 
-/** Stable React Flow id for an edge. Node ids can't contain ">", so this is unambiguous. */
-export function edgeKey(edge: Edge): string {
-  return `${edge.from}->${edge.to}`;
-}
+/**
+ * Stable React Flow id for an edge. Node ids can't contain ">", so this is unambiguous. The same key the engine uses
+ * for per-edge flows in its timeline.
+ */
+export const edgeKey: (edge: Edge) => string = engineEdgeKey;
 
 export function sameEdge(a: Edge, b: Edge): boolean {
   return a.from === b.from && a.to === b.to;
 }
 
-const ID_PREFIX: Record<ComponentKind, string> = { appServer: 'app', loadBalancer: 'lb' };
-
-/** The next free id for a new component: `app-1`, `app-2`, …, `lb-1`, … */
+/** The next free id for a new component: `app-1`, `app-2`, …, `lb-1`, … (prefixes from the component registry). */
 export function nextNodeId(draft: Draft, kind: ComponentKind): string {
   const taken = new Set(draft.design.nodes.map((node) => node.id));
   for (let n = 1; ; n++) {
-    const id = `${ID_PREFIX[kind]}-${n}`;
+    const id = `${COMPONENTS[kind].idPrefix}-${n}`;
     if (!taken.has(id)) return id;
   }
 }
 
 /** A new component with the engine's defaults. */
 export function createNodeSpec(kind: ComponentKind, id: string): NodeSpec {
-  switch (kind) {
-    case 'appServer':
-      return { id, kind, size: 'small', instances: 1 };
-    case 'loadBalancer':
-      return { id, kind, healthCheckIntervalSec: 30, retryOnConnectFailure: false };
-  }
+  return COMPONENTS[kind].create(id);
 }
 
 export function addNode(draft: Draft, node: NodeSpec, position: XY): Draft {

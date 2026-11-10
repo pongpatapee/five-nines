@@ -5,7 +5,6 @@ import {
   dotRate,
   edgeFlows,
   FULL_MOTION,
-  incomingCounts,
   markRate,
   nodeFailures,
   particlePace,
@@ -15,7 +14,7 @@ import {
 import { ParticleSystem } from '../../src/playback/particles.ts';
 import { createRng } from '../../src/playback/rng.ts';
 
-// clients → lb → (a, b); a and b → db? Not a real topology, but exercises shared targets.
+// clients → lb → (a, b) → c. Not a real topology, but exercises shared targets.
 const design: Design = {
   nodes: [
     { id: 'lb', kind: 'loadBalancer', healthCheckIntervalSec: 5, retryOnConnectFailure: true },
@@ -40,17 +39,31 @@ function frame(): LiveFrame {
     offeredRps: 1000,
     failedRps: 30,
     nodes: { lb: node(990, 10), a: node(500, 20), b: node(490), c: node(800) },
+    edges: {
+      'clients->lb': { rps: 1000, writeRps: 0 },
+      'lb->a': { rps: 500, writeRps: 0 },
+      'lb->b': { rps: 490, writeRps: 0 },
+      'a->c': { rps: 480, writeRps: 120 },
+      'b->c': { rps: 320, writeRps: 40 },
+    },
   };
 }
 
 describe('edge flows', () => {
-  it('counts incoming edges', () => {
-    expect(Object.fromEntries(incomingCounts(design))).toEqual({ lb: 1, a: 1, b: 1, c: 2 });
+  it("carries the engine's per-edge rates, writes included", () => {
+    const flows = Object.fromEntries(edgeFlows(design, frame()).map((f) => [f.key, [f.rps, f.writeRps]]));
+    expect(flows).toEqual({
+      'clients->lb': [1000, 0],
+      'lb->a': [500, 0],
+      'lb->b': [490, 0],
+      'a->c': [480, 120],
+      'b->c': [320, 40],
+    });
   });
 
-  it('gives clients → entry the offered rate, and other edges the target arrivals split by in-degree', () => {
-    const flows = Object.fromEntries(edgeFlows(design, frame()).map((f) => [f.key, f.rps]));
-    expect(flows).toEqual({ 'clients->lb': 1000, 'lb->a': 500, 'lb->b': 490, 'a->c': 400, 'b->c': 400 });
+  it('gives edges the frame does not know about no traffic', () => {
+    const flows = edgeFlows(design, { ...frame(), edges: {} });
+    expect(flows.every((flow) => flow.rps === 0 && flow.writeRps === 0)).toBe(true);
   });
 
   it('lists only failing nodes', () => {
@@ -133,6 +146,15 @@ describe('particle system', () => {
     a.reset();
     for (let i = 0; i < 120; i++) a.update(1 / 60, flows, failures, rects);
     expect(a.marks).toEqual(b.marks);
+  });
+
+  it('colours dots as writes in proportion to the write share', () => {
+    const system = simulate(3, 5);
+    const dots = system.dots.get('a->c')!;
+    const writes = dots.filter((dot) => dot.write).length;
+    expect(writes).toBeGreaterThan(0);
+    expect(writes).toBeLessThan(dots.length);
+    expect(system.dots.get('clients->lb')!.some((dot) => dot.write)).toBe(false);
   });
 
   it('does nothing for a zero step (paused)', () => {

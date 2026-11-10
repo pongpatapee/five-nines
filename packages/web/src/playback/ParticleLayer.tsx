@@ -9,7 +9,7 @@ import type { Design } from '@five-nines/sim';
 import { useEffect, useRef } from 'react';
 import { pointOnEdge, useCanvasHandle, type CanvasHandle } from '../canvas/index.ts';
 import type { FrameInfo, PlaybackController } from './controller.ts';
-import { edgeFlows, FULL_MOTION, incomingCounts, nodeFailures, particlePace, REDUCED_MOTION } from './flows.ts';
+import { edgeFlows, FULL_MOTION, nodeFailures, particlePace, REDUCED_MOTION } from './flows.ts';
 import { ParticleSystem } from './particles.ts';
 
 export interface ParticleLayerProps {
@@ -39,7 +39,6 @@ export function ParticleLayer({ controller, design, reducedMotion }: ParticleLay
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
     const system = systemRef.current!;
-    const incoming = incomingCounts(design);
     const colors = readColors(canvas);
     let dirty = true;
     let lastTime = -1;
@@ -59,7 +58,7 @@ export function ParticleLayer({ controller, design, reducedMotion }: ParticleLay
 
       const pace = particlePace(rate);
       if (frame && pace > 0 && dtSec > 0) {
-        system.update(Math.min(dtSec, 0.1) * pace, edgeFlows(design, frame, incoming), nodeFailures(frame), handle.getNodeRects());
+        system.update(Math.min(dtSec, 0.1) * pace, edgeFlows(design, frame), nodeFailures(frame), handle.getNodeRects());
         dirty = true;
       }
       if (sizeCanvas(canvas)) dirty = true;
@@ -81,6 +80,7 @@ export function ParticleLayer({ controller, design, reducedMotion }: ParticleLay
 
 interface Colors {
   dot: string;
+  write: string;
   mark: string;
 }
 
@@ -88,6 +88,7 @@ function readColors(element: Element): Colors {
   const style = getComputedStyle(element);
   return {
     dot: style.getPropertyValue('--request').trim() || '#7cc4ff',
+    write: style.getPropertyValue('--write').trim() || '#ff8ad8',
     mark: style.getPropertyValue('--failing').trim() || '#ff5c5c',
   };
 }
@@ -118,8 +119,7 @@ function draw(
   const { x, y, zoom } = handle.getViewport();
   ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * x, dpr * y);
 
-  // Request dots: fade in leaving the source and out arriving at the target.
-  ctx.fillStyle = colors.dot;
+  // Request dots: fade in leaving the source and out arriving at the target. Writes in their own colour.
   for (const geometry of handle.getEdgeGeometry()) {
     const dots = system.dots.get(geometry.key);
     if (!dots) continue;
@@ -131,6 +131,7 @@ function draw(
     const ny = dx / length;
     for (const dot of dots) {
       const p = pointOnEdge(geometry.source, geometry.target, dot.u);
+      ctx.fillStyle = dot.write ? colors.write : colors.dot;
       ctx.globalAlpha = 0.9 * Math.min(1, dot.u * 8, (1 - dot.u) * 8);
       ctx.beginPath();
       ctx.arc(p.x + nx * dot.lane, p.y + ny * dot.lane, DOT_RADIUS, 0, Math.PI * 2);

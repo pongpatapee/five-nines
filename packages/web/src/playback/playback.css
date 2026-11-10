@@ -304,8 +304,13 @@
   --event-color: var(--amber-pen);
 }
 
-.pb-timeline__event--restoredToRotation {
+.pb-timeline__event--restoredToRotation,
+.pb-timeline__event--replicationLagRecovered {
   --event-color: var(--green-pen);
+}
+
+.pb-timeline__event--replicationLagHigh {
+  --event-color: var(--amber-pen);
 }
 
 .pb-timeline__tooltip {

@@ -1,5 +1,4 @@
 /** Inspector options and the small rules behind them. */
-import type { ComponentKind } from '@five-nines/sim';
 
 export const MIN_INSTANCES = 1;
 export const MAX_INSTANCES = 64;
@@ -12,12 +11,6 @@ export function clampWhole(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, Math.round(value)));
 }
-
-/** One-line palette hints. */
-export const COMPONENT_HINTS: Record<ComponentKind, string> = {
-  appServer: 'Runs your code. Choose a size and how many instances.',
-  loadBalancer: 'Spreads requests across app server instances.',
-};
 
 /** The MIME type used to drag a palette item onto the canvas. */
 export const PALETTE_DRAG_TYPE = 'application/x-five-nines-component';

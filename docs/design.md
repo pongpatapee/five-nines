@@ -27,6 +27,11 @@ Known shortcuts in the engine as built. Each one should either stay documented i
 - Requests that time out don't use any CPU. Real servers often keep working on requests the client gave up on, which makes overload collapse worse.
 - Health checks only detect crashed instances, not overloaded ones. Real health checks that time out under load can remove healthy-but-busy instances and cascade.
 - Load balancers retry only refused connections, once, on another instance.
+- Every request makes exactly one trip to the data tier (when the level has one): a read or a write, by the level's read share. Each station (app server, cache, database, replica) has its own queue and its own timeout; an app server doesn't hold a vCPU while it waits on the database.
+- Caches are cache-aside with no invalidation: a write leaves any cached copy in place until its TTL expires. Each key's chance of being cached is `min(1 − e^(−p·reads so far), rT ÷ (1 + rT))` for a key with read share p, read r times a second, TTL T; the cache keeps the most popular keys that fit (`memory ÷ value size`). Key popularity is Zipf, summed exactly over the top 64 keys and by Simpson's rule in log space beyond.
+- The age of a cache hit is taken as uniform over the TTL. A cached value is stale under a level's staleness limit if its key was written since it was cached, more than the limit ago.
+- The database is costed in read-equivalents: a write costs `readsPerSec ÷ writesPerSec` reads. A replica serves `reads ÷ count` and replays every write at half what it cost the primary. Its lag is `0.2 s ÷ (1 − utilization)` (utilization capped at 98% for this), plus a backlog that grows by `1 − 1/utilization` seconds per second while it's overloaded and drains by `1/utilization − 1` per second after.
+- A read-after-write read is stale if its gap since the write (exponential, the level's mean) is under the replica lag and outside the read-your-writes window.
 
 ### Workload model
 
@@ -44,9 +49,9 @@ The workload model is what keeps "add a cache" from fixing everything. Each leve
 |---|---|---|
 | Load balancer | health-check interval, retry on failure | sends traffic to a dead node until the health check catches it |
 | App server | size (vertical), count (horizontal) | each server holds DB connections, so many servers can exhaust the DB's connection limit |
-| Cache | memory size, TTL, request coalescing | hit rate = share of requests that hit the top-C keys (C = how many keys fit in memory). Starts cold, warms up, and a restart wipes it |
-| DB primary | size | separate read and write capacity, plus a connection limit |
-| Read replicas | count | serve reads only; replication lag grows with write load |
+| Cache | memory size, TTL, request coalescing | hit rate = share of requests that hit the top-C keys (C = how many keys fit in memory). Starts cold, warms up, and a restart wipes it. Built: memory and TTL; 100k lookups/s at every size |
+| DB primary | size | separate read and write capacity, plus a connection limit. Built: size only, reads and writes share one machine (no connection limit yet) |
+| Read replicas | size, count, read-your-writes window | serve reads only; replication lag grows with load |
 | Shards | count, shard key | a hot key puts all its load on one shard |
 | Queue + workers | worker count, max depth | fast response to the producer, but the backlog has a deadline |
 | CDN | cache rules | absorbs the static share at the edge with low latency, which cuts load on the servers (the origin) |
@@ -90,15 +95,16 @@ Grading is by outcome, so any design that meets the requirements passes. The ref
    - The trap: N+1 servers alone still fail. Even with a 5-second health check, a fifth of the traffic goes to the dead node for about 9 seconds: roughly 1% errors over the run, so 99.0% availability.
    - Intended solution: N+1 servers **plus retry-on-failure at the load balancer**. The debrief shows the arithmetic: health checks alone don't get you nines.
 4. **Read All About It** (caching)
-   - Workload: 20k req/s, 95% reads, heavily skewed keys. The database the budget allows tops out at 5k reads/s.
-   - Intended solution: a cache sized to hit about 80%.
+   - Workload: 6k climbing to 20k req/s over the first minute, a breaking-news spike to 26k at 125–150 s; 95% reads over 2M articles of 100 KB, Zipf 1. p99 ≤ 50 ms, $1,400/month.
+   - The biggest database the budget allows (large) does 10k reads/s, about half the reads.
+   - Intended solution: an 8 GB cache (80,000 articles, about 79% of reads once warm, 76% over the run) with a 5-minute TTL in front of a large database. Anti-solutions: no cache (with a large or xlarge database), a 2 GB cache (69%, fails in the spike), a 10-second TTL.
 5. **Cache Miss** (when caching doesn't help)
-   - Workload: same traffic, but uniform keys over a huge keyspace, so a cache the budget allows hits about 3%.
-   - Intended solution: read replicas, since the requirements tolerate 1s of staleness. The debrief shows the player's cache hit rate.
+   - Workload: 6k climbing to 20k req/s, 96% reads, uniform keys over 100M profiles, so even the biggest cache hits about 1%. Staleness limit 1 s, $2,800/month.
+   - Intended solution: a medium primary and three large read replicas (peak lag about 0.8 s). Anti-solutions: the biggest cache, the biggest database alone, two large replicas (they overload, the lag runs away and reads go stale). The debrief shows the player's cache hit rate.
 6. **Bank Balance** (read-your-writes consistency)
-   - Workload: a banking app, 90% reads. 20% of reads are users checking their balance a second or two after a transfer. The primary alone can't serve every read.
+   - Workload: a banking app, 12k req/s with a payday spike to 20k at 90–130 s, 95% reads. 20% of reads are users checking their balance after a transfer (mean gap 1.5 s). The primary alone can't serve every read. $2,400/month.
    - The traps: sending all reads to replicas shows users their old balance, which fails as stale reads. Sending all reads to the primary overloads it. Pinning with a window shorter than the lag passes at normal load, then fails when a traffic spike makes the lag grow.
-   - Intended solution: replicas for reads, read-your-writes pinning with a window longer than the worst-case lag, and a primary sized for the pinned reads.
+   - Intended solution: replicas for reads, read-your-writes pinning with a window longer than the worst-case lag, and a primary sized for the pinned reads: a large primary and two large replicas pinning for 5 s (peak lag about 1.9 s). A 1-second window passes at normal load and fails on payday; a medium primary can't take the pinned reads.
 7. **The Write Wall** (sharding)
    - Workload: 15k writes/s. Replicas don't help with writes.
    - Intended solution: shard by user ID.

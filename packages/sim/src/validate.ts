@@ -16,6 +16,12 @@ export type IssueCode =
   | 'invalid_target'
   | 'unexpected_outgoing'
   | 'needs_load_balancer'
+  | 'entry_not_allowed'
+  | 'needs_database'
+  | 'duplicate_data_target'
+  | 'needs_primary'
+  | 'replica_mismatch'
+  | 'multiple_databases'
   | 'unreachable';
 
 export interface DesignIssue {
@@ -67,6 +73,17 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
   }
 
   const entries = edges.filter((edge) => edge.from === CLIENTS_ID);
+  for (const entry of entries) {
+    const kind = byId.get(entry.to)!.kind;
+    if (kind !== 'appServer' && kind !== 'loadBalancer') {
+      report(
+        'error',
+        'entry_not_allowed',
+        `The clients can't talk to ${label(kind)} directly. Requests go to an app server (or a load balancer) first.`,
+        entry.to,
+      );
+    }
+  }
   if (entries.length === 0) {
     report('error', 'no_entry', 'Connect the clients to a component so traffic has somewhere to go.');
   } else if (entries.length > 1) {
@@ -82,9 +99,21 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
     report('error', 'cycle', 'The design has a loop: requests would travel in circles forever.');
   }
 
+  const databases = [...byId.values()].filter((node) => node.kind === 'database');
+  for (const extra of databases.slice(1)) {
+    report(
+      'error',
+      'multiple_databases',
+      `${extra.id} is a second database. One primary holds all the data here; splitting data across databases comes later.`,
+      extra.id,
+    );
+  }
+
+  const hasData = level.workload.data !== undefined;
   for (const node of byId.values()) {
     const outgoing = internal.filter((edge) => edge.from === node.id);
     const incoming = edges.filter((edge) => edge.to === node.id);
+    const targets = outgoing.map((edge) => byId.get(edge.to)!);
     switch (node.kind) {
       case 'loadBalancer': {
         if (outgoing.length === 0) {
@@ -96,7 +125,7 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
             report(
               'error',
               'invalid_target',
-              `${node.id} can only balance traffic across app servers, not ${COMPONENT_LABELS[target.kind].toLowerCase()}s.`,
+              `${node.id} can only balance traffic across app servers, not ${label(target.kind)}.`,
               node.id,
             );
           }
@@ -104,7 +133,7 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
         break;
       }
       case 'appServer': {
-        if (outgoing.length > 0) {
+        if (!hasData && outgoing.length > 0) {
           report(
             'error',
             'unexpected_outgoing',
@@ -112,6 +141,7 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
             node.id,
           );
         }
+        if (hasData) checkDataAccess(node.id, targets, byId, internal, report);
         if (node.instances > 1) {
           for (const edge of incoming) {
             const sender = edge.from === CLIENTS_ID ? undefined : byId.get(edge.from);
@@ -125,6 +155,47 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
               );
             }
           }
+        }
+        break;
+      }
+      case 'cache': {
+        if (outgoing.length > 0) {
+          report(
+            'error',
+            'unexpected_outgoing',
+            `${node.id} can't send traffic on. On a cache miss, the app server reads the database itself: connect the app server to the database too.`,
+            node.id,
+          );
+        }
+        break;
+      }
+      case 'database': {
+        for (const target of targets) {
+          if (target.kind !== 'readReplicas') {
+            report(
+              'error',
+              'invalid_target',
+              `${node.id} can only copy its data to read replicas, not to ${label(target.kind)}.`,
+              node.id,
+            );
+          }
+        }
+        break;
+      }
+      case 'readReplicas': {
+        if (outgoing.length > 0) {
+          report('error', 'unexpected_outgoing', `${node.id} only answers reads; it can't send traffic on.`, node.id);
+        }
+        const primaries = incoming.filter((edge) => byId.get(edge.from)?.kind === 'database');
+        if (primaries.length !== 1) {
+          report(
+            'error',
+            'needs_primary',
+            primaries.length === 0
+              ? `${node.id} has nothing to copy. Connect the database to it, so it can replay the database's writes.`
+              : `${node.id} can only copy one database.`,
+            node.id,
+          );
         }
         break;
       }
@@ -152,4 +223,64 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
   }
 
   return issues;
+}
+
+type Report = (severity: DesignIssue['severity'], code: IssueCode, message: string, nodeId?: string) => void;
+
+/** "a cache", "a database", "read replicas", "an app server"… for messages. */
+function label(kind: NodeSpec['kind']): string {
+  const name = COMPONENT_LABELS[kind].toLowerCase();
+  if (kind === 'readReplicas') return name;
+  return /^[aeiou]/.test(name) ? `an ${name}` : `a ${name}`;
+}
+
+/**
+ * In levels with data, every request an app server finishes reads or writes data. It needs a database, may check
+ * one cache first, and may read from one group of that database's replicas.
+ */
+function checkDataAccess(
+  appId: string,
+  targets: readonly NodeSpec[],
+  byId: ReadonlyMap<string, NodeSpec>,
+  edges: readonly Edge[],
+  report: Report,
+): void {
+  for (const target of targets) {
+    if (target.kind === 'appServer' || target.kind === 'loadBalancer') {
+      report(
+        'error',
+        'invalid_target',
+        `${appId} can only send its reads and writes to a cache, a database or read replicas, not to ${label(target.kind)}.`,
+        appId,
+      );
+    }
+  }
+  for (const kind of ['cache', 'database', 'readReplicas'] as const) {
+    if (targets.filter((target) => target.kind === kind).length > 1) {
+      const what = { cache: 'cache', database: 'database', readReplicas: 'group of read replicas' }[kind];
+      report('error', 'duplicate_data_target', `${appId} is connected to more than one ${what}. Connect it to one.`, appId);
+    }
+  }
+  const database = targets.find((target) => target.kind === 'database');
+  if (!database) {
+    report(
+      'error',
+      'needs_database',
+      `${appId} needs a database: every request reads or writes data, and writes go to the database. Connect ${appId} to one.`,
+      appId,
+    );
+    return;
+  }
+  for (const replicas of targets.filter((target) => target.kind === 'readReplicas')) {
+    const copies = edges.some((edge) => edge.from === database.id && edge.to === replicas.id);
+    const copiesSomething = edges.some((edge) => edge.to === replicas.id && byId.get(edge.from)?.kind === 'database');
+    if (!copies && copiesSomething) {
+      report(
+        'error',
+        'replica_mismatch',
+        `${appId} reads from ${replicas.id}, but ${replicas.id} copies a different database than the one ${appId} writes to.`,
+        appId,
+      );
+    }
+  }
 }
