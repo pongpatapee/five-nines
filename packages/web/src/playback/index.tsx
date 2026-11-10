@@ -16,6 +16,7 @@ import { BudgetBar } from './BudgetBar.tsx';
 import { ControlBar } from './ControlBar.tsx';
 import { PlaybackController } from './controller.ts';
 import { ParticleLayer } from './ParticleLayer.tsx';
+import { focusViewport } from './focus.ts';
 import { PostmortemCard } from './PostmortemCard.tsx';
 import { prepareSeries } from './series.ts';
 import { TimelineStrip } from './TimelineStrip.tsx';
@@ -69,11 +70,18 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
     handleRef.current = handle;
   }, []);
   const wasFrozen = useRef(false);
+  const postmortemRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const handle = handleRef.current;
-    if (frozen && !wasFrozen.current && handle && rootCauseId) {
+    const node = rootCauseId ? handle?.getNodeRect(rootCauseId) : null;
+    if (frozen && !wasFrozen.current && handle && node) {
+      // Centre the root cause in the space beside the postmortem card, not under it.
       const zoom = Math.min(1.2, Math.max(1, handle.getViewport().zoom));
-      void handle.focusNode(rootCauseId, { zoom, durationMs: reducedMotion ? 0 : 800 });
+      const card = postmortemRef.current?.getBoundingClientRect();
+      const canvas = handle.getContainer()?.getBoundingClientRect();
+      const coveredFromX = card && canvas ? card.left - canvas.left : null;
+      const viewport = focusViewport(node, zoom, handle.getSize(), coveredFromX);
+      void handle.setViewport(viewport, { durationMs: reducedMotion ? 0 : 800 });
     } else if (!frozen && wasFrozen.current && handle) {
       void handle.fitView({ durationMs: reducedMotion ? 0 : 500, padding: 0.25 });
     }
@@ -142,6 +150,7 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
         />
         {frozen && evaluation.errorBudgetExhaustedAtSec !== null && (
           <PostmortemCard
+            ref={postmortemRef}
             exhaustedAtSec={evaluation.errorBudgetExhaustedAtSec}
             causes={simulation.causes}
             events={simulation.events}
