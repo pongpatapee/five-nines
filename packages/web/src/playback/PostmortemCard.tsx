@@ -1,5 +1,5 @@
 import { AVAILABILITY_TIERS, type FailureCause, type SimEvent } from '@five-nines/sim';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type Ref } from 'react';
 import { describeCause } from '../describe.ts';
 import { formatAvailability, formatSimTime } from '../format.ts';
 
@@ -13,6 +13,8 @@ export interface PostmortemCardProps {
   availability: number;
   onKeepWatching(): void;
   onSeeResults(): void;
+  /** The card's element, so playback can keep the root-cause node out from under it. */
+  ref?: Ref<HTMLElement>;
 }
 
 /** The incident postmortem shown on the freeze-frame. */
@@ -25,7 +27,7 @@ export function PostmortemCard(props: PostmortemCardProps) {
   const shownEvents = events.filter((event) => event.atSec <= exhaustedAtSec + 1);
 
   return (
-    <section className="pb-postmortem panel" role="dialog" aria-labelledby="pb-postmortem-title">
+    <section ref={props.ref} className="pb-postmortem panel" role="dialog" aria-labelledby="pb-postmortem-title">
       <div className="pb-postmortem__eyebrow eyebrow">Incident postmortem</div>
       <h2 id="pb-postmortem-title" className="pb-postmortem__title">
         Incident: error budget exhausted at {formatSimTime(exhaustedAtSec)}
