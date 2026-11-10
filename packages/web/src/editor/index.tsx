@@ -66,9 +66,14 @@ export interface EditorProps {
   onReset(): void;
   /** A message about the last run attempt that didn't start (e.g. the simulation worker failed). Null when none. */
   notice: string | null;
+  /**
+   * Whether the editor is the surface the player is using. False while something covers it (e.g. the debrief):
+   * keyboard shortcuts (R, Delete) are off and the editor is inert. Default true.
+   */
+  active?: boolean;
 }
 
-export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, notice }: EditorProps) {
+export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, notice, active = true }: EditorProps) {
   const handleRef = useRef<CanvasHandle | null>(null);
   const [rawSelection, setSelection] = useState<CanvasSelection | null>(null);
   const selection = resolveSelection(draft, rawSelection);
@@ -157,6 +162,7 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
     if (blocker === null) onRun();
   }, [blocker, onRun]);
   useEffect(() => {
+    if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'r' && event.key !== 'R') return;
       if (event.repeat || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -166,10 +172,10 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [run]);
+  }, [run, active]);
 
   return (
-    <div className="editor">
+    <div className="editor" inert={!active}>
       <div className="editor__canvas" onDragOver={handleDragOver} onDrop={handleDrop}>
         <DesignCanvas
           mode="editable"
@@ -181,6 +187,7 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
           onConnect={handleConnect}
           onDelete={handleDelete}
           onReady={handleReady}
+          deleteKey={active}
         />
       </div>
       <aside className="editor-sidebar" aria-label="Build tools">
