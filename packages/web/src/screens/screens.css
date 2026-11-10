@@ -124,6 +124,20 @@
   background: var(--surface-1);
 }
 
+/* Title and actions share the space either side equally, so the mode steps stay centred. */
+.topbar__title,
+.topbar__actions {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.topbar__actions {
+  justify-content: flex-end;
+}
+
 .topbar__back {
   color: inherit;
 }
@@ -135,14 +149,16 @@
 }
 
 .topbar__level {
+  overflow: hidden;
   font-weight: 600;
   color: var(--text-strong);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .mode-steps {
   display: flex;
   gap: 2px;
-  margin: 0 auto;
   padding: 2px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -159,13 +175,6 @@
 .mode-steps__step[aria-current='step'] {
   background: var(--surface-3);
   color: var(--text-strong);
-}
-
-.topbar__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
 }
 
 /* ------------------------------------------------------------------ briefing */
