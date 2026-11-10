@@ -32,8 +32,9 @@ const design: Design = {
   ],
 };
 
+const node = (arrivalRps: number, failedRps = 0) => ({ arrivalRps, failedRps, instances: [] });
+
 function frame(): LiveFrame {
-  const node = (arrivalRps: number, failedRps = 0) => ({ arrivalRps, failedRps, instances: [] });
   return {
     atSec: 0,
     offeredRps: 1000,
@@ -57,6 +58,11 @@ describe('edge flows', () => {
       { nodeId: 'lb', failedRps: 10 },
       { nodeId: 'a', failedRps: 20 },
     ]);
+  });
+
+  it('ignores the vanishing failure rates the engine reports for busy but healthy nodes', () => {
+    const busy = { ...frame(), nodes: { a: node(500, 1e-100), b: node(490, 0.49), c: node(800, 0.5) } };
+    expect(nodeFailures(busy)).toEqual([{ nodeId: 'c', failedRps: 0.5 }]);
   });
 });
 

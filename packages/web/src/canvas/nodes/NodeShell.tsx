@@ -2,6 +2,7 @@ import { Handle, Position } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { formatUsdPerMonth } from '../../format.ts';
 import { useDecorations } from '../context.ts';
+import { isFailingRate } from '../types.ts';
 
 export interface NodeShellProps {
   id: string;
@@ -21,7 +22,7 @@ export interface NodeShellProps {
 /** The frame every node shares: handles, header, marks, selection and the failing glow. */
 export function NodeShell({ id, kindLabel, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
   const { live, marks } = useDecorations();
-  const failing = (live?.nodes[id]?.failedRps ?? 0) > 0;
+  const failing = isFailingRate(live?.nodes[id]?.failedRps ?? 0);
   const mark = marks[id];
   const classes = ['design-node'];
   if (selected) classes.push('is-selected');
