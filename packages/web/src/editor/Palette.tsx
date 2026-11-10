@@ -1,6 +1,7 @@
 import { APP_SERVER_SIZES, COMPONENT_LABELS, LOAD_BALANCER, type ComponentKind } from '@five-nines/sim';
 import type { DragEvent } from 'react';
 import { formatUsd } from '../format.ts';
+import { ComponentDoodle } from '../notebook/index.ts';
 import { COMPONENT_HINTS, PALETTE_DRAG_TYPE } from './config.ts';
 
 export interface PaletteProps {
@@ -36,7 +37,9 @@ export function Palette({ components, onAdd }: PaletteProps) {
               onClick={() => onAdd(kind)}
               title="Click to add, or drag onto the canvas"
             >
-              <span className="palette-item__glyph" data-kind={kind} aria-hidden />
+              <span className="palette-item__glyph">
+                <ComponentDoodle kind={kind} size={30} />
+              </span>
               <span className="palette-item__text">
                 <span className="palette-item__name">
                   {COMPONENT_LABELS[kind]}

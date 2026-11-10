@@ -1,10 +1,11 @@
-/* ------------------------------------------------------------------ canvas */
+/* ------------------------------------------------------------------ canvas: graph paper */
 
 .design-canvas {
-  --edge-color: #4a5a70;
-  --edge-color-selected: var(--accent);
-  --xy-background-color: var(--bg-canvas);
-  background: var(--bg-canvas);
+  --edge-color: var(--ink);
+  --edge-color-selected: var(--blue-pen);
+  --xy-background-color: var(--paper);
+  background: var(--paper);
+  font-family: var(--font-note);
 }
 
 .design-canvas .react-flow__pane {
@@ -26,34 +27,34 @@
 .design-canvas .react-flow__attribution {
   background: transparent;
   font-size: 9px;
-  opacity: 0.45;
 }
 
 .design-canvas .react-flow__attribution a {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
-/* ------------------------------------------------------------------ edges */
+/* ------------------------------------------------------------------ edges: inked lines */
 
 .design-canvas .flow-edge {
   stroke: var(--edge-color);
-  stroke-width: 1.6;
+  stroke-width: 2.2;
+  stroke-linecap: round;
   fill: none;
 }
 
 .design-canvas .flow-edge.is-selected {
   stroke: var(--edge-color-selected);
-  stroke-width: 2.2;
+  stroke-width: 3;
 }
 
 .design-canvas .react-flow__connectionline path,
 .design-canvas .react-flow__connection-path {
-  stroke: var(--accent);
-  stroke-width: 1.6;
-  stroke-dasharray: 5 4;
+  stroke: var(--blue-pen);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
 }
 
-/* ------------------------------------------------------------------ nodes */
+/* ------------------------------------------------------------------ nodes: boxes drawn in ink */
 
 .design-canvas .react-flow__node {
   /* The node components draw their own frame. */
@@ -67,14 +68,15 @@
   position: relative;
   width: var(--node-width);
   padding: var(--space-2) var(--space-3) var(--space-3);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-  color: var(--text);
+  border: 2.4px solid var(--ink);
+  border-radius: var(--radius-hand-alt);
+  background: var(--paper-card);
+  color: var(--ink);
   font-size: var(--text-sm);
-  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+  box-shadow: 3px 3px 0 rgb(31 42 68 / 0.16);
   transition:
     border-color var(--duration) var(--ease),
+    background var(--duration) var(--ease),
     box-shadow var(--duration) var(--ease);
 }
 
@@ -84,6 +86,7 @@
 
 .design-canvas--editable .react-flow__node.dragging .design-node {
   cursor: grabbing;
+  transform: rotate(-1deg);
 }
 
 .design-node__header {
@@ -94,11 +97,10 @@
 }
 
 .design-node__kind {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  font-family: var(--font-note);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .design-node__cost {
@@ -107,26 +109,27 @@
 }
 
 .design-node__id {
-  margin-top: 2px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-strong);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .design-node__config {
-  color: var(--text-muted);
   font-size: var(--text-sm);
+  line-height: 1.35;
+  color: var(--text-muted);
 }
 
 .design-node__handle.react-flow__handle {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--surface-2);
-  background: var(--edge-color);
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--ink);
+  background: var(--paper-card);
 }
 
 .design-canvas--readOnly .design-node__handle.react-flow__handle {
@@ -136,52 +139,72 @@
 
 .design-canvas--editable .design-node__handle.react-flow__handle:hover,
 .design-canvas--editable .react-flow__handle.connectingto {
-  background: var(--accent);
+  background: var(--highlighter);
 }
 
 /* States, in increasing priority: selected, marks, failing. */
 
 .design-node.is-selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), 0 2px 10px rgb(0 0 0 / 0.35);
+  border-color: var(--blue-pen);
+  background: var(--surface-hover);
+  box-shadow: 4px 4px 0 var(--blue-pen);
 }
 
 .design-node.is-mark-warning {
-  border-color: var(--busy);
+  border-color: var(--amber-pen);
   border-style: dashed;
 }
 
 .design-node.is-mark-error {
-  border-color: var(--failing);
+  border-color: var(--red-pen);
   border-style: dashed;
 }
 
-.design-node.is-mark-focus {
-  border-color: var(--failing);
-  animation: node-focus-pulse 1.2s var(--ease) infinite;
-}
-
 .design-node.is-failing {
-  border-color: var(--failing);
-  box-shadow: 0 0 0 1px var(--failing), 0 0 18px var(--failing-glow);
+  border-color: var(--red-pen);
+  background: var(--red-wash);
+  box-shadow: 3px 3px 0 var(--red-pen);
 }
 
-@keyframes node-focus-pulse {
-  0% {
-    box-shadow: 0 0 0 0 var(--failing-glow), 0 0 18px var(--failing-glow);
-  }
-  70% {
-    box-shadow: 0 0 0 18px rgb(255 92 92 / 0), 0 0 18px var(--failing-glow);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgb(255 92 92 / 0), 0 0 18px var(--failing-glow);
+/* ------------------------------------------------------------------ root cause, circled in red pen */
+
+.root-cause {
+  position: absolute;
+  inset: -16px -18px;
+  pointer-events: none;
+}
+
+.root-cause .ink-loop {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.root-cause__label {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  font-family: var(--font-hand);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: uppercase;
+  color: var(--red-pen-text);
+  transform: translateX(-50%) rotate(-4deg);
+  animation: root-cause-label-in 400ms 700ms var(--ease) both;
+}
+
+@keyframes root-cause-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) rotate(-4deg) translateY(4px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .design-node.is-mark-focus {
+  .root-cause__label {
     animation: none;
-    box-shadow: 0 0 0 3px var(--failing-glow);
   }
 }
 
@@ -192,7 +215,7 @@
   gap: 5px;
   margin-top: var(--space-2);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--border);
+  border-top: 1.5px dashed var(--pencil-line);
 }
 
 .live-row {
@@ -205,12 +228,13 @@
 .live-row__label {
   width: 52px;
   flex: none;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .live-row__value {
   margin-left: auto;
-  color: var(--text);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .live-row__value[data-status='healthy'] {
@@ -231,36 +255,31 @@
   gap: 3px;
 }
 
+/* One instance: a little hand-drawn box, hatched up to its utilization. */
 .instance-cell {
+  --cell-ink: var(--green-pen);
   position: relative;
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: 2px;
-  background: var(--surface-1);
+  border: 1.5px solid var(--ink);
+  border-radius: 2px 3px 1px 3px;
+  background: var(--paper-card);
 }
 
 .instance-cell__fill {
   position: absolute;
   inset: auto 0 0;
-  background: var(--healthy);
+  background: repeating-linear-gradient(-45deg, var(--cell-ink) 0 1.5px, transparent 1.5px 3.5px);
 }
 
 .instance-cell[data-level='busy'] {
-  border-color: var(--busy);
-}
-
-.instance-cell[data-level='busy'] .instance-cell__fill {
-  background: var(--busy);
+  --cell-ink: var(--amber-pen);
 }
 
 .instance-cell[data-level='overloaded'] {
-  border-color: var(--failing);
-}
-
-.instance-cell[data-level='overloaded'] .instance-cell__fill {
-  background: var(--failing);
+  --cell-ink: var(--red-pen);
+  border-color: var(--red-pen);
 }
 
 .instance-cell__queue {
@@ -270,12 +289,12 @@
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: var(--text-strong);
+  background: var(--ink);
 }
 
 .instance-cell.is-down {
-  border-color: var(--failing);
-  background: var(--failing-soft);
+  border-color: var(--red-pen);
+  background: var(--red-wash);
 }
 
 .instance-cell.is-down::before,
@@ -285,8 +304,10 @@
   top: 50%;
   left: -2px;
   right: -2px;
-  height: 1.5px;
-  background: var(--failing);
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: var(--red-pen);
 }
 
 .instance-cell.is-down::before {
@@ -300,22 +321,30 @@
 .queue-bar {
   position: relative;
   flex: 1;
-  height: 4px;
+  height: 7px;
   overflow: hidden;
-  border-radius: 2px;
-  background: var(--surface-1);
+  border: 1.2px solid var(--ink);
+  border-radius: 2px 4px 2px 3px;
+  background: var(--paper-card);
 }
 
 .queue-bar__fill {
+  --cell-ink: var(--green-pen);
   position: absolute;
   inset: 0 auto 0 0;
-  background: var(--healthy);
+  background: repeating-linear-gradient(-45deg, var(--cell-ink) 0 1.5px, transparent 1.5px 3.5px);
 }
 
 .queue-bar__fill[data-level='busy'] {
-  background: var(--busy);
+  --cell-ink: var(--amber-pen);
 }
 
 .queue-bar__fill[data-level='overloaded'] {
-  background: var(--failing);
+  --cell-ink: var(--red-pen);
+}
+
+.design-node__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }

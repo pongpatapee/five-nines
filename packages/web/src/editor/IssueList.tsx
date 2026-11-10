@@ -1,4 +1,5 @@
 import type { DesignIssue } from '@five-nines/sim';
+import { CastLine, mentorCheckLine } from '../notebook/index.ts';
 
 export interface IssueListProps {
   /** Already sorted, errors first. */
@@ -23,6 +24,9 @@ export function IssueList({ issues, onSelectNode }: IssueListProps) {
           )}
         </span>
       </h2>
+      <CastLine who="mentor" figureSize={58} erasmusMood={errors > 0 ? 'leaning' : 'calm'} className="issues__mentor">
+        {mentorCheckLine(issues)}
+      </CastLine>
       {issues.length === 0 ? (
         <p className="issues__ok">
           <span className="status-dot" data-status="healthy" aria-hidden /> Ready to run.
