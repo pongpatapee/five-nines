@@ -1,0 +1,110 @@
+{
+  "id": "03-pull-the-plug",
+  "title": "Pull the Plug",
+  "concept": "Redundancy and failover",
+  "briefing": [
+    "Same traffic as before: up to 5,000 requests per second, 10ms of CPU each.",
+    "About a minute in, one of your app servers will crash. Machines die all the time in production, and your design has to keep serving through it.",
+    "Load balancers find dead instances with health checks: every few seconds they probe each instance, and take it out of rotation after 2 failed checks in a row. Until then, they keep sending it traffic."
+  ],
+  "debrief": [
+    "Surviving a crash takes two things.",
+    "Spare capacity, known as N+1: if you need 4 servers to carry the load, run 5. When one dies, the rest still keep up. With only 4, the 3 survivors are overloaded for the rest of the run.",
+    "Fast failover: even with a 5-second health-check interval, the load balancer needs 2 failed checks, up to 10 seconds, to notice. Meanwhile 1 in 5 requests goes to a dead machine. That's 1/5 × 9s ≈ 1.8 seconds' worth of traffic lost out of 180, about 1% of requests: 99% availability, below the 99.9% needed to pass.",
+    "Retries close the gap. A crashed server refuses connections immediately, so the load balancer can retry the request on another instance about a millisecond later, and the user never notices. Retrying is safe here because the request never reached the application. Retrying requests that might already have been processed is a harder problem, which comes up in later levels.",
+    "Health checks keep the dead server out of rotation; retries cover the gap until they do. You need both."
+  ],
+  "components": ["appServer", "loadBalancer"],
+  "durationSec": 180,
+  "seed": 303,
+  "workload": {
+    "cpuMsPerRequest": 10,
+    "timeoutMs": 1000,
+    "traffic": [
+      { "atSec": 0, "rps": 2000 },
+      { "atSec": 10, "rps": 5000 },
+      { "atSec": 180, "rps": 5000 }
+    ]
+  },
+  "events": [{ "atSec": 61, "kind": "instanceFailure", "target": { "kind": "appServer", "pick": "busiest" } }],
+  "requirements": { "p99Ms": 75, "budgetUsdPerMonth": 2600 },
+  "solutions": [
+    {
+      "name": "N+1 xlarge servers with retries",
+      "explanation": "Five xlarge servers where four would do. When one crashes, the remaining 64 vCPUs run at 78%. Retries hide the crash from users until health checks remove the dead server.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "healthCheckIntervalSec": 5, "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "xlarge", "instances": 5 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedGrade": "mastered"
+    },
+    {
+      "name": "Ten large servers with retries",
+      "explanation": "Smaller machines make each failure smaller: losing one of ten costs 10% of capacity, not 20%. Retries do the rest, so even the default 30-second health check is fine.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "large", "instances": 10 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "N+1 with fast health checks, no retries",
+      "explanation": "The load balancer needs about 9 seconds to notice the crash. Until then a fifth of all requests hit a dead server.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "healthCheckIntervalSec": 5 },
+          { "id": "app", "kind": "appServer", "size": "xlarge", "instances": 5 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedFailure": ["availability"]
+    },
+    {
+      "name": "N+1 with default health checks, no retries",
+      "explanation": "With 30-second checks, the dead server keeps getting a fifth of the traffic for almost a minute.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer" },
+          { "id": "app", "kind": "appServer", "size": "xlarge", "instances": 5 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedFailure": ["availability"]
+    },
+    {
+      "name": "Exactly enough servers, with retries",
+      "explanation": "Four xlarge servers carry 5,000 req/s comfortably until one dies. Then 3 servers face 5,000 req/s with capacity for 4,800.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "healthCheckIntervalSec": 5, "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "xlarge", "instances": 4 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedFailure": ["availability", "latency"]
+    }
+  ]
+}

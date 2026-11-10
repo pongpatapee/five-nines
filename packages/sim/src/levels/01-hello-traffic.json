@@ -1,0 +1,68 @@
+{
+  "id": "01-hello-traffic",
+  "title": "Hello, Traffic",
+  "concept": "Vertical scaling and utilization",
+  "briefing": [
+    "Your startup's API just launched. Traffic starts at 100 requests per second and climbs to 350 within 30 seconds.",
+    "Every request needs 10ms of CPU time. An app server works on one request per vCPU at a time; the rest wait in line.",
+    "Choose one app server that keeps p99 latency under 75ms without going over budget."
+  ],
+  "debrief": [
+    "A server with 4 vCPUs and 10ms of CPU per request can handle 400 requests per second. At 350 it isn't overloaded, but it's 87% busy, so most requests arrive while every vCPU is taken and have to wait in line.",
+    "Queueing delay grows roughly with 1 / (1 − utilization). Going from 50% to 90% busy multiplies the wait by about five, and close to 100% it explodes. That's why production systems usually aim for 60–70% utilization at peak, not 100%.",
+    "Buying a bigger machine is called scaling up, or vertical scaling. It's the simplest fix, but there's always a largest machine, and bigger machines cost proportionally more. The next level hits that ceiling."
+  ],
+  "components": ["appServer"],
+  "durationSec": 120,
+  "seed": 101,
+  "workload": {
+    "cpuMsPerRequest": 10,
+    "timeoutMs": 1000,
+    "traffic": [
+      { "atSec": 0, "rps": 100 },
+      { "atSec": 30, "rps": 350 },
+      { "atSec": 120, "rps": 350 }
+    ]
+  },
+  "requirements": { "p99Ms": 75, "budgetUsdPerMonth": 250 },
+  "solutions": [
+    {
+      "name": "One large server",
+      "explanation": "8 vCPUs give 800 req/s of capacity, so 350 req/s keeps it about 44% busy. Requests rarely wait for a free vCPU, so p99 stays close to the raw processing time.",
+      "design": {
+        "nodes": [{ "id": "app", "kind": "appServer", "size": "large" }],
+        "edges": [{ "from": "clients", "to": "app" }]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "One small server",
+      "explanation": "2 vCPUs handle 200 req/s. At 350 req/s the queue grows without limit and requests time out.",
+      "design": {
+        "nodes": [{ "id": "app", "kind": "appServer", "size": "small" }],
+        "edges": [{ "from": "clients", "to": "app" }]
+      },
+      "expectedFailure": ["availability", "latency"]
+    },
+    {
+      "name": "One medium server",
+      "explanation": "400 req/s of capacity is enough to serve every request, but at 87% utilization requests spend too long waiting for a free vCPU.",
+      "design": {
+        "nodes": [{ "id": "app", "kind": "appServer", "size": "medium" }],
+        "edges": [{ "from": "clients", "to": "app" }]
+      },
+      "expectedFailure": ["latency"]
+    },
+    {
+      "name": "One xlarge server",
+      "explanation": "Fast, but twice the capacity you need at twice the price.",
+      "design": {
+        "nodes": [{ "id": "app", "kind": "appServer", "size": "xlarge" }],
+        "edges": [{ "from": "clients", "to": "app" }]
+      },
+      "expectedFailure": ["budget"]
+    }
+  ]
+}
