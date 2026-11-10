@@ -161,10 +161,17 @@ export function seek(state: ClockState, timeSec: number): ClockState {
   return { ...state, timeSec: t, playing, freeze, finished: false };
 }
 
-/** Jumps to the end of the run and finishes. */
+/**
+ * Jumps to the end of the run and finishes. If the error budget runs out in the skipped stretch and the incident
+ * hasn't been shown yet, stops on the freeze-frame instead: the incident is the point of the run.
+ */
 export function skipToEnd(state: ClockState): ClockState {
-  const freeze: FreezeState = state.freeze.kind === 'easing' || state.freeze.kind === 'frozen' ? { kind: 'dismissed' } : state.freeze;
-  return { ...state, timeSec: state.durationSec, playing: false, freeze, finished: true };
+  const { freeze } = state;
+  if ((freeze.kind === 'armed' || freeze.kind === 'easing') && state.timeSec <= freeze.atSec) {
+    return { ...state, timeSec: freeze.atSec, playing: false, freeze: { kind: 'frozen', atSec: freeze.atSec }, finished: false };
+  }
+  const next: FreezeState = freeze.kind === 'frozen' || freeze.kind === 'easing' ? { kind: 'dismissed' } : freeze;
+  return { ...state, timeSec: state.durationSec, playing: false, freeze: next, finished: true };
 }
 
 /** Leaves the freeze-frame and resumes playing. The run will not freeze again. */
