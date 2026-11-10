@@ -14,7 +14,8 @@ import {
 import { loopPath } from '../src/notebook/ink.tsx';
 import { TALLY_STROKES, tallyState } from '../src/notebook/tally.ts';
 
-const [level1, level2, level3] = LEVELS as [(typeof LEVELS)[number], (typeof LEVELS)[number], (typeof LEVELS)[number]];
+type L = (typeof LEVELS)[number];
+const [level1, level2, level3, level4, level5, level6] = LEVELS as unknown as [L, L, L, L, L, L];
 
 describe('cast lines', () => {
   it("Ms. Tally quotes the level's real budget", () => {
@@ -25,6 +26,12 @@ describe('cast lines', () => {
     expect(troublemakerTease(level3)).toBe('heh. about a minute in, I unplug your busiest app server.');
     expect(troublemakerTease(level1)).toBe('heh. traffic climbs from 100 to 350 req/s. hope you sized up.');
     expect(troublemakerTease(level2)).toMatch(/1,000 to 5,000 req\/s/);
+  });
+
+  it('Smudge teases chapter 2 with its spike and its freshness rules', () => {
+    expect(troublemakerTease(level4)).toBe('heh. about 2 minutes in, I send 26,000 req/s your way. all at once.');
+    expect(troublemakerTease(level5)).toBe("heh. I'm timing every read. more than 1 second out of date and it counts as a failure.");
+    expect(troublemakerTease(level6)).toBe("heh. 20% of reads check something the reader just wrote. I'd love to show them the old version.");
   });
 
   it('says times the way a person would', () => {
@@ -66,6 +73,10 @@ describe('cast lines', () => {
       if (first === 'latency') expect(verdict.exclaim).toMatch(/^p99 of/);
       if (first === 'budget') expect(verdict.line).toMatch(/Not a cent over/);
     }
+    const stale = evaluateDesign(level6, level6.antiSolutions.find((anti) => anti.name === 'Pinned for 1 second')!.design);
+    if (stale.status !== 'graded') throw new Error('anti-solution should grade');
+    expect(stale.simulation.causes[0]?.reason).toBe('stale_read');
+    expect(bossVerdict(stale).line).toMatch(/^Customers saw out-of-date data/);
     const best = evaluateDesign(level3, level3.solutions[0]!.design);
     if (best.status !== 'graded') throw new Error('solution should grade');
     expect(bossVerdict(best).exclaim).toBe('Five nines.');

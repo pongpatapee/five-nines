@@ -14,7 +14,7 @@ import {
   type Level,
   type SimEvent,
 } from '@five-nines/sim';
-import { formatAvailability, formatCount, formatMs, formatUsd } from '../format.ts';
+import { formatAvailability, formatCount, formatMs, formatPercent, formatUsd } from '../format.ts';
 import type { GradedEvaluation } from '../engine/index.ts';
 import { tierPercent } from '../results/grading.ts';
 
@@ -32,17 +32,32 @@ export function bossBriefingLine(level: Level): string {
 }
 
 /**
- * Smudge's heads-up about the level's stress: the first scripted crash if there is one, otherwise the traffic surge.
- * Null when the level has neither (flat traffic, no events).
+ * Smudge's heads-up about the level's stress, most specific first: the first scripted crash, then the data the level
+ * checks for freshness (read-your-writes, then a staleness limit), then a traffic spike, then a traffic surge.
+ * Null when the level has none of these (flat traffic, no events, no freshness rules).
  */
 export function troublemakerTease(level: Level): string | null {
   const crash = level.events.find((event) => event.kind === 'instanceFailure');
   if (crash) {
     return `heh. ${roughly(crash.atSec)} in, I unplug your busiest ${COMPONENT_LABELS.appServer.toLowerCase()}.`;
   }
-  const rates = level.workload.traffic.map((point) => point.rps);
+  const readAfterWrite = level.workload.data?.readAfterWrite;
+  if (readAfterWrite) {
+    return `heh. ${formatPercent(readAfterWrite.share)} of reads check something the reader just wrote. I'd love to show them the old version.`;
+  }
+  const staleness = level.requirements.maxStalenessSec;
+  if (staleness !== undefined) {
+    return `heh. I'm timing every read. more than ${staleness === 1 ? '1 second' : `${staleness} seconds`} out of date and it counts as a failure.`;
+  }
+  const traffic = level.workload.traffic;
+  const rates = traffic.map((point) => point.rps);
   const start = rates[0] ?? 0;
   const peak = Math.max(0, ...rates);
+  const end = rates[rates.length - 1] ?? 0;
+  const spike = traffic.find((point) => point.rps === peak);
+  if (spike && peak > end && spike.atSec > 0) {
+    return `heh. ${roughly(spike.atSec)} in, I send ${formatCount(peak)} req/s your way. all at once.`;
+  }
   if (peak > start) return `heh. traffic climbs from ${formatCount(start)} to ${formatCount(peak)} req/s. hope you sized up.`;
   return null;
 }
@@ -69,7 +84,7 @@ export const MENTOR_HINTS: Record<FailureReason, string> = {
   no_healthy_backend:
     'Nothing was left in rotation to take the traffic. How many instances could you lose and still serve everyone?',
   timeout:
-    'Requests waited in line until they gave up. Each vCPU serves one at a time, so where would more capacity help?',
+    'Requests waited in line until they gave up. That box ran out of capacity. Make it bigger, add more of it, or send fewer requests its way?',
   overloaded: 'More requests arrived than that box can handle. Could the load be spread out instead?',
   stale_read:
     'Someone read an old copy. Replicas run a little behind the primary, so which reads can afford to wait, and which must see the latest write?',
@@ -101,7 +116,7 @@ export function mentorCheckLine(issues: readonly DesignIssue[]): string {
  * Ms. Tally's verdict on a graded run. A failed run is judged on its first failed check in the engine's order
  * (availability, latency, budget), so she always complains about the thing that actually went wrong.
  */
-export function bossVerdict(evaluation: Pick<GradedEvaluation, 'grade' | 'checks' | 'failedChecks'>): {
+export function bossVerdict(evaluation: Pick<GradedEvaluation, 'grade' | 'checks' | 'failedChecks' | 'simulation'>): {
   exclaim: string;
   line: string;
 } {
@@ -121,7 +136,10 @@ export function bossVerdict(evaluation: Pick<GradedEvaluation, 'grade' | 'checks
       default:
         return {
           exclaim: `${formatAvailability(checks.availability.value)}?!`,
-          line: `We promised ${tierPercent('pass')}. See me after.`,
+          line:
+            evaluation.simulation.causes[0]?.reason === 'stale_read'
+              ? `Customers saw out-of-date data. We promised ${tierPercent('pass')}. See me after.`
+              : `We promised ${tierPercent('pass')}. See me after.`,
         };
     }
   }
