@@ -188,13 +188,15 @@ function TopBar({
   const active = mode.kind === 'evaluating' ? 'run' : mode.kind;
   return (
     <header className="topbar">
-      <a className="topbar__back" href={routeHref({ name: 'levels' })}>
-        <span className="wordmark wordmark--small">
-          Five <span>Nines</span>
-        </span>
-      </a>
-      <span className="topbar__divider" aria-hidden />
-      <span className="topbar__level">{level.title}</span>
+      <div className="topbar__title">
+        <a className="topbar__back" href={routeHref({ name: 'levels' })}>
+          <span className="wordmark wordmark--small">
+            Five <span>Nines</span>
+          </span>
+        </a>
+        <span className="topbar__divider" aria-hidden />
+        <span className="topbar__level">{level.title}</span>
+      </div>
       <ol className="mode-steps" aria-label="Mode">
         {MODE_STEPS.map((step) => (
           <li key={step.kind} className="mode-steps__step" aria-current={active === step.kind ? 'step' : undefined}>
