@@ -1,0 +1,321 @@
+/* ------------------------------------------------------------------ canvas */
+
+.design-canvas {
+  --edge-color: #4a5a70;
+  --edge-color-selected: var(--accent);
+  --xy-background-color: var(--bg-canvas);
+  background: var(--bg-canvas);
+}
+
+.design-canvas .react-flow__pane {
+  cursor: default;
+}
+
+.design-canvas--editable .react-flow__pane.draggable {
+  cursor: grab;
+}
+
+.design-canvas__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* React Flow's attribution, kept but quiet. */
+.design-canvas .react-flow__attribution {
+  background: transparent;
+  font-size: 9px;
+  opacity: 0.45;
+}
+
+.design-canvas .react-flow__attribution a {
+  color: var(--text-faint);
+}
+
+/* ------------------------------------------------------------------ edges */
+
+.design-canvas .flow-edge {
+  stroke: var(--edge-color);
+  stroke-width: 1.6;
+  fill: none;
+}
+
+.design-canvas .flow-edge.is-selected {
+  stroke: var(--edge-color-selected);
+  stroke-width: 2.2;
+}
+
+.design-canvas .react-flow__connectionline path,
+.design-canvas .react-flow__connection-path {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 4;
+}
+
+/* ------------------------------------------------------------------ nodes */
+
+.design-canvas .react-flow__node {
+  /* The node components draw their own frame. */
+  border: none;
+  background: none;
+  padding: 0;
+  border-radius: var(--radius-lg);
+}
+
+.design-node {
+  position: relative;
+  width: var(--node-width);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--text-sm);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+  transition:
+    border-color var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease);
+}
+
+.design-canvas--editable .design-node {
+  cursor: grab;
+}
+
+.design-canvas--editable .react-flow__node.dragging .design-node {
+  cursor: grabbing;
+}
+
+.design-node__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.design-node__kind {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.design-node__cost {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.design-node__id {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-node__config {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.design-node__handle.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--surface-2);
+  background: var(--edge-color);
+}
+
+.design-canvas--readOnly .design-node__handle.react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.design-canvas--editable .design-node__handle.react-flow__handle:hover,
+.design-canvas--editable .react-flow__handle.connectingto {
+  background: var(--accent);
+}
+
+/* States, in increasing priority: selected, marks, failing. */
+
+.design-node.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 10px rgb(0 0 0 / 0.35);
+}
+
+.design-node.is-mark-warning {
+  border-color: var(--busy);
+  border-style: dashed;
+}
+
+.design-node.is-mark-error {
+  border-color: var(--failing);
+  border-style: dashed;
+}
+
+.design-node.is-mark-focus {
+  border-color: var(--failing);
+  animation: node-focus-pulse 1.2s var(--ease) infinite;
+}
+
+.design-node.is-failing {
+  border-color: var(--failing);
+  box-shadow: 0 0 0 1px var(--failing), 0 0 18px var(--failing-glow);
+}
+
+@keyframes node-focus-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--failing-glow), 0 0 18px var(--failing-glow);
+  }
+  70% {
+    box-shadow: 0 0 0 18px rgb(255 92 92 / 0), 0 0 18px var(--failing-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 92 92 / 0), 0 0 18px var(--failing-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .design-node.is-mark-focus {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--failing-glow);
+  }
+}
+
+/* ------------------------------------------------------------------ live stats */
+
+.design-node__live {
+  display: grid;
+  gap: 5px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.live-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.live-row__label {
+  width: 52px;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.live-row__value {
+  margin-left: auto;
+  color: var(--text);
+}
+
+.live-row__value[data-status='healthy'] {
+  color: var(--healthy);
+}
+
+.live-row__value[data-status='busy'] {
+  color: var(--busy);
+}
+
+.live-row__value[data-status='failing'] {
+  color: var(--failing);
+}
+
+.instance-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.instance-cell {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: var(--surface-1);
+}
+
+.instance-cell__fill {
+  position: absolute;
+  inset: auto 0 0;
+  background: var(--healthy);
+}
+
+.instance-cell[data-level='busy'] {
+  border-color: var(--busy);
+}
+
+.instance-cell[data-level='busy'] .instance-cell__fill {
+  background: var(--busy);
+}
+
+.instance-cell[data-level='overloaded'] {
+  border-color: var(--failing);
+}
+
+.instance-cell[data-level='overloaded'] .instance-cell__fill {
+  background: var(--failing);
+}
+
+.instance-cell__queue {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-strong);
+}
+
+.instance-cell.is-down {
+  border-color: var(--failing);
+  background: var(--failing-soft);
+}
+
+.instance-cell.is-down::before,
+.instance-cell.is-down::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -2px;
+  right: -2px;
+  height: 1.5px;
+  background: var(--failing);
+}
+
+.instance-cell.is-down::before {
+  transform: rotate(45deg);
+}
+
+.instance-cell.is-down::after {
+  transform: rotate(-45deg);
+}
+
+.queue-bar {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-1);
+}
+
+.queue-bar__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--healthy);
+}
+
+.queue-bar__fill[data-level='busy'] {
+  background: var(--busy);
+}
+
+.queue-bar__fill[data-level='overloaded'] {
+  background: var(--failing);
+}

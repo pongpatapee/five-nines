@@ -7,6 +7,8 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "pnpm --filter @five-nines/web dev",
+    "build": "pnpm --filter @five-nines/web build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "sim": "pnpm --filter @five-nines/sim sim"
