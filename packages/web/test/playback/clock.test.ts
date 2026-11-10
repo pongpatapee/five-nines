@@ -54,8 +54,25 @@ describe('clock basics', () => {
     expect(play(state)).toMatchObject({ timeSec: 0, playing: true, finished: false });
   });
 
-  it('skip to end finishes immediately', () => {
-    expect(skipToEnd(createClock(10, 5))).toMatchObject({ timeSec: 10, playing: false, finished: true });
+  it('skip to end finishes immediately when nothing goes wrong', () => {
+    expect(skipToEnd(createClock(10, null))).toMatchObject({ timeSec: 10, playing: false, finished: true });
+  });
+
+  it('skip to end stops on the incident first if it has not been shown yet', () => {
+    const skipped = skipToEnd(createClock(10, 5));
+    expect(skipped).toMatchObject({ timeSec: 5, playing: false, finished: false, freeze: { kind: 'frozen', atSec: 5 } });
+    // From the freeze-frame, skipping again finishes.
+    expect(skipToEnd(skipped)).toMatchObject({ timeSec: 10, finished: true, freeze: { kind: 'dismissed' } });
+  });
+
+  it('skip to end also cuts an ease into the freeze short', () => {
+    const { state } = run(createClock(10, 5), (s) => s.freeze.kind === 'easing');
+    expect(skipToEnd(state)).toMatchObject({ timeSec: 5, finished: false, freeze: { kind: 'frozen' } });
+  });
+
+  it('skip to end finishes once the incident is behind the playhead or dismissed', () => {
+    expect(skipToEnd(seek(createClock(10, 5), 7))).toMatchObject({ timeSec: 10, finished: true });
+    expect(skipToEnd(keepWatching({ ...createClock(10, 5), timeSec: 5 }))).toMatchObject({ timeSec: 10, finished: true });
   });
 
   it('seeking clamps, keeps the play state, and never finishes', () => {
