@@ -1,4 +1,4 @@
-/* ------------------------------------------------------------------ overlay */
+/* ------------------------------------------------------------------ overlay: the page dims as a card is laid on it */
 
 .results-overlay {
   position: absolute;
@@ -9,8 +9,8 @@
   justify-content: center;
   overflow-y: auto;
   padding: var(--space-8) var(--space-6);
-  background: rgb(6 8 12 / 0.62);
-  backdrop-filter: blur(2px);
+  background: rgb(251 248 239 / 0.72);
+  backdrop-filter: blur(1.5px);
   animation: results-fade-in var(--duration) var(--ease);
 }
 
@@ -20,13 +20,26 @@
   }
 }
 
-/* ------------------------------------------------------------------ grade card */
+/* ------------------------------------------------------------------ grade card: a graded page */
 
 .grade-card {
-  width: min(560px, 100%);
+  position: relative;
+  width: min(580px, 100%);
   margin: auto 0;
-  box-shadow: var(--shadow-panel);
+  border: 1px solid var(--paper-edge);
+  background-color: var(--paper-card);
+  background-image: repeating-linear-gradient(transparent 0, transparent 27px, var(--rule) 27px, var(--rule) 28px);
+  box-shadow: var(--shadow-paper);
+  transform: rotate(-0.4deg);
+  animation: grade-card-in 420ms var(--ease);
   --grade-color: var(--grade-fail);
+}
+
+@keyframes grade-card-in {
+  from {
+    opacity: 0;
+    transform: rotate(-3deg) translateY(16px);
+  }
 }
 
 .grade-card[data-grade='pass'] {
@@ -42,39 +55,49 @@
 }
 
 .grade-card__head {
-  padding: var(--space-6) var(--space-6) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  border-top: 3px solid var(--grade-color);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-6) var(--space-6) var(--space-3);
+  border-bottom: 2px solid var(--margin-rule);
+  background: var(--paper-card);
+}
+
+.grade-card__mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-2);
 }
 
 .grade-card__grade {
-  margin-top: var(--space-2);
-  font-size: var(--text-3xl);
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  position: relative;
+  padding: 0 var(--space-2);
+  font-size: 64px;
+  line-height: 1;
   color: var(--grade-color);
 }
 
 .grade-card__headline {
-  margin-top: var(--space-1);
-  color: var(--text-muted);
+  margin-top: var(--space-2);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.grade-card__boss {
+  padding: var(--space-4) var(--space-6) 0;
 }
 
 .grade-card__checks {
   display: grid;
-  gap: var(--space-1);
-  padding: var(--space-4) var(--space-6);
+  gap: 0;
+  padding: var(--space-3) var(--space-6);
 }
 
 .check-row {
   display: grid;
-  grid-template-columns: 20px 1fr auto auto;
+  grid-template-columns: 24px 1fr auto auto;
   align-items: baseline;
   column-gap: var(--space-3);
   padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px dashed var(--pencil-line);
 }
 
 .check-row:last-child {
@@ -82,22 +105,23 @@
 }
 
 .check-row__icon {
-  font-weight: 700;
-  color: var(--healthy);
-}
-
-.check-row[data-ok='false'] .check-row__icon,
-.check-row[data-ok='false'] .check-row__actual {
-  color: var(--failing);
+  align-self: center;
+  display: inline-flex;
 }
 
 .check-row__label {
-  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: 700;
 }
 
 .check-row__actual {
   font-size: var(--text-lg);
-  color: var(--text-strong);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.check-row[data-ok='false'] .check-row__actual {
+  color: var(--failing);
 }
 
 .check-row__required {
@@ -114,7 +138,8 @@
 .tier-ladder {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-1);
+  gap: var(--space-2);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -122,25 +147,32 @@
 .tier-ladder__step {
   display: flex;
   justify-content: space-between;
-  padding: 3px var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1.5px dashed var(--pencil-line);
+  border-radius: var(--radius-hand);
   font-size: var(--text-xs);
-  color: var(--text-faint);
+  color: var(--text-muted);
+}
+
+.tier-ladder__step[data-reached='true'] {
+  border-style: solid;
+  border-color: var(--ink);
+  font-weight: 700;
 }
 
 .tier-ladder__step[data-reached='true'][data-tier='pass'] {
-  border-color: var(--grade-pass);
+  background: var(--wash-blue);
   color: var(--grade-pass);
 }
 
 .tier-ladder__step[data-reached='true'][data-tier='star'] {
-  border-color: var(--grade-star);
+  background: var(--wash-yellow);
   color: var(--grade-star);
 }
 
 .tier-ladder__step[data-reached='true'][data-tier='mastered'] {
-  border-color: var(--grade-mastered);
+  background: var(--wash-green);
   color: var(--grade-mastered);
 }
 
@@ -148,17 +180,18 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin: 0;
-  padding: 0 var(--space-6) var(--space-4);
+  padding: 0 var(--space-6) var(--space-3);
 }
 
 .grade-card__facts dt {
   font-size: var(--text-xs);
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .grade-card__facts dd {
   margin: 0;
-  color: var(--text);
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .grade-card__note {
@@ -166,38 +199,50 @@
   font-size: var(--text-sm);
 }
 
-.grade-card__note .eyebrow {
-  margin-right: var(--space-2);
-  color: var(--failing);
+.grade-card__note-label {
+  color: var(--red-pen-text);
+}
+
+.grade-card__mentor {
+  padding: 0 var(--space-6) var(--space-3);
+}
+
+.grade-card__mentor .cast-line__bubble {
+  font-size: var(--text-sm);
 }
 
 .grade-card__warnings {
   margin: 0 var(--space-6) var(--space-3);
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-6);
-  border: 1px solid var(--busy-soft);
-  border-radius: var(--radius);
-  background: var(--busy-soft);
+  border: 1.5px solid var(--amber-pen);
+  border-radius: var(--radius-hand);
+  background: var(--wash-yellow);
   font-size: var(--text-sm);
-  color: var(--busy);
+  color: var(--ink);
 }
 
 .grade-card__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--border);
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  border-top: 2px solid var(--ink);
+  background: var(--paper);
 }
 
 .grade-card__actions .btn--primary:last-child {
   margin-left: auto;
 }
 
-/* ------------------------------------------------------------------ debrief */
+/* ------------------------------------------------------------------ debrief: the answer pages at the back */
 
 .debrief {
   width: min(980px, 100%);
-  box-shadow: var(--shadow-panel);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  background: var(--paper-card);
+  box-shadow: var(--shadow-paper);
 }
 
 .debrief__header {
@@ -205,12 +250,11 @@
   top: calc(-1 * var(--space-8));
   z-index: 1;
   padding: var(--space-4) var(--space-6);
-  background: var(--surface-1);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--paper-card);
 }
 
 .debrief__title {
-  font-size: var(--text-xl);
+  font-size: var(--text-hand-xl);
 }
 
 .debrief__header-actions {
@@ -221,10 +265,13 @@
 
 .spoiler-tag {
   padding: 2px var(--space-2);
-  border: 1px solid var(--busy);
-  border-radius: var(--radius-sm);
+  border: 2px solid var(--red-pen);
+  border-radius: 6px 3px 7px 4px;
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
-  color: var(--busy);
+  font-weight: 700;
+  color: var(--red-pen-text);
+  transform: rotate(-2deg);
 }
 
 .debrief__body {
@@ -241,30 +288,30 @@
 
 .debrief__section-title {
   margin: var(--space-8) 0 var(--space-3);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-family: var(--font-hand);
+  font-size: var(--text-hand-lg);
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .debrief__solutions {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .solution {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  border: var(--stroke-pen) solid var(--ink);
+  border-radius: var(--radius-hand);
+  background: var(--paper-card);
+  box-shadow: var(--shadow-ink-sm);
 }
 
 .solution__canvas {
-  height: 220px;
-  border-bottom: 1px solid var(--border);
+  height: 240px;
+  border-bottom: 1.5px dashed var(--pencil-line);
 }
 
 .solution__text {
@@ -279,7 +326,8 @@
 }
 
 .solution__name {
-  font-size: var(--text-lg);
+  font-family: var(--font-hand);
+  font-size: var(--text-2xl);
 }
 
 .solution__cost {
@@ -294,17 +342,17 @@
 
 .debrief__traps {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: 0;
   list-style: none;
 }
 
 .trap {
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--failing);
-  border-radius: var(--radius);
-  background: var(--surface-2);
+  border: 1.5px solid var(--red-pen);
+  border-left-width: 5px;
+  border-radius: var(--radius-hand);
+  background: var(--paper);
 }
 
 .trap__head {
@@ -315,16 +363,28 @@
 }
 
 .trap__name {
-  font-weight: 600;
-  color: var(--text-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .trap__fails {
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
-  color: var(--failing);
+  font-weight: 700;
+  color: var(--red-pen-text);
 }
 
 .trap__explanation {
   margin-top: var(--space-1);
-  color: var(--text-muted);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results-overlay,
+  .grade-card {
+    animation: none;
+  }
 }

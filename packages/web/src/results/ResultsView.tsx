@@ -1,4 +1,4 @@
-import type { Level } from '@five-nines/sim';
+import { LEVELS, type Level } from '@five-nines/sim';
 import type { GradedEvaluation } from '../engine/index.ts';
 import { isPassingGrade } from '../format.ts';
 import { useBestGrade } from '../state/index.ts';
@@ -29,6 +29,7 @@ export function ResultsView({ level, evaluation, view, onViewChange, onBackToEdi
       {view === 'grade' ? (
         <GradeCard
           level={level}
+          levelNumber={LEVELS.findIndex((l) => l.id === level.id) + 1}
           evaluation={evaluation}
           onBackToEditor={onBackToEditor}
           onReplay={onReplay}
