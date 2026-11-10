@@ -5,6 +5,7 @@
  *   pnpm sim grade <level-id> <design.json> Grade one design and explain the result.
  */
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { DesignSchema, type Design, type Level } from './schema.ts';
 import { evaluateDesign, type Evaluation } from './evaluate.ts';
 import { getLevel, LEVELS } from './levels/index.ts';
@@ -22,7 +23,9 @@ function main(args: string[]): number {
         console.error(`Unknown level "${levelId}". Levels: ${LEVELS.map((l) => l.id).join(', ')}`);
         return 1;
       }
-      const design = DesignSchema.parse(JSON.parse(readFileSync(designPath, 'utf8')));
+      // pnpm runs scripts from the package directory; resolve paths from where the user ran the command.
+      const path = resolve(process.env['INIT_CWD'] ?? process.cwd(), designPath);
+      const design = DesignSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
       printEvaluation(level, design);
       return 0;
     }
