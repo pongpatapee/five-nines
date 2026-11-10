@@ -5,7 +5,8 @@
   "briefing": [
     "Your startup's API just launched. Traffic starts at 100 requests per second and climbs to 350 within 30 seconds.",
     "Every request needs 10ms of CPU time. An app server works on one request per vCPU at a time; the rest wait in line.",
-    "Choose one app server that keeps p99 latency under 75ms without going over budget."
+    "Choose one app server that keeps p99 latency under 75ms without going over budget.",
+    "Rule of thumb: keep each server under about 70% busy at peak. Above that, requests start waiting in line and p99 climbs fast."
   ],
   "debrief": [
     "A server with 4 vCPUs and 10ms of CPU per request can handle 400 requests per second. At 350 it isn't overloaded, but it's 87% busy, so most requests arrive while every vCPU is taken and have to wait in line.",
