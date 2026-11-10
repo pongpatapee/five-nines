@@ -4,6 +4,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // This worktree runs alongside others; fail loudly rather than drift to another port.
+    port: 5174,
+    strictPort: true,
+  },
   build: {
     rolldownOptions: {
       output: {
