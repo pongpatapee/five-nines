@@ -6,7 +6,7 @@ import type { SimEvent, TimelineFrame } from '@five-nines/sim';
 import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { formatCount, formatMs, formatSimTime } from '../format.ts';
 import { areaPath, linePath, niceCeil, timeAtPointer } from './charts.ts';
-import type { LiveFrame } from '../canvas/types.ts';
+import { isFailingRate, type LiveFrame } from '../canvas/types.ts';
 
 export interface TimelineStripProps {
   timeline: readonly TimelineFrame[];
@@ -44,7 +44,7 @@ export function TimelineStrip(props: TimelineStripProps) {
     <div className="pb-timeline">
       <div className="pb-timeline__labels" aria-hidden>
         <Readout label="offered" value={frame ? `${formatCount(frame.offeredRps, true)}/s` : '—'} />
-        <Readout label="failed" value={frame ? `${formatCount(frame.failedRps, true)}/s` : '—'} tone={frame && frame.failedRps >= 0.5 ? 'failing' : undefined} />
+        <Readout label="failed" value={frame ? `${formatCount(frame.failedRps, true)}/s` : '—'} tone={frame && isFailingRate(frame.failedRps) ? 'failing' : undefined} />
         <Readout label={`p99 ≤ ${formatMs(props.p99RequirementMs)}`} value={formatMs(p99Now)} tone={p99Now !== null && p99Now > props.p99RequirementMs ? 'busy' : undefined} />
       </div>
       <div

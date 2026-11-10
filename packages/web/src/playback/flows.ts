@@ -7,7 +7,7 @@
  */
 import { CLIENTS_ID, type Design } from '@five-nines/sim';
 import { edgeKey } from '../canvas/draft.ts';
-import type { LiveFrame } from '../canvas/types.ts';
+import { isFailingRate, type LiveFrame } from '../canvas/types.ts';
 
 export interface EdgeFlow {
   key: string;
@@ -33,11 +33,11 @@ export function edgeFlows(design: Design, frame: LiveFrame, incoming = incomingC
   });
 }
 
-/** Per-node failure rates for a live frame, leaving out nodes that aren't failing. */
+/** Per-node failure rates for a live frame, leaving out nodes that aren't failing (see `isFailingRate`). */
 export function nodeFailures(frame: LiveFrame): { nodeId: string; failedRps: number }[] {
   const out: { nodeId: string; failedRps: number }[] = [];
   for (const [nodeId, node] of Object.entries(frame.nodes)) {
-    if (node.failedRps > 0) out.push({ nodeId, failedRps: node.failedRps });
+    if (isFailingRate(node.failedRps)) out.push({ nodeId, failedRps: node.failedRps });
   }
   return out;
 }
