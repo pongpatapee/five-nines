@@ -7,7 +7,7 @@ import { runEvaluation } from '../engine/index.ts';
 import { Playback } from '../playback/index.tsx';
 import { DebriefPanel, ResultsView } from '../results/index.ts';
 import { navigate, routeHref } from '../routing.ts';
-import { isPassingGrade } from '../format.ts';
+import { formatDuration, isPassingGrade } from '../format.ts';
 import { progressStore, useBestGrade, useDraft } from '../state/index.ts';
 import { CostMeter } from './CostMeter.tsx';
 import { BriefingPanel } from './BriefingPanel.tsx';
@@ -93,6 +93,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
     <div className={`level-screen${briefingCollapsed ? ' is-briefing-collapsed' : ''}`}>
       <TopBar
         level={level}
+        levelNumber={levelIndex + 1}
         mode={mode}
         cost={briefingCollapsed ? designCostUsdPerMonth(shownDraft.design) : null}
         onOpenDebrief={mode.kind === 'build' && bestGrade !== undefined ? () => setDebriefOpen(true) : null}
@@ -131,7 +132,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
               <DesignCanvas mode="readOnly" draft={mode.draft} />
               <div className="stage-status" role="status">
                 <span className="stage-status__spinner" aria-hidden />
-                Simulating {level.durationSec} seconds of traffic…
+                Simulating {formatDuration(level.durationSec)} of traffic…
               </div>
             </>
           )}
@@ -175,11 +176,13 @@ const MODE_STEPS = [
 
 function TopBar({
   level,
+  levelNumber,
   mode,
   cost,
   onOpenDebrief,
 }: {
   level: Level;
+  levelNumber: number;
   mode: LevelMode;
   /** Shown compactly when the briefing panel (and its cost meter) is collapsed. */
   cost: number | null;
@@ -189,13 +192,14 @@ function TopBar({
   return (
     <header className="topbar">
       <div className="topbar__title">
-        <a className="topbar__back" href={routeHref({ name: 'levels' })}>
-          <span className="wordmark wordmark--small">
-            Five <span>Nines</span>
-          </span>
+        <a className="topbar__back" href={routeHref({ name: 'levels' })} title="Back to the table of contents">
+          <span className="hand topbar__wordmark">Five Nines</span>
+          <span className="topbar__back-hint">contents</span>
         </a>
         <span className="topbar__divider" aria-hidden />
-        <span className="topbar__level">{level.title}</span>
+        <span className="topbar__level hand">
+          p.{levelNumber} · {level.title}
+        </span>
       </div>
       <ol className="mode-steps" aria-label="Mode">
         {MODE_STEPS.map((step) => (

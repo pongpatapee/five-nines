@@ -8,6 +8,7 @@ import {
   type Level,
 } from '@five-nines/sim';
 import { formatDuration, formatMs, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
+import { bossBriefingLine, CastLine, troublemakerTease } from '../notebook/index.ts';
 import { tierPercent } from '../results/grading.ts';
 import { CostMeter } from './CostMeter.tsx';
 
@@ -23,6 +24,7 @@ export interface BriefingPanelProps {
 /** Left side panel, in every mode: briefing, requirements, component reference card and live cost. */
 export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle }: BriefingPanelProps) {
   const cost = designCostUsdPerMonth(design);
+  const tease = troublemakerTease(level);
   if (collapsed) {
     return (
       <aside className="briefing briefing--collapsed" aria-label="Briefing (collapsed)">
@@ -38,9 +40,9 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
       <div className="briefing__head">
         <div>
           <div className="eyebrow">
-            Level {levelNumber} · {level.concept}
+            Page {levelNumber} · {level.concept}
           </div>
-          <h1 className="briefing__title">{level.title}</h1>
+          <h1 className="briefing__title hand">{level.title}</h1>
         </div>
         <button type="button" className="btn btn--ghost btn--sm briefing__toggle" onClick={onToggle} title="Hide briefing">
           «
@@ -48,6 +50,10 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
       </div>
 
       <div className="briefing__scroll">
+        <CastLine who="boss" figureSize={84} className="briefing__boss">
+          "{bossBriefingLine(level)}"
+        </CastLine>
+
         <CostMeter costUsdPerMonth={cost} budgetUsdPerMonth={level.requirements.budgetUsdPerMonth} />
 
         <section className="briefing__section">
@@ -58,6 +64,12 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
             ))}
           </div>
         </section>
+
+        {tease && (
+          <CastLine who="troublemaker" figureSize={56} tone="alarm" className="briefing__smudge">
+            {tease}
+          </CastLine>
+        )}
 
         <section className="briefing__section">
           <h2 className="briefing__section-title">Requirements</h2>
