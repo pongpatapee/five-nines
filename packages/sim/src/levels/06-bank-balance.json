@@ -1,0 +1,335 @@
+{
+  "id": "06-bank-balance",
+  "title": "Bank Balance",
+  "concept": "Read-your-writes consistency",
+  "briefing": [
+    "A banking app: 12,000 requests per second, jumping to 20,000 on payday, about a minute and a half in, for about 40 seconds. 95% of requests are reads; the rest are transfers, which write to the database.",
+    "One read in five is a user checking their balance a second or two after their own transfer. If that read misses the transfer, the user sees their old balance. That counts as a failed request, a stale read, just like an error.",
+    "The primary database can't serve every read on its own. Read replicas can, but they're always a little behind the primary, and further behind when busy. Replicas can pin a user's reads to the primary for a few seconds after that user writes: read-your-writes."
+  ],
+  "debrief": [
+    "Sending every read to replicas shows users their old balance. A balance check comes on average 1.5 seconds after the transfer, and even a lightly loaded replica is about half a second behind, so about 3 in 10 of those checks miss the transfer.",
+    "Sending every read to the primary doesn't fit: at the payday peak that's 19,000 reads and 1,000 writes a second, 107% of the biggest database.",
+    "Read-your-writes pinning splits the difference: a user's reads within N seconds of their own write go to the primary, everything else to replicas. With a 5-second window, 96% of balance checks are pinned (1 − e^(−5 ÷ 1.5)), about 3,700 reads a second at the peak. The primary must be sized for them: with the writes, a large one is about 62% busy; a medium one would need 123%.",
+    "The window has to be longer than the worst lag, not the usual one. Two large replicas are 54% busy at normal load, about 0.4 seconds behind, but 89% busy at the peak, about 1.9 seconds behind. A 1-second window covers the normal lag and fails on payday. Worse, it leaves half the balance checks on the replicas, which pushes them to 98% busy and 10 seconds behind.",
+    "Real systems do the same with session stickiness after a write, or by having the read wait until the replica has replayed the user's last write. Either way, replica lag deserves an alert of its own: it's invisible until a spike makes it matter."
+  ],
+  "components": [
+    "appServer",
+    "loadBalancer",
+    "database",
+    "readReplicas"
+  ],
+  "durationSec": 180,
+  "seed": 606,
+  "workload": {
+    "cpuMsPerRequest": 0.5,
+    "timeoutMs": 1000,
+    "traffic": [
+      {
+        "atSec": 0,
+        "rps": 12000
+      },
+      {
+        "atSec": 80,
+        "rps": 12000
+      },
+      {
+        "atSec": 90,
+        "rps": 20000
+      },
+      {
+        "atSec": 130,
+        "rps": 20000
+      },
+      {
+        "atSec": 140,
+        "rps": 12000
+      },
+      {
+        "atSec": 180,
+        "rps": 12000
+      }
+    ],
+    "data": {
+      "readShare": 0.95,
+      "keys": {
+        "count": 10000000,
+        "zipf": 0.8,
+        "valueKb": 1
+      },
+      "readAfterWrite": {
+        "share": 0.2,
+        "meanGapSec": 1.5
+      }
+    }
+  },
+  "requirements": {
+    "p99Ms": 50,
+    "budgetUsdPerMonth": 2400
+  },
+  "solutions": [
+    {
+      "name": "Replicas, with reads pinned for 5 seconds after a write",
+      "explanation": "Balance checks within 5 seconds of a transfer go to the large primary, 62% busy at the peak. Everything else goes to two large replicas, which are at most 1.9 seconds behind, so the window always covers the lag.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          },
+          {
+            "id": "replicas",
+            "kind": "readReplicas",
+            "size": "large",
+            "count": 2,
+            "readYourWritesSec": 5
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "db",
+            "to": "replicas"
+          },
+          {
+            "from": "app",
+            "to": "replicas"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "Every read from the replicas",
+      "explanation": "No pinning: a balance check right after a transfer goes to a replica about half a second behind, so 3 in 10 show the old balance. At the peak the replicas are overloaded too.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          },
+          {
+            "id": "replicas",
+            "kind": "readReplicas",
+            "size": "large",
+            "count": 2
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "db",
+            "to": "replicas"
+          },
+          {
+            "from": "app",
+            "to": "replicas"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Every read from the primary",
+      "explanation": "19,000 reads and 1,000 writes a second at the peak: 107% of the biggest database.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "xlarge"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Pinned for 1 second",
+      "explanation": "Fine at normal load, when the replicas are 0.5 seconds behind. On payday the 1-second window leaves half the balance checks on replicas that fall up to 10 seconds behind.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          },
+          {
+            "id": "replicas",
+            "kind": "readReplicas",
+            "size": "large",
+            "count": 2,
+            "readYourWritesSec": 1
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "db",
+            "to": "replicas"
+          },
+          {
+            "from": "app",
+            "to": "replicas"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability"
+      ]
+    },
+    {
+      "name": "A medium primary",
+      "explanation": "The right routing, but the pinned balance checks and the writes need 123% of a medium primary at the peak.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "replicas",
+            "kind": "readReplicas",
+            "size": "large",
+            "count": 2,
+            "readYourWritesSec": 5
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "db",
+            "to": "replicas"
+          },
+          {
+            "from": "app",
+            "to": "replicas"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    }
+  ]
+}

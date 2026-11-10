@@ -1,0 +1,308 @@
+{
+  "id": "04-read-all-about-it",
+  "title": "Read All About It",
+  "concept": "Caching",
+  "briefing": [
+    "A news site has 2 million articles. Traffic climbs from 6,000 to 20,000 requests per second over the first minute, and about two minutes in, breaking news pushes it to 26,000 for half a minute.",
+    "Every request needs 0.5ms of CPU on an app server, then one trip to the data: 95% read an article, the rest post a comment, which writes to the database. Even the biggest database can't serve every read on its own.",
+    "Readers are predictable: a few hundred stories get most of the traffic, and most of the archive is barely touched. A cache keeps popular articles in memory, so reads that find them there never reach the database. Each article takes about 100 KB, and the cache starts empty."
+  ],
+  "debrief": [
+    "The database is the bottleneck. At the 26,000 req/s peak there are 24,700 reads and 1,300 writes every second. A large database does 10,000 reads or 4,000 writes a second, so the writes alone keep it a third busy, and the reads would need two and a half more databases.",
+    "Article popularity follows Zipf's law: the 10th most popular story gets a tenth of the traffic of the top one, the 100th a hundredth. So a cache that holds a small slice of the archive catches most of the reads. An 8 GB cache holds 80,000 articles, 4% of them, and those 4% get about 79% of the reads. A 2 GB cache holds 20,000, which get 69%.",
+    "The hit rate decides the database's load. At the peak, a 77% hit rate leaves about 5,700 reads a second for the database: with the writes it's around 90% busy and keeps up. At 69%, 7,700 reads plus the writes need 110% of it, and requests start timing out.",
+    "Two things keep a cache below its best. It starts cold: it only learns what's popular as articles are read, which is why the slow morning ramp matters. And values expire: an article stays cached for its TTL, so a rarely read one has usually expired by its next read. With a 10-second TTL the same 8 GB cache hits only about 65%.",
+    "Before sizing a cache, ask how skewed the reads are. In front of skewed traffic, a cache is the cheapest way to multiply a database's read capacity. The next level shows when it isn't."
+  ],
+  "components": [
+    "appServer",
+    "loadBalancer",
+    "cache",
+    "database"
+  ],
+  "durationSec": 180,
+  "seed": 404,
+  "workload": {
+    "cpuMsPerRequest": 0.5,
+    "timeoutMs": 1000,
+    "traffic": [
+      {
+        "atSec": 0,
+        "rps": 6000
+      },
+      {
+        "atSec": 60,
+        "rps": 20000
+      },
+      {
+        "atSec": 120,
+        "rps": 20000
+      },
+      {
+        "atSec": 125,
+        "rps": 26000
+      },
+      {
+        "atSec": 150,
+        "rps": 26000
+      },
+      {
+        "atSec": 155,
+        "rps": 20000
+      },
+      {
+        "atSec": 180,
+        "rps": 20000
+      }
+    ],
+    "data": {
+      "readShare": 0.95,
+      "keys": {
+        "count": 2000000,
+        "zipf": 1,
+        "valueKb": 100
+      }
+    }
+  },
+  "requirements": {
+    "p99Ms": 50,
+    "budgetUsdPerMonth": 1400
+  },
+  "solutions": [
+    {
+      "name": "A medium cache in front of a large database",
+      "explanation": "An 8 GB cache holds the 80,000 most-read articles and serves about 76% of reads, a little more at the peak. The large database takes the misses and every write, about 90% busy at the height of the spike.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "medium",
+            "ttlSec": 300
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "Large database, no cache",
+      "explanation": "19,000 reads a second against a database that does 10,000. It falls behind as soon as traffic passes about 9,000 requests per second.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Biggest database, no cache",
+      "explanation": "An xlarge database does 20,000 reads a second, but the writes take an eighth of it, so it's overloaded from 20,000 req/s. It's also over budget.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "xlarge"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency",
+        "budget"
+      ]
+    },
+    {
+      "name": "A small cache",
+      "explanation": "A 2 GB cache holds 20,000 articles and hits 69%. Enough at 20,000 req/s, but the breaking-news spike pushes the database past 100%.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Values that expire too soon",
+      "explanation": "The right size, but with a 10-second TTL: less popular articles expire before anyone reads them again, the hit rate falls to 65%, and the spike overloads the database.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "medium",
+            "ttlSec": 10
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    }
+  ]
+}

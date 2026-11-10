@@ -10,6 +10,11 @@ export interface Graph {
   order: readonly string[];
 }
 
+/** A stable id for an edge, used to key per-edge data. Node ids can't contain ">", so it is unambiguous. */
+export function edgeKey(edge: Edge): string {
+  return `${edge.from}->${edge.to}`;
+}
+
 /** Kahn's algorithm. Returns null if the edges contain a cycle. */
 export function topologicalOrder(ids: readonly string[], edges: readonly Edge[]): string[] | null {
   const indegree = new Map(ids.map((id) => [id, 0]));

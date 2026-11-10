@@ -1,4 +1,4 @@
-import { CLIENTS_ID, LEVELS, validateDesign } from '@five-nines/sim';
+import { CLIENTS_ID, ComponentKindSchema, NodeSpecSchema, LEVELS, validateDesign } from '@five-nines/sim';
 import { describe, expect, it } from 'vitest';
 import {
   addNode,
@@ -41,6 +41,15 @@ describe('draft operations', () => {
       retryOnConnectFailure: false,
     });
     expect(validateDesign(draft.design, level).filter((i) => i.severity === 'error')).toEqual([]);
+  });
+
+  it('creates a valid default node of every kind', () => {
+    for (const kind of ComponentKindSchema.options) {
+      const spec = createNodeSpec(kind, nextNodeId(emptyDraft(), kind));
+      expect(NodeSpecSchema.parse(spec)).toEqual(spec);
+    }
+    expect(nextNodeId(emptyDraft(), 'database')).toBe('db-1');
+    expect(nextNodeId(emptyDraft(), 'readReplicas')).toBe('replicas-1');
   });
 
   it('numbers new ids per kind, filling gaps', () => {
