@@ -1,0 +1,128 @@
+{
+  "id": "02-scale-out",
+  "title": "Scale Out",
+  "concept": "Horizontal scaling and load balancing",
+  "briefing": [
+    "A popular newsletter just featured you. Traffic climbs from 1,000 to 5,000 requests per second.",
+    "Every request still needs 10ms of CPU time. The biggest app server available has 16 vCPUs.",
+    "A load balancer spreads requests evenly across every app server instance behind it."
+  ],
+  "debrief": [
+    "No single machine can handle 5,000 req/s, so you scaled out: several machines behind a load balancer. This is horizontal scaling.",
+    "The back-of-envelope math: 5,000 req/s × 10ms = 50 vCPUs of work. Add headroom so nothing runs near 100% and you need about 64 vCPUs.",
+    "Round-robin load balancing sends every instance the same number of requests, whatever its size. Mix a small server in with big ones and the small one is overwhelmed while the big ones sit idle. Keep the instances in a pool identical, or use a weighted or least-connections algorithm.",
+    "Scaling out has another benefit you'll need in the next level: no single machine is a point of failure."
+  ],
+  "components": ["appServer", "loadBalancer"],
+  "durationSec": 120,
+  "seed": 202,
+  "workload": {
+    "cpuMsPerRequest": 10,
+    "timeoutMs": 1000,
+    "traffic": [
+      { "atSec": 0, "rps": 1000 },
+      { "atSec": 30, "rps": 5000 },
+      { "atSec": 120, "rps": 5000 }
+    ]
+  },
+  "requirements": { "p99Ms": 75, "budgetUsdPerMonth": 2000 },
+  "solutions": [
+    {
+      "name": "Four xlarge servers",
+      "explanation": "64 vCPUs give 6,400 req/s of capacity, about 78% busy at peak. Large instances have many vCPUs, so even at 78% a request rarely waits long.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer" },
+          { "id": "app", "kind": "appServer", "size": "xlarge", "instances": 4 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedGrade": "mastered"
+    },
+    {
+      "name": "Eight large servers",
+      "explanation": "The same 64 vCPUs at the same price, spread over more machines. Smaller pieces are also cheaper to lose, which matters in the next level.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer" },
+          { "id": "app", "kind": "appServer", "size": "large", "instances": 8 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "One xlarge server",
+      "explanation": "The biggest machine available handles 1,600 req/s. Vertical scaling has hit its ceiling.",
+      "design": {
+        "nodes": [{ "id": "app", "kind": "appServer", "size": "xlarge" }],
+        "edges": [{ "from": "clients", "to": "app" }]
+      },
+      "expectedFailure": ["availability", "latency"]
+    },
+    {
+      "name": "Three xlarge servers",
+      "explanation": "4,800 req/s of capacity looks close enough, but anything over 100% means the queue grows every second until requests time out.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer" },
+          { "id": "app", "kind": "appServer", "size": "xlarge", "instances": 3 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedFailure": ["availability", "latency"]
+    },
+    {
+      "name": "Three xlarge plus one medium",
+      "explanation": "52 vCPUs in total, but round robin gives the medium server a quarter of the traffic: 1,250 req/s against its 400 req/s capacity.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer" },
+          { "id": "big", "kind": "appServer", "size": "xlarge", "instances": 3 },
+          { "id": "small", "kind": "appServer", "size": "medium" }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "big" },
+          { "from": "lb", "to": "small" }
+        ]
+      },
+      "expectedFailure": ["availability", "latency"]
+    },
+    {
+      "name": "Five xlarge servers",
+      "explanation": "Works, but over budget. Headroom is good; paying for capacity you never use is not.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer" },
+          { "id": "app", "kind": "appServer", "size": "xlarge", "instances": 5 }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" }
+        ]
+      },
+      "expectedFailure": ["budget"]
+    },
+    {
+      "name": "Four instances with no load balancer",
+      "explanation": "Clients connect to one address. Without a load balancer there's nothing to spread their requests across the instances.",
+      "design": {
+        "nodes": [{ "id": "app", "kind": "appServer", "size": "xlarge", "instances": 4 }],
+        "edges": [{ "from": "clients", "to": "app" }]
+      },
+      "expectedFailure": "invalid"
+    }
+  ]
+}
