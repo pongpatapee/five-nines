@@ -1,7 +1,8 @@
+import type { ComponentKind } from '@five-nines/sim';
 import { Handle, Position } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { formatUsdPerMonth } from '../../format.ts';
-import { ComponentDoodle, type DoodleKind } from '../../notebook/doodles.tsx';
+import { ComponentDoodle } from '../../notebook/doodles.tsx';
 import { InkLoop } from '../../notebook/ink.tsx';
 import { useDecorations } from '../context.ts';
 import { isFailingRate } from '../types.ts';
@@ -9,7 +10,7 @@ import { isFailingRate } from '../types.ts';
 export interface NodeShellProps {
   id: string;
   /** The component kind (or "clients"): picks the doodle and is exposed as `data-kind` so themes can style each kind. */
-  kind: DoodleKind;
+  kind: ComponentKind | 'clients';
   /** Uppercase kind label, e.g. "App server". */
   kindLabel: string;
   /** Key configuration in one line, e.g. "xlarge × 4". */
