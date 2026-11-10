@@ -96,6 +96,8 @@
   /* Request dots are pencil-lead grey; failures are red-pen crosses. */
   --request: var(--ink-soft);
   --request-soft: rgb(74 81 96 / 0.12);
+  /* Writes travelling to a database or replicated to read replicas: purple ink, so they read apart from reads. */
+  --write: var(--purple-pen);
 
   /* Interaction. */
   --accent: var(--blue-pen);

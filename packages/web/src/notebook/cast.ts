@@ -56,7 +56,7 @@ export function roughly(sec: number): string {
 
 /** How Smudge's handiwork reads on the timeline. Rotation changes are the load balancer's doing, not Smudge's. */
 export function eventCaption(event: SimEvent): { text: string; bySmudge: boolean } {
-  if (event.kind === 'instanceFailed') {
+  if (event.kind === 'instanceFailed' && event.instance !== undefined) {
     return { text: `Smudge pulls the plug on ${event.nodeId} instance ${event.instance + 1}`, bySmudge: true };
   }
   return { text: event.message, bySmudge: false };
@@ -71,6 +71,8 @@ export const MENTOR_HINTS: Record<FailureReason, string> = {
   timeout:
     'Requests waited in line until they gave up. Each vCPU serves one at a time, so where would more capacity help?',
   overloaded: 'More requests arrived than that box can handle. Could the load be spread out instead?',
+  stale_read:
+    'Someone read an old copy. Replicas run a little behind the primary, so which reads can afford to wait, and which must see the latest write?',
 };
 
 /** Erasmus's sign-off when there's nothing specific to say. */

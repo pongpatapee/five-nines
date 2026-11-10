@@ -12,9 +12,10 @@ export const ROW_GAP = 170;
 
 /**
  * Layered left-to-right layout. The clients sit in layer 0 at the origin, and every other node sits in the layer of
- * its shortest distance from the clients. Nodes that can't be reached from the clients go in one extra layer at the
- * end. Each layer is centred vertically on y = 0, ordered by discovery (which follows edge order), so the result is
- * deterministic for a given design.
+ * its longest path from the clients, so every edge points rightwards (read replicas sit right of the database they
+ * copy, even though the app servers also connect to them). Edges that close a cycle are ignored for this. Nodes that
+ * can't be reached from the clients go in one extra layer at the end. Each layer is centred vertically on y = 0,
+ * ordered by discovery (which follows edge order), so the result is deterministic for a given design.
  *
  * Returns top-left positions for the clients node and every node in the design.
  */
@@ -29,15 +30,39 @@ export function autoLayout(design: Design): Record<string, XY> {
     outgoing.set(edge.from, list);
   }
 
-  // Breadth-first from the clients gives each reachable node its shortest depth.
-  const depth = new Map<string, number>([[CLIENTS_ID, 0]]);
+  // Breadth-first from the clients finds the reachable nodes, in a deterministic order.
   const order: string[] = [CLIENTS_ID];
+  const seen = new Set(order);
   for (let i = 0; i < order.length; i++) {
-    const id = order[i]!;
-    for (const next of outgoing.get(id) ?? []) {
-      if (depth.has(next)) continue;
-      depth.set(next, depth.get(id)! + 1);
+    for (const next of outgoing.get(order[i]!) ?? []) {
+      if (seen.has(next)) continue;
+      seen.add(next);
       order.push(next);
+    }
+  }
+
+  // Depth-first from the clients: the reverse postorder is a topological order of the edges that don't close a cycle.
+  const open = new Set<string>();
+  const done = new Set<string>();
+  const backEdges = new Set<string>();
+  const postorder: string[] = [];
+  const visit = (id: string): void => {
+    open.add(id);
+    for (const next of outgoing.get(id) ?? []) {
+      if (open.has(next)) backEdges.add(`${id}->${next}`);
+      else if (!done.has(next)) visit(next);
+    }
+    open.delete(id);
+    done.add(id);
+    postorder.push(id);
+  };
+  visit(CLIENTS_ID);
+
+  const depth = new Map<string, number>([[CLIENTS_ID, 0]]);
+  for (const id of postorder.reverse()) {
+    for (const next of outgoing.get(id) ?? []) {
+      if (backEdges.has(`${id}->${next}`)) continue;
+      depth.set(next, Math.max(depth.get(next) ?? 0, depth.get(id)! + 1));
     }
   }
 

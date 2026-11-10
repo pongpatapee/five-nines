@@ -7,6 +7,8 @@ import {
   formatAvailability,
   formatCount,
   formatMs,
+  formatPercent,
+  formatSeconds,
   formatUsdPerMonth,
   GRADE_LABELS,
 } from '../format.ts';
@@ -116,6 +118,18 @@ export function GradeCard({
           <dt>p50</dt>
           <dd className="num">{formatMs(simulation.latency.p50Ms)}</dd>
         </div>
+        {Object.entries(simulation.dataTier.cacheHitRate).map(([id, hitRate]) => (
+          <div key={`hit:${id}`}>
+            <dt>{id} hit rate</dt>
+            <dd className="num">{formatPercent(hitRate, hitRate < 0.1 ? 1 : 0)}</dd>
+          </div>
+        ))}
+        {Object.entries(simulation.dataTier.peakReplicationLagSec).map(([id, lag]) => (
+          <div key={`lag:${id}`}>
+            <dt>{id} peak lag</dt>
+            <dd className="num">{formatSeconds(lag)}</dd>
+          </div>
+        ))}
       </dl>
 
       {mainCause && (

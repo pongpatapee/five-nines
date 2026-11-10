@@ -29,9 +29,9 @@ export interface Draft {
  * The live state of the run at one instant, shown on the nodes during playback.
  *
  * Structurally a `TimelineFrame` from the engine; playback may pass a raw frame or one interpolated between frames.
- * `nodes` is keyed by node id (the clients node is not in it; it shows `offeredRps`).
+ * `nodes` is keyed by node id (the clients node is not in it; it shows `offeredRps`). `edges` is keyed by `edgeKey`.
  */
-export type LiveFrame = Pick<TimelineFrame, 'atSec' | 'offeredRps' | 'failedRps' | 'nodes'>;
+export type LiveFrame = Pick<TimelineFrame, 'atSec' | 'offeredRps' | 'failedRps' | 'nodes' | 'edges'>;
 
 /**
  * Failure rate (req/s) from which a node, or the whole run, counts as failing on screen. The engine's fluid model

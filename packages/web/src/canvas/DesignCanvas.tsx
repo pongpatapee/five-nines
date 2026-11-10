@@ -9,7 +9,6 @@ import {
   type EdgeTypes,
   type IsValidConnection,
   type NodeChange,
-  type NodeTypes,
   type OnConnect,
   type OnDelete,
 } from '@xyflow/react';
@@ -27,12 +26,9 @@ import {
   type Dimensions,
 } from './flow.ts';
 import { useCreateCanvasHandle, type CanvasHandle } from './handle.ts';
-import { AppServerNode } from './nodes/AppServerNode.tsx';
-import { ClientsNode } from './nodes/ClientsNode.tsx';
-import { LoadBalancerNode } from './nodes/LoadBalancerNode.tsx';
+import { NODE_TYPES } from './nodes/index.ts';
 import type { CanvasSelection, DeleteRequest, Draft, LiveFrame, NodeMark, XY } from './types.ts';
 
-const nodeTypes: NodeTypes = { clients: ClientsNode, appServer: AppServerNode, loadBalancer: LoadBalancerNode };
 const edgeTypes: EdgeTypes = { flow: FlowEdge };
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--edge-color)' } as const;
 const NO_MARKS: Readonly<Record<string, NodeMark>> = {};
@@ -225,7 +221,7 @@ function DesignCanvasInner({
             colorMode="light"
             nodes={nodes}
             edges={edges}
-            nodeTypes={nodeTypes}
+            nodeTypes={NODE_TYPES}
             edgeTypes={edgeTypes}
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}

@@ -1,0 +1,260 @@
+{
+  "id": "05-cache-miss",
+  "title": "Cache Miss",
+  "concept": "Read replicas",
+  "briefing": [
+    "A messaging app shows the sender's profile card next to every message. Traffic builds to 20,000 requests per second over the first minute; 96% of requests read a profile, the rest update one.",
+    "Unlike news, nothing here is popular. There are 100 million profiles, and each read is equally likely to be any of them.",
+    "Profiles may be slightly out of date: a read can miss a change for up to 1 second. Read replicas are copies of the database that serve reads. They replay the primary's writes a fraction of a second behind it, and fall further behind when they're busy."
+  ],
+  "debrief": [
+    "A cache works when the same keys are read again before they expire. Here each profile is read about once every 87 minutes on average: 100 million profiles shared among 19,200 reads a second. A cached profile has almost always expired, or was never fetched, before anyone asks for it again. Even the biggest cache served about 1% of reads.",
+    "Read replicas add read capacity instead. Each replica is a full copy of the database, so any of them can answer any read. Three large replicas share 19,200 reads a second, 6,400 each.",
+    "Copies aren't free: every replica replays every write. Replaying a write costs half what running it did, so 800 writes a second take a tenth of a large replica. With its 6,400 reads, each replica is about 74% busy.",
+    "Replicas are always a little behind the primary. An idle replica lags 0.2 seconds, and a busy one lags 0.2 ÷ (1 − busy): at 74% busy, about 0.8 seconds, inside the 1 second allowed. With two replicas, each would need 106% of its capacity: they fall further behind every second, serve stale profiles, then time out.",
+    "Replicas suit data that can be slightly old. The next level is about data that can't."
+  ],
+  "components": [
+    "appServer",
+    "loadBalancer",
+    "cache",
+    "database",
+    "readReplicas"
+  ],
+  "durationSec": 180,
+  "seed": 505,
+  "workload": {
+    "cpuMsPerRequest": 0.5,
+    "timeoutMs": 1000,
+    "traffic": [
+      {
+        "atSec": 0,
+        "rps": 6000
+      },
+      {
+        "atSec": 60,
+        "rps": 20000
+      },
+      {
+        "atSec": 180,
+        "rps": 20000
+      }
+    ],
+    "data": {
+      "readShare": 0.96,
+      "keys": {
+        "count": 100000000,
+        "zipf": 0,
+        "valueKb": 2
+      }
+    }
+  },
+  "requirements": {
+    "p99Ms": 50,
+    "budgetUsdPerMonth": 2800,
+    "maxStalenessSec": 1
+  },
+  "solutions": [
+    {
+      "name": "Three large read replicas",
+      "explanation": "Each replica serves 6,400 reads a second and replays 800 writes: about 74% busy and 0.8 seconds behind the primary. The medium primary only handles the writes.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "replicas",
+            "kind": "readReplicas",
+            "size": "large",
+            "count": 3
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "db",
+            "to": "replicas"
+          },
+          {
+            "from": "app",
+            "to": "replicas"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "The biggest cache",
+      "explanation": "A 128 GB cache in front of a large database. Profiles are almost never read twice before they expire, so it hits about 1% and the database drowns.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "xlarge",
+            "ttlSec": 3600
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "The biggest database",
+      "explanation": "An xlarge database does 20,000 reads a second, and the writes take a tenth of it: 19,200 reads and 800 writes need 106%.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "xlarge"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Two large read replicas",
+      "explanation": "9,600 reads each, plus replaying the writes: 106% busy. They fall behind and serve stale profiles, then time out.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 4
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "replicas",
+            "kind": "readReplicas",
+            "size": "large",
+            "count": 2
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "db",
+            "to": "replicas"
+          },
+          {
+            "from": "app",
+            "to": "replicas"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    }
+  ]
+}

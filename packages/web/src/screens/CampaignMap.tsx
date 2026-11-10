@@ -4,8 +4,8 @@ import { GRADE_LABELS } from '../format.ts';
 import { CastLine, MENTOR_RULE_ONE, NinesDots, paint } from '../notebook/index.ts';
 import { routeHref } from '../routing.ts';
 import {
+  chapterLabelWidth,
   FINALE_SLOT,
-  FIRST_CHAPTER_TITLE,
   FUTURE_CHAPTERS,
   LEVEL_SLOTS,
   LOCKED_CHAPTER_LAYOUT,
@@ -13,6 +13,8 @@ import {
   NINES_PER_LEVEL,
   ninesForGrade,
   TRAIL_SEGMENTS,
+  WRITTEN_CHAPTERS,
+  type ChapterWash,
   type XYPoint,
 } from './campaign.ts';
 
@@ -23,14 +25,15 @@ export interface CampaignMapProps {
   nextUp: number | null;
 }
 
-const WASH: Record<(typeof FUTURE_CHAPTERS)[number]['wash'], string> = {
+const WASH: Record<ChapterWash, string> = {
+  green: 'var(--wash-green)',
   blue: 'var(--wash-blue)',
   peach: 'var(--wash-peach)',
   pink: 'var(--wash-pink)',
 };
 
 /**
- * The contents page as a hand-drawn trail: chapter 1's real levels (each a link), then the chapters still to be
+ * The contents page as a hand-drawn trail: the written chapters' levels (each a link), then the chapters still to be
  * written as locked, dashed placeholders. The trail is inked as far as the player has passed, pencilled beyond.
  */
 export function CampaignMap({ levels, best, nextUp }: CampaignMapProps) {
@@ -40,11 +43,13 @@ export function CampaignMap({ levels, best, nextUp }: CampaignMapProps) {
         className="campaign-map__svg"
         viewBox={`0 0 ${MAP_SIZE.width} ${MAP_SIZE.height}`}
         role="group"
-        aria-label={`Campaign map. Chapter 1, ${FIRST_CHAPTER_TITLE}: ${levels.length} pages. Later chapters coming soon.`}
+        aria-label={`Campaign map. ${WRITTEN_CHAPTERS.map((chapter, c) => `Chapter ${c + 1}, ${chapter.title}: ${chapter.levelIds.length} pages.`).join(' ')} Later chapters coming soon.`}
       >
-        <ChapterLabel at={{ x: 22, y: 30 }} tilt={-1} width={84 + FIRST_CHAPTER_TITLE.length * 13} wash="var(--wash-green)">
-          Ch. 1 · {FIRST_CHAPTER_TITLE}
-        </ChapterLabel>
+        {WRITTEN_CHAPTERS.map((chapter, c) => (
+          <ChapterLabel key={chapter.title} at={chapter.label} tilt={chapter.tilt} width={chapterLabelWidth(chapter.title)} wash={WASH[chapter.wash]}>
+            Ch. {c + 1} · {chapter.title}
+          </ChapterLabel>
+        ))}
 
         <g filter="url(#nb-wobble)">
           {TRAIL_SEGMENTS.map((d, i) => {
@@ -202,11 +207,11 @@ function LockedChapters() {
     <g className="map-locked" aria-hidden>
       {FUTURE_CHAPTERS.map((chapter, c) => {
         const layout = LOCKED_CHAPTER_LAYOUT[c]!;
-        const width = 84 + chapter.title.length * 13;
+        const width = chapterLabelWidth(chapter.title);
         return (
           <g key={chapter.title}>
             <ChapterLabel at={layout.label} tilt={layout.tilt} width={width} wash={WASH[chapter.wash]}>
-              Ch. {c + 2} · {chapter.title}
+              Ch. {WRITTEN_CHAPTERS.length + c + 1} · {chapter.title}
             </ChapterLabel>
             <text x={layout.note.x} y={layout.note.y} className="map-text map-text--locked">
               coming soon

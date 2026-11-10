@@ -8,6 +8,7 @@ import {
   nextUpIndex,
   ninesForGrade,
   TRAIL_SEGMENTS,
+  WRITTEN_CHAPTERS,
 } from '../src/screens/campaign.ts';
 
 const ids = ['a', 'b', 'c'];
@@ -33,5 +34,9 @@ describe('campaign map', () => {
     expect(LEVEL_SLOTS.length).toBeGreaterThanOrEqual(LEVELS.length);
     expect(TRAIL_SEGMENTS.length).toBeGreaterThanOrEqual(LEVELS.length);
     expect(LOCKED_CHAPTER_LAYOUT).toHaveLength(FUTURE_CHAPTERS.length);
+  });
+
+  it('puts every level in exactly one written chapter, in play order', () => {
+    expect(WRITTEN_CHAPTERS.flatMap((chapter) => chapter.levelIds)).toEqual(LEVELS.map((level) => level.id));
   });
 });
