@@ -148,6 +148,11 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
           overlay={overlay}
           onReady={onReady}
         />
+        {frozen && (
+          <div className="pb-incident-stamp" aria-hidden>
+            Incident
+          </div>
+        )}
         {frozen && evaluation.errorBudgetExhaustedAtSec !== null && (
           <PostmortemCard
             ref={postmortemRef}
