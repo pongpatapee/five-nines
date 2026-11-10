@@ -1,21 +1,12 @@
-import {
-  APP_SERVER_SIZES,
-  CLIENTS_ID,
-  COMPONENT_LABELS,
-  HEALTH_CHECK,
-  nodeCostUsdPerMonth,
-  type AppServerSize,
-  type AppServerSpec,
-  type Edge,
-  type LoadBalancerSpec,
-  type NodeSpec,
-} from '@five-nines/sim';
+import { CLIENTS_ID, nodeCostUsdPerMonth, type Edge, type Level, type NodeSpec } from '@five-nines/sim';
 import type { CanvasSelection, Draft } from '../canvas/types.ts';
-import { formatUsd, formatUsdPerMonth } from '../format.ts';
-import { HEALTH_CHECK_INTERVALS, MAX_INSTANCES, MIN_INSTANCES } from './config.ts';
-import { SegmentedControl, Stepper, Toggle, type SegmentedOption } from './controls.tsx';
+import { COMPONENTS } from '../components/registry.ts';
+import { formatUsdPerMonth } from '../format.ts';
+import { NodeFields } from './fields.tsx';
 
 export interface InspectorProps {
+  /** The level being played: some settings explain themselves in its terms (e.g. how many values a cache holds). */
+  level: Level;
   draft: Draft;
   /** Already resolved against the draft: never points at something that doesn't exist. */
   selection: CanvasSelection | null;
@@ -24,7 +15,7 @@ export interface InspectorProps {
 }
 
 /** Settings for the selected node or edge, or a short how-to when nothing is selected. */
-export function Inspector({ draft, selection, onNodeChange, onDelete }: InspectorProps) {
+export function Inspector({ level, draft, selection, onNodeChange, onDelete }: InspectorProps) {
   if (!selection) return <HowTo />;
   if (selection.kind === 'edge') return <EdgeInspector edge={selection.edge} onDelete={onDelete} />;
   if (selection.id === CLIENTS_ID) return <ClientsInspector />;
@@ -33,12 +24,8 @@ export function Inspector({ draft, selection, onNodeChange, onDelete }: Inspecto
   if (!node) return <HowTo />;
   return (
     <section className="editor-section inspector" aria-label={`Inspector: ${node.id}`}>
-      <InspectorHeader kind={COMPONENT_LABELS[node.kind]} title={node.id} onDelete={onDelete} />
-      {node.kind === 'appServer' ? (
-        <AppServerFields key={node.id} spec={node} onChange={onNodeChange} />
-      ) : (
-        <LoadBalancerFields key={node.id} spec={node} onChange={onNodeChange} />
-      )}
+      <InspectorHeader kind={COMPONENTS[node.kind].label} title={node.id} onDelete={onDelete} />
+      <NodeFields key={node.id} spec={node} onChange={onNodeChange} level={level} />
       <div className="inspector__cost">
         <span className="muted">Monthly cost</span>
         <span className="num">{formatUsdPerMonth(nodeCostUsdPerMonth(node))}</span>
@@ -60,80 +47,6 @@ function InspectorHeader({ kind, title, onDelete }: { kind: string; title: strin
         </button>
       )}
     </header>
-  );
-}
-
-const SIZE_OPTIONS: SegmentedOption<AppServerSize>[] = (Object.keys(APP_SERVER_SIZES) as AppServerSize[]).map((size) => ({
-  value: size,
-  label: size,
-  detail: (
-    <>
-      <span>{APP_SERVER_SIZES[size].vcpu} vCPU</span>
-      <span>{formatUsd(APP_SERVER_SIZES[size].usdPerMonth)}</span>
-    </>
-  ),
-}));
-
-function AppServerFields({ spec, onChange }: { spec: AppServerSpec; onChange(node: NodeSpec): void }) {
-  const { vcpu, usdPerMonth } = APP_SERVER_SIZES[spec.size];
-  return (
-    <>
-      <div className="field">
-        <div className="field__label">Size</div>
-        <SegmentedControl label="Size" options={SIZE_OPTIONS} value={spec.size} onChange={(size) => onChange({ ...spec, size })} />
-        <p className="field__help">Each vCPU works on one request at a time. Prices are per instance per month.</p>
-      </div>
-      <div className="field">
-        <div className="field__label">Instances</div>
-        <div className="field__row">
-          <Stepper
-            label="Instances"
-            value={spec.instances}
-            min={MIN_INSTANCES}
-            max={MAX_INSTANCES}
-            onChange={(instances) => onChange({ ...spec, instances })}
-          />
-          <span className="field__aside num">{vcpu * spec.instances} vCPU total</span>
-        </div>
-        <p className="field__help">
-          {spec.instances} × {formatUsd(usdPerMonth)}. More than one instance needs a load balancer in front.
-        </p>
-      </div>
-    </>
-  );
-}
-
-const INTERVAL_OPTIONS: SegmentedOption<number>[] = HEALTH_CHECK_INTERVALS.map((sec) => ({ value: sec, label: `${sec} s` }));
-
-function LoadBalancerFields({ spec, onChange }: { spec: LoadBalancerSpec; onChange(node: NodeSpec): void }) {
-  const detectSec = spec.healthCheckIntervalSec * HEALTH_CHECK.unhealthyThreshold;
-  return (
-    <>
-      <div className="field">
-        <div className="field__label">Health-check interval</div>
-        <SegmentedControl
-          label="Health-check interval"
-          options={INTERVAL_OPTIONS}
-          value={spec.healthCheckIntervalSec}
-          onChange={(healthCheckIntervalSec) => onChange({ ...spec, healthCheckIntervalSec })}
-        />
-        <p className="field__help">
-          How often the balancer probes each instance. After {HEALTH_CHECK.unhealthyThreshold} failed checks (about{' '}
-          {detectSec} s here) a dead instance leaves rotation.
-        </p>
-      </div>
-      <div className="field">
-        <Toggle
-          label="Retry on connection failure"
-          checked={spec.retryOnConnectFailure}
-          onChange={(retryOnConnectFailure) => onChange({ ...spec, retryOnConnectFailure })}
-        />
-        <p className="field__help">
-          When an instance refuses the connection (it has crashed), send the request to another instance instead of
-          failing it. Safe because the request never started.
-        </p>
-      </div>
-    </>
   );
 }
 

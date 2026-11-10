@@ -9,9 +9,12 @@
  * Latency percentiles can't be computed in closed form across several hops, so each tick also walks a few
  * sampled "probe" requests through the design using the same per-instance state. Probes only measure the
  * latency of successful requests; they never decide availability.
+ *
+ * In levels with a data workload, requests that an app server finishes go on to the data tier (`data-tier.ts`).
  */
 import {
   APP_SERVER_SIZES,
+  CLIENTS_ID,
   CONNECT_FAIL_MS,
   HEALTH_CHECK,
   HOP_LATENCY_MS,
@@ -19,8 +22,10 @@ import {
   PROBES_PER_TICK,
   TICK_SEC,
 } from './catalog.ts';
-import { buildGraph, type Graph } from './graph.ts';
-import { createRng, erlangC, interpolate, pick, sampleExponential, WeightedSamples, type Rng } from './math.ts';
+import { DataTier, type DataTierSummary } from './data-tier.ts';
+import { buildGraph, edgeKey, type Graph } from './graph.ts';
+import { createRng, interpolate, pick, sampleExponential, WeightedSamples, type Rng } from './math.ts';
+import { DOWN_TICK, newStation, probeWait, stepStation, type StationState, type StationTick } from './queue.ts';
 import type { AppServerSpec, Design, Level, LoadBalancerSpec, ScenarioEvent } from './schema.ts';
 
 export type FailureReason =
@@ -35,7 +40,9 @@ export type FailureReason =
   /** The request was sent to, or was queued on, a crashed instance. */
   | 'instance_down'
   /** A load balancer had no instance in rotation. */
-  | 'no_healthy_backend';
+  | 'no_healthy_backend'
+  /** A read returned data older than the level allows, or missed the reader's own write. */
+  | 'stale_read';
 
 export interface FailureCause {
   nodeId: string;
@@ -49,9 +56,16 @@ export interface FailureCause {
 
 export interface SimEvent {
   atSec: number;
-  kind: 'instanceFailed' | 'removedFromRotation' | 'restoredToRotation';
+  kind:
+    | 'instanceFailed'
+    | 'removedFromRotation'
+    | 'restoredToRotation'
+    /** Read replicas fell behind the primary by more than `REPLICATION.alertLagSec`. */
+    | 'replicationLagHigh'
+    | 'replicationLagRecovered';
   nodeId: string;
-  instance: number;
+  /** The instance concerned, for crashes and rotation changes. */
+  instance?: number;
   /** The load balancer that changed its rotation, for rotation events. */
   balancerId?: string;
   message: string;
@@ -68,10 +82,25 @@ export interface NodeFrame {
   arrivalRps: number;
   /** Requests that failed at this node during the second, by any reason. */
   failedRps: number;
-  /** App-server instances. Empty for load balancers. */
+  /** App-server instances, or the machines of a cache, database or replica group. Empty for load balancers. */
   instances: InstanceFrame[];
   /** Instances a load balancer currently routes to. */
   inRotation?: number;
+  /** Databases: reads per second arriving. Read replicas: reads they serve. */
+  readRps?: number;
+  /** Databases: writes per second arriving. Read replicas: writes they replay. */
+  writeRps?: number;
+  /** Caches: share of lookups served from memory. */
+  hitRate?: number;
+  /** Read replicas: how far behind the primary they are, in seconds. */
+  replicationLagSec?: number;
+}
+
+/** Traffic along one connection. */
+export interface EdgeFrame {
+  rps: number;
+  /** The part of `rps` that is writes (to a database, or replicated to replicas). */
+  writeRps: number;
 }
 
 /** One second of the run, for playback and charts. */
@@ -82,6 +111,8 @@ export interface TimelineFrame {
   failedRps: number;
   p99Ms: number | null;
   nodes: Record<string, NodeFrame>;
+  /** Keyed by `edgeKey`. Every edge of the design. */
+  edges: Record<string, EdgeFrame>;
 }
 
 export interface SimulationResult {
@@ -94,6 +125,8 @@ export interface SimulationResult {
   causes: FailureCause[];
   events: SimEvent[];
   timeline: TimelineFrame[];
+  /** Run-wide numbers for caches and replicas. Empty in levels without a data tier. */
+  dataTier: DataTierSummary;
 }
 
 /** Runs a validated design against a level. Deterministic: the same inputs always give the same result. */
@@ -103,37 +136,9 @@ export function simulate(level: Level, design: Design): SimulationResult {
 
 // ---------------------------------------------------------------------------
 
-interface InstanceState {
-  up: boolean;
-  /** Requests waiting for a free vCPU. */
-  backlog: number;
-  arrivalRps: number;
-  utilization: number;
-}
-
-/**
- * What a request arriving at an instance this tick experiences.
- * Flow accounting and probes both read it, so they agree on who fails.
- */
-interface InstanceTick {
-  up: boolean;
-  /** Share of arrivals rejected because the backlog can't be cleared before the timeout. */
-  overflowFraction: number;
-  /** Wait behind the backlog left over from earlier ticks. */
-  backlogWaitSec: number;
-  /** Erlang C: chance of waiting for a free vCPU at all. */
-  waitProbability: number;
-  /** μ − λ: the rate of the exponential queueing delay for those who wait. */
-  drainRate: number;
-}
-
-const DOWN_TICK: InstanceTick = {
-  up: false,
-  overflowFraction: 1,
-  backlogWaitSec: 0,
-  waitProbability: 0,
-  drainRate: 0,
-};
+/** An app-server instance is a queueing station with one worker per vCPU. */
+type InstanceState = StationState;
+type InstanceTick = StationTick;
 
 interface Target {
   nodeId: string;
@@ -173,6 +178,9 @@ class Simulation {
   private readonly targets = new Map<string, Target[]>();
   private readonly instanceTicks = new Map<string, InstanceTick[]>();
   private readonly balancerTicks = new Map<string, BalancerTick>();
+  private readonly data: DataTier | null;
+  /** This tick's traffic on each edge, keyed by `edgeKey`. */
+  private readonly edgeFlows = new Map<string, EdgeFrame>();
 
   private totalRequests = 0;
   private failedRequests = 0;
@@ -198,7 +206,7 @@ class Simulation {
       if (node.kind === 'appServer') {
         this.instances.set(
           node.id,
-          Array.from({ length: node.instances }, () => ({ up: true, backlog: 0, arrivalRps: 0, utilization: 0 })),
+          Array.from({ length: node.instances }, newStation),
         );
       }
     }
@@ -218,6 +226,14 @@ class Simulation {
         );
       }
     }
+    const data = level.workload.data;
+    this.data = data
+      ? new DataTier(level, data, this.graph, {
+          fail: (nodeId, reason, requests, atSec) => this.fail(nodeId, reason, requests, atSec),
+          log: (event) => this.log.push(event),
+        })
+      : null;
+    for (const edge of design.edges) this.edgeFlows.set(edgeKey(edge), { rps: 0, writeRps: 0 });
   }
 
   run(): SimulationResult {
@@ -252,6 +268,7 @@ class Simulation {
       causes,
       events: this.log,
       timeline: this.timeline,
+      dataTier: this.data?.summary() ?? { cacheHitRate: {}, peakReplicationLagSec: {} },
     };
   }
 
@@ -355,12 +372,21 @@ class Simulation {
   // --- Flow ------------------------------------------------------------------
 
   private flow(offeredRps: number, atSec: number): void {
+    for (const edge of this.edgeFlows.values()) {
+      edge.rps = 0;
+      edge.writeRps = 0;
+    }
+    this.edgeFlows.get(edgeKey({ from: CLIENTS_ID, to: this.graph.entryId }))!.rps = offeredRps;
+
     const arrivals = new Map<string, number[]>();
     for (const node of this.graph.nodes.values()) {
       arrivals.set(node.id, new Array(node.kind === 'appServer' ? node.instances : 1).fill(0));
     }
     arrivals.get(this.graph.entryId)![0] = offeredRps;
 
+    // The request tier in topological order. Data-tier nodes are stepped together afterwards, because a cache's
+    // misses reach the database without an edge between them.
+    const finished = new Map<string, number>();
     for (const id of this.graph.order) {
       const node = this.graph.nodes.get(id)!;
       const incoming = arrivals.get(id)!;
@@ -369,9 +395,16 @@ class Simulation {
           this.balance(node, sum(incoming), arrivals, atSec);
           break;
         case 'appServer':
-          this.serve(node, incoming, atSec);
+          finished.set(id, this.serve(node, incoming, atSec));
+          break;
+        default:
           break;
       }
+    }
+
+    if (this.data) {
+      this.data.step(finished, atSec);
+      for (const [key, flow] of this.data.edges()) Object.assign(this.edgeFlows.get(key)!, flow);
     }
   }
 
@@ -389,6 +422,7 @@ class Simulation {
     }
 
     const send = (target: Target, share: number) => {
+      this.edgeFlows.get(edgeKey({ from: spec.id, to: target.nodeId }))!.rps += share;
       if (this.isUp(target)) arrivals.get(target.nodeId)![target.index]! += share;
       else this.fail(target.nodeId, 'instance_down', share * TICK_SEC, atSec);
     };
@@ -407,48 +441,25 @@ class Simulation {
     }
   }
 
-  private serve(spec: AppServerSpec, incoming: readonly number[], atSec: number): void {
+  /** Steps every instance of an app server. Returns the requests per second it finished (arrivals minus failures). */
+  private serve(spec: AppServerSpec, incoming: readonly number[], atSec: number): number {
     const servers = APP_SERVER_SIZES[spec.size].vcpu;
-    const capacityRps = servers / this.serviceMeanSec;
+    let finished = 0;
     const ticks = this.instances.get(spec.id)!.map((state, index) => {
       const arrivalRps = incoming[index]!;
-      state.arrivalRps = arrivalRps;
-      state.utilization = arrivalRps / capacityRps;
       if (!state.up) {
+        state.arrivalRps = arrivalRps;
+        state.utilization = arrivalRps / (servers / this.serviceMeanSec);
         this.fail(spec.id, 'instance_down', arrivalRps * TICK_SEC, atSec);
         return DOWN_TICK;
       }
-
-      // Fluid backlog: what can't be served this tick waits. Anything that couldn't be served before the
-      // timeout is rejected now, attributed to this tick's arrivals.
-      const arriving = arrivalRps * TICK_SEC;
-      let backlog = state.backlog + arriving;
-      backlog -= Math.min(backlog, capacityRps * TICK_SEC);
-      const overflow = Math.max(0, backlog - capacityRps * this.timeoutSec);
-      backlog -= overflow;
-      state.backlog = backlog;
-
-      // Random queueing on top of the backlog, from the M/M/c model. Only defined below capacity.
-      const backlogWaitSec = backlog / capacityRps;
-      let waitProbability = 0;
-      let drainRate = 0;
-      if (arrivalRps > 0 && arrivalRps < capacityRps) {
-        waitProbability = erlangC(servers, arrivalRps * this.serviceMeanSec);
-        drainRate = capacityRps - arrivalRps;
-      }
-      const lateProbability =
-        waitProbability * Math.exp(-drainRate * Math.max(0, this.timeoutSec - backlogWaitSec));
-
-      this.fail(spec.id, 'timeout', overflow + (arriving - overflow) * lateProbability, atSec);
-      return {
-        up: true,
-        overflowFraction: arriving > 0 ? overflow / arriving : 0,
-        backlogWaitSec,
-        waitProbability,
-        drainRate,
-      };
+      const { tick, failed } = stepStation(state, arrivalRps, servers, this.serviceMeanSec, this.timeoutSec);
+      this.fail(spec.id, 'timeout', failed, atSec);
+      finished += arrivalRps - failed / TICK_SEC;
+      return tick;
     });
     this.instanceTicks.set(spec.id, ticks);
+    return Math.max(0, finished);
   }
 
   // --- Probes ----------------------------------------------------------------
@@ -479,13 +490,17 @@ class Simulation {
         }
         case 'appServer': {
           const tick = this.instanceTicks.get(nodeId)![index]!;
-          if (!tick.up || this.rng() < tick.overflowFraction) return null;
-          let waitSec = tick.backlogWaitSec;
-          if (this.rng() < tick.waitProbability) waitSec += sampleExponential(this.rng, tick.drainRate);
-          if (waitSec > this.timeoutSec) return null;
+          const waitSec = probeWait(tick, this.rng, this.timeoutSec);
+          if (waitSec === null) return null;
           const serviceSec = sampleExponential(this.rng, 1 / this.serviceMeanSec);
-          return latencyMs + (waitSec + serviceSec) * 1000;
+          latencyMs += (waitSec + serviceSec) * 1000;
+          if (!this.data?.serves(nodeId)) return latencyMs;
+          const dataMs = this.data.probe(nodeId, this.rng);
+          return dataMs === null ? null : latencyMs + dataMs;
         }
+        default:
+          // Data-tier nodes are reached through the app server's data operation above.
+          return null;
       }
     }
   }
@@ -538,14 +553,22 @@ class Simulation {
           };
           break;
         }
+        default: {
+          const frame = this.data?.frame(node.id);
+          if (frame) nodes[node.id] = { ...frame, failedRps: this.secondFailedByNode.get(node.id) ?? 0 };
+          break;
+        }
       }
     }
+    const edges: Record<string, EdgeFrame> = {};
+    for (const [key, flow] of this.edgeFlows) edges[key] = { ...flow };
     this.timeline.push({
       atSec: second,
       offeredRps: this.secondOffered,
       failedRps: this.secondFailed,
       p99Ms: this.secondSamples.quantile(0.99),
       nodes,
+      edges,
     });
     this.secondOffered = 0;
     this.secondFailed = 0;

@@ -2,6 +2,7 @@
  * Where new components go. Pure geometry in flow coordinates, so it can be unit tested without React Flow.
  */
 import { CLIENTS_ID, type ComponentKind } from '@five-nines/sim';
+import { COMPONENTS } from '../components/registry.ts';
 import { COLUMN_GAP, NODE_HEIGHT, NODE_WIDTH } from '../canvas/layout.ts';
 import type { Draft, Rect, XY } from '../canvas/types.ts';
 
@@ -22,17 +23,16 @@ export function centeredAt(point: XY): XY {
 }
 
 /**
- * Where a new component would naturally sit in the left-to-right flow: a load balancer one column right of the
- * clients, an app server one column right of the rightmost load balancer (or of the clients when there is none),
- * level with the node it sits after.
+ * Where a new component would naturally sit in the left-to-right flow: one column right of the rightmost node of a
+ * kind it follows (`ComponentMeta.follows`: an app server follows load balancers, a database follows app servers…),
+ * or of the clients when there is none, level with that node.
  */
 export function preferredPosition(draft: Draft, kind: ComponentKind): XY {
   let anchor = draft.layout[CLIENTS_ID] ?? { x: 0, y: 0 };
-  if (kind === 'appServer') {
-    for (const node of draft.design.nodes) {
-      const position = draft.layout[node.id];
-      if (node.kind === 'loadBalancer' && position && position.x > anchor.x) anchor = position;
-    }
+  const follows = COMPONENTS[kind].follows;
+  for (const node of draft.design.nodes) {
+    const position = draft.layout[node.id];
+    if (follows.includes(node.kind) && position && position.x > anchor.x) anchor = position;
   }
   return { x: anchor.x + COLUMN_GAP, y: anchor.y };
 }

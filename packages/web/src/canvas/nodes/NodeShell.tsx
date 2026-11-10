@@ -1,3 +1,4 @@
+import type { ComponentKind } from '@five-nines/sim';
 import { Handle, Position } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { formatUsdPerMonth } from '../../format.ts';
@@ -6,6 +7,8 @@ import { isFailingRate } from '../types.ts';
 
 export interface NodeShellProps {
   id: string;
+  /** The component kind (or "clients"), exposed as `data-kind` so themes can style each kind. */
+  kind: ComponentKind | 'clients';
   /** Uppercase kind label, e.g. "App server". */
   kindLabel: string;
   /** Key configuration in one line, e.g. "xlarge × 4". */
@@ -20,7 +23,7 @@ export interface NodeShellProps {
 }
 
 /** The frame every node shares: handles, header, marks, selection and the failing glow. */
-export function NodeShell({ id, kindLabel, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
+export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
   const { live, marks } = useDecorations();
   const failing = isFailingRate(live?.nodes[id]?.failedRps ?? 0);
   const mark = marks[id];
@@ -30,7 +33,7 @@ export function NodeShell({ id, kindLabel, config, costUsdPerMonth, selected, ha
   if (mark) classes.push(`is-mark-${mark}`);
 
   return (
-    <div className={classes.join(' ')} data-node-id={id}>
+    <div className={classes.join(' ')} data-node-id={id} data-kind={kind}>
       {hasTarget && <Handle type="target" position={Position.Left} className="design-node__handle" />}
       <div className="design-node__header">
         <span className="design-node__kind">{kindLabel}</span>

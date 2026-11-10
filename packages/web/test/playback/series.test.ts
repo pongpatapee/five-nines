@@ -1,3 +1,4 @@
+import type { TimelineFrame } from '@five-nines/sim';
 import { describe, expect, it } from 'vitest';
 import {
   availabilityUpTo,
@@ -102,3 +103,27 @@ describe('sampleFrame', () => {
     expect(sampleFrame(crash, 1.1)!.nodes.app!.instances[0]!.up).toBe(false);
   });
 });
+
+describe('sampleFrame: data tier', () => {
+  const frame = (atSec: number, value: number): TimelineFrame => ({
+    atSec,
+    offeredRps: 1000,
+    failedRps: 0,
+    p99Ms: 5,
+    nodes: {
+      cache: { arrivalRps: 900, failedRps: 0, instances: [], hitRate: value },
+      replicas: { arrivalRps: 100, failedRps: 0, instances: [], replicationLagSec: value * 10, readRps: 100, writeRps: 10 },
+    },
+    edges: { 'db->replicas': { rps: value * 100, writeRps: value * 100 } },
+  });
+
+  it('blends hit rate, lag and edge flows between seconds', () => {
+    const live = sampleFrame([frame(0, 0.2), frame(1, 0.6)], 1)!;
+    expect(live.nodes['cache']!.hitRate).toBeCloseTo(0.4, 12);
+    expect(live.nodes['replicas']!.replicationLagSec).toBeCloseTo(4, 12);
+    expect(live.nodes['replicas']!.readRps).toBe(100);
+    expect(live.edges['db->replicas']).toEqual({ rps: expect.closeTo(40, 12), writeRps: expect.closeTo(40, 12) });
+    expect(live.nodes['cache']!.replicationLagSec).toBeUndefined();
+  });
+});
+

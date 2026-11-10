@@ -2,7 +2,16 @@
  * Draft ↔ React Flow conversion. The draft is the source of truth; React Flow nodes and edges are derived from it on
  * every render, and React Flow's change events are translated back into draft intents by `DesignCanvas`.
  */
-import { CLIENTS_ID, type AppServerSpec, type Edge, type LoadBalancerSpec } from '@five-nines/sim';
+import {
+  CLIENTS_ID,
+  type AppServerSpec,
+  type CacheSpec,
+  type DatabaseSpec,
+  type Edge,
+  type LoadBalancerSpec,
+  type NodeSpec,
+  type ReadReplicasSpec,
+} from '@five-nines/sim';
 import type { Connection, Edge as RFEdge, Node as RFNode } from '@xyflow/react';
 import { balancerBackendCount, edgeKey } from './draft.ts';
 import type { CanvasSelection, Draft } from './types.ts';
@@ -16,10 +25,23 @@ export type LoadBalancerNodeData = {
   backendCount: number;
 };
 
+export type CacheNodeData = { kind: 'cache'; spec: CacheSpec };
+export type DatabaseNodeData = { kind: 'database'; spec: DatabaseSpec };
+export type ReadReplicasNodeData = { kind: 'readReplicas'; spec: ReadReplicasSpec };
+
 export type ClientsFlowNode = RFNode<ClientsNodeData, 'clients'>;
 export type AppServerFlowNode = RFNode<AppServerNodeData, 'appServer'>;
 export type LoadBalancerFlowNode = RFNode<LoadBalancerNodeData, 'loadBalancer'>;
-export type DesignFlowNode = ClientsFlowNode | AppServerFlowNode | LoadBalancerFlowNode;
+export type CacheFlowNode = RFNode<CacheNodeData, 'cache'>;
+export type DatabaseFlowNode = RFNode<DatabaseNodeData, 'database'>;
+export type ReadReplicasFlowNode = RFNode<ReadReplicasNodeData, 'readReplicas'>;
+export type DesignFlowNode =
+  | ClientsFlowNode
+  | AppServerFlowNode
+  | LoadBalancerFlowNode
+  | CacheFlowNode
+  | DatabaseFlowNode
+  | ReadReplicasFlowNode;
 
 export type FlowEdgeData = { from: string; to: string };
 export type DesignFlowEdge = RFEdge<FlowEdgeData, 'flow'>;
@@ -51,18 +73,32 @@ export function draftToFlowNodes(draft: Draft, options: ToFlowOptions = {}): Des
   const nodes: DesignFlowNode[] = [
     { ...common(CLIENTS_ID), type: 'clients', deletable: false, data: { kind: 'clients' } },
   ];
-  for (const spec of draft.design.nodes) {
-    if (spec.kind === 'appServer') {
-      nodes.push({ ...common(spec.id), type: 'appServer', data: { kind: 'appServer', spec } });
-    } else {
-      nodes.push({
-        ...common(spec.id),
+  for (const spec of draft.design.nodes) nodes.push(componentNode(spec, draft, common(spec.id)));
+  return nodes;
+}
+
+/** A component's React Flow node: its type is its kind, its data the spec (plus what its node displays). */
+function componentNode(
+  spec: NodeSpec,
+  draft: Draft,
+  base: Pick<DesignFlowNode, 'id' | 'position' | 'selected' | 'measured'>,
+): DesignFlowNode {
+  switch (spec.kind) {
+    case 'appServer':
+      return { ...base, type: 'appServer', data: { kind: 'appServer', spec } };
+    case 'loadBalancer':
+      return {
+        ...base,
         type: 'loadBalancer',
         data: { kind: 'loadBalancer', spec, backendCount: balancerBackendCount(draft, spec.id) },
-      });
-    }
+      };
+    case 'cache':
+      return { ...base, type: 'cache', data: { kind: 'cache', spec } };
+    case 'database':
+      return { ...base, type: 'database', data: { kind: 'database', spec } };
+    case 'readReplicas':
+      return { ...base, type: 'readReplicas', data: { kind: 'readReplicas', spec } };
   }
-  return nodes;
 }
 
 /** React Flow edges for a draft, keyed by `edgeKey`. */

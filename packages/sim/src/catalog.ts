@@ -50,4 +50,68 @@ export const CLIENTS_ID = 'clients';
 export const COMPONENT_LABELS = {
   appServer: 'App server',
   loadBalancer: 'Load balancer',
+  cache: 'Cache',
+  database: 'Database',
+  readReplicas: 'Read replicas',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Data tier
+// ---------------------------------------------------------------------------
+
+export type CacheSize = 'small' | 'medium' | 'large' | 'xlarge';
+
+/**
+ * An in-memory cache node (Redis/Memcached-like). It holds as many values as fit in memory, and the hit rate follows
+ * from how the level's reads spread over the keys. Every size serves the same number of operations: memory is what
+ * you pay for.
+ */
+export const CACHE_SIZES: Record<CacheSize, { memoryGb: number; usdPerMonth: number }> = {
+  small: { memoryGb: 2, usdPerMonth: 30 },
+  medium: { memoryGb: 8, usdPerMonth: 110 },
+  large: { memoryGb: 32, usdPerMonth: 420 },
+  xlarge: { memoryGb: 128, usdPerMonth: 1_600 },
+};
+
+export const CACHE = {
+  /** Lookups per second one cache node serves. */
+  opsPerSec: 100_000,
+  /** Lookups it works on at once. */
+  workers: 4,
+} as const;
+
+export type DatabaseSize = 'small' | 'medium' | 'large' | 'xlarge';
+
+/**
+ * A relational database server (Postgres-like). Reads and writes share the machine: a write costs as much as
+ * `readsPerSec / writesPerSec` reads. Read replicas are the same machines.
+ */
+export const DATABASE_SIZES: Record<DatabaseSize, { vcpu: number; readsPerSec: number; writesPerSec: number; usdPerMonth: number }> =
+  {
+    small: { vcpu: 2, readsPerSec: 2_500, writesPerSec: 1_000, usdPerMonth: 150 },
+    medium: { vcpu: 4, readsPerSec: 5_000, writesPerSec: 2_000, usdPerMonth: 300 },
+    large: { vcpu: 8, readsPerSec: 10_000, writesPerSec: 4_000, usdPerMonth: 600 },
+    xlarge: { vcpu: 16, readsPerSec: 20_000, writesPerSec: 8_000, usdPerMonth: 1_200 },
+  };
+
+export const REPLICATION = {
+  /**
+   * Lag of an idle replica. A busy replica lags more: base ÷ (1 − utilization), so 50% busy doubles it and 90%
+   * busy multiplies it by ten.
+   */
+  baseLagSec: 0.2,
+  /** Replaying a write from the primary's log costs a replica this share of what running the write cost the primary. */
+  replayCost: 0.5,
+  /** The busy-lag formula is capped at this utilization; beyond full load the replica falls further behind instead. */
+  maxLagUtilization: 0.98,
+  /** Lag at which the event log reports that replicas fell behind. */
+  alertLagSec: 1,
+  /** Most replicas in one group. */
+  maxCount: 16,
+} as const;
+
+/** The read-your-writes windows the game offers, in seconds. 0 is off. */
+export const READ_YOUR_WRITES_WINDOWS = [0, 1, 2, 5, 10, 30] as const;
+
+/** The cache expiry times (TTL) the game offers, in seconds. */
+export const CACHE_TTLS = [10, 60, 300, 3_600] as const;

@@ -61,6 +61,24 @@ describe('autoLayout', () => {
     expect(layout.b!.x).toBe(2 * COLUMN_GAP);
   });
 
+  it('puts a node right of every node that connects to it', () => {
+    const layout = autoLayout({
+      nodes: [
+        { id: 'app', kind: 'appServer', size: 'small', instances: 1 },
+        { id: 'db', kind: 'database', size: 'small' },
+        { id: 'replicas', kind: 'readReplicas', size: 'small', count: 2, readYourWritesSec: 0 },
+      ],
+      edges: [
+        { from: CLIENTS_ID, to: 'app' },
+        { from: 'app', to: 'replicas' },
+        { from: 'app', to: 'db' },
+        { from: 'db', to: 'replicas' },
+      ],
+    });
+    expect(layout.db!.x).toBe(2 * COLUMN_GAP);
+    expect(layout.replicas!.x).toBe(3 * COLUMN_GAP);
+  });
+
   it('lays out the empty design as just the clients', () => {
     expect(autoLayout({ nodes: [], edges: [] })).toEqual({ [CLIENTS_ID]: { x: 0, y: 0 } });
   });
