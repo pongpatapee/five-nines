@@ -38,7 +38,7 @@ export function PostmortemCard(props: PostmortemCardProps) {
         <ol className="pb-postmortem__causes">
           {shownCauses.map((cause, i) => (
             <li key={`${cause.nodeId}:${cause.reason}`} data-root={i === 0 || undefined}>
-              {describeCause(cause)}
+              {describeCause(cause, { count: false })}
               {i === 0 && <span className="pb-postmortem__root">root cause</span>}
             </li>
           ))}
