@@ -37,6 +37,8 @@ const edgeTypes: EdgeTypes = { flow: FlowEdge };
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--edge-color)' } as const;
 const NO_MARKS: Readonly<Record<string, NodeMark>> = {};
 const DELETE_KEYS = ['Backspace', 'Delete'];
+/** Graph-paper square, in flow units. Matches `--grid-minor-size` so the canvas and the page share a grid. */
+const GRID_MINOR = 24;
 /** How far out the player can zoom. */
 export const MIN_ZOOM = 0.25;
 
@@ -220,7 +222,7 @@ function DesignCanvasInner({
         <DecorationsContext.Provider value={decorations}>
           <ReactFlow<DesignFlowNode, DesignFlowEdge>
             className={classes.join(' ')}
-            colorMode="dark"
+            colorMode="light"
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
@@ -250,7 +252,16 @@ function DesignCanvasInner({
             fitView
             fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--grid-dot)" />
+            {/* Graph paper that pans and zooms with the design: a fine grid, and a heavier line every five squares. */}
+            <Background id="minor" variant={BackgroundVariant.Lines} gap={GRID_MINOR} lineWidth={1} color="var(--grid-minor)" />
+            <Background
+              id="major"
+              variant={BackgroundVariant.Lines}
+              gap={GRID_MINOR * 5}
+              lineWidth={1}
+              color="var(--grid-major)"
+              bgColor="transparent"
+            />
             {overlay && <div className="design-canvas__overlay">{overlay}</div>}
             {children}
           </ReactFlow>

@@ -9,7 +9,7 @@ import { NodeShell } from './NodeShell.tsx';
 export const ClientsNode = memo(function ClientsNode({ id, selected }: NodeProps<ClientsFlowNode>) {
   const { live } = useDecorations();
   return (
-    <NodeShell id={id} kindLabel="Traffic" config="Users on the internet" selected={selected} hasTarget={false}>
+    <NodeShell id={id} doodle="clients" kindLabel="Traffic" config="Users on the internet" selected={selected} hasTarget={false}>
       {live && (
         <div className="design-node__live">
           <div className="live-row">

@@ -34,6 +34,7 @@ export const AppServerNode = memo(function AppServerNode({ id, data, selected }:
   return (
     <NodeShell
       id={id}
+      doodle="appServer"
       kindLabel={COMPONENT_LABELS.appServer}
       config={`${appServerConfigLabel(data.spec)} · ${vcpu * data.spec.instances} vCPU`}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
