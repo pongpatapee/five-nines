@@ -10,7 +10,14 @@ export const FAILURE_REASON_TEXT: Record<FailureReason, string> = {
   no_healthy_backend: 'no healthy instance left in rotation',
 };
 
-/** "app: requests sent to a crashed instance (9,000 requests, from t=61s)" */
-export function describeCause(cause: FailureCause): string {
-  return `${cause.nodeId}: ${FAILURE_REASON_TEXT[cause.reason]} (${formatCount(cause.requests)} requests, from ${formatSimTime(cause.firstAtSec)})`;
+/**
+ * "app: requests sent to a crashed instance (9,000 requests, from t=61s)".
+ *
+ * `cause.requests` counts the whole run, so pass `{ count: false }` when describing a moment part-way through it
+ * (the freeze-frame): "app: requests sent to a crashed instance (from t=61s)".
+ */
+export function describeCause(cause: FailureCause, { count = true }: { count?: boolean } = {}): string {
+  const since = `from ${formatSimTime(cause.firstAtSec)}`;
+  const detail = count ? `${formatCount(cause.requests)} requests, ${since}` : since;
+  return `${cause.nodeId}: ${FAILURE_REASON_TEXT[cause.reason]} (${detail})`;
 }
