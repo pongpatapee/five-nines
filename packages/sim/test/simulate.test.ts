@@ -117,6 +117,18 @@ describe('instance failure', () => {
   });
 });
 
+describe('timeline', () => {
+  it('attributes failures to the node where they happened, per second', () => {
+    const level = makeLevel({ events: CRASH_AT_30, workload: { traffic: [{ atSec: 0, rps: 1000 }] } });
+    const result = simulate(level, balanced(4, 'large', { healthCheckIntervalSec: 5 }));
+    const second = result.timeline.find((frame) => frame.atSec === 31)!;
+    expect(second.nodes['app']!.failedRps).toBeCloseTo(250, 6);
+    expect(second.nodes['lb']!.failedRps).toBe(0);
+    expect(second.failedRps).toBeCloseTo(250, 6);
+    expect(result.timeline.find((frame) => frame.atSec === 40)!.nodes['app']!.failedRps).toBeCloseTo(0, 6);
+  });
+});
+
 describe('determinism and grading', () => {
   it('produces identical results for identical inputs', () => {
     const level = makeLevel({ events: CRASH_AT_30 });
@@ -126,6 +138,15 @@ describe('determinism and grading', () => {
   it('reports every failing check', () => {
     const evaluation = evaluateDesign(makeLevel({ requirements: { budgetUsdPerMonth: 10 } }), singleServer('small'));
     expect(evaluation).toMatchObject({ status: 'graded', grade: 'fail', failedChecks: ['availability', 'latency', 'budget'] });
+  });
+
+  it('reports when the error budget ran out', () => {
+    // 60s × 1,000 req/s = 60,000 requests, so the budget is 60. The crash fails 250 req/s from t=30.
+    const level = makeLevel({ events: CRASH_AT_30, workload: { traffic: [{ atSec: 0, rps: 1000 }] } });
+    const failing = evaluateDesign(level, balanced(4, 'large', { healthCheckIntervalSec: 5 }));
+    expect(failing.status === 'graded' && failing.errorBudgetExhaustedAtSec).toBe(30);
+    const passing = evaluateDesign(level, balanced(4, 'large', { retryOnConnectFailure: true }));
+    expect(passing.status === 'graded' && passing.errorBudgetExhaustedAtSec).toBeNull();
   });
 
   it('does not simulate an invalid design', () => {

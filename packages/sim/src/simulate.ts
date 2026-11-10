@@ -62,6 +62,8 @@ export interface InstanceFrame {
 
 export interface NodeFrame {
   arrivalRps: number;
+  /** Requests that failed at this node during the second, by any reason. */
+  failedRps: number;
   /** App-server instances. Empty for load balancers. */
   instances: InstanceFrame[];
   /** Instances a load balancer currently routes to. */
@@ -178,6 +180,7 @@ class Simulation {
   private readonly secondSamples = new WeightedSamples();
   private secondOffered = 0;
   private secondFailed = 0;
+  private readonly secondFailedByNode = new Map<string, number>();
 
   constructor(level: Level, design: Design) {
     this.level = level;
@@ -494,6 +497,7 @@ class Simulation {
     if (!(requests > 0)) return;
     this.failedRequests += requests;
     this.secondFailed += requests;
+    this.secondFailedByNode.set(nodeId, (this.secondFailedByNode.get(nodeId) ?? 0) + requests);
     const key = `${nodeId}\u0000${reason}`;
     let tally = this.tallies.get(key);
     if (tally === undefined) {
@@ -513,6 +517,7 @@ class Simulation {
           const states = this.instances.get(node.id)!;
           nodes[node.id] = {
             arrivalRps: sum(states.map((state) => state.arrivalRps)),
+            failedRps: this.secondFailedByNode.get(node.id) ?? 0,
             instances: states.map((state) => ({
               up: state.up,
               utilization: state.utilization,
@@ -524,6 +529,7 @@ class Simulation {
         case 'loadBalancer': {
           nodes[node.id] = {
             arrivalRps: this.balancerTicks.get(node.id)?.arrivalRps ?? 0,
+            failedRps: this.secondFailedByNode.get(node.id) ?? 0,
             instances: [],
             inRotation: this.targets.get(node.id)!.filter((target) => target.inRotation).length,
           };
@@ -540,6 +546,7 @@ class Simulation {
     });
     this.secondOffered = 0;
     this.secondFailed = 0;
+    this.secondFailedByNode.clear();
     this.secondSamples.clear();
   }
 }

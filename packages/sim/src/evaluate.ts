@@ -18,6 +18,11 @@ export type Evaluation =
       checks: Checks;
       /** In a fixed order: availability, latency, budget. */
       failedChecks: CheckName[];
+      /**
+       * The second in which cumulative failures exceeded the error budget for a pass (0.1% of all requests
+       * in the run), or null if they never did. The UI freezes playback here.
+       */
+      errorBudgetExhaustedAtSec: number | null;
       warnings: DesignIssue[];
       simulation: SimulationResult;
     };
@@ -50,9 +55,20 @@ export function evaluateDesign(level: Level, design: Design): Evaluation {
     grade: failedChecks.length > 0 ? 'fail' : availabilityGrade(simulation.availability),
     checks,
     failedChecks,
+    errorBudgetExhaustedAtSec: errorBudgetExhaustedAt(simulation),
     warnings: issues,
     simulation,
   };
+}
+
+function errorBudgetExhaustedAt(simulation: SimulationResult): number | null {
+  const budget = (1 - AVAILABILITY_TIERS.pass) * simulation.totalRequests;
+  let failed = 0;
+  for (const frame of simulation.timeline) {
+    failed += frame.failedRps;
+    if (failed > budget) return frame.atSec;
+  }
+  return null;
 }
 
 export function availabilityGrade(availability: number): Grade {
