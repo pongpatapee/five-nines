@@ -48,6 +48,8 @@ export interface CanvasHandle {
   focusNode(id: string, options?: { zoom?: number; durationMs?: number }): Promise<void>;
   /** Fits every node in view. */
   fitView(options?: { durationMs?: number; padding?: number }): Promise<void>;
+  /** Smoothly moves to the given pan and zoom. */
+  setViewport(viewport: Viewport, options?: { durationMs?: number }): Promise<void>;
 }
 
 /** Builds the handle for the React Flow instance in context. Internal to `DesignCanvas`. */
@@ -106,6 +108,9 @@ export function useCreateCanvasHandle(registry: EdgeGeometryRegistry): CanvasHan
       },
       async fitView(options = {}) {
         await flow.fitView({ duration: options.durationMs ?? 300, padding: options.padding ?? 0.2 });
+      },
+      async setViewport(next, options = {}) {
+        await flow.setViewport(next, { duration: options.durationMs ?? 300 });
       },
     };
   }, [flow, store, registry]);

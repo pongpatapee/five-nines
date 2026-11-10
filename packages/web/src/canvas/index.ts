@@ -7,7 +7,7 @@
  * - `layout`: `autoLayout`, `completeLayout`, `draftFromDesign`.
  * - `draft`: pure draft operations (`addNode`, `connect`, `removeElements`, …).
  */
-export { DesignCanvas, type DesignCanvasProps } from './DesignCanvas.tsx';
+export { DesignCanvas, MIN_ZOOM, type DesignCanvasProps } from './DesignCanvas.tsx';
 export { useCanvasHandle, useDecorations } from './context.ts';
 export type { CanvasHandle, Viewport } from './handle.ts';
 export * from './geometry.ts';

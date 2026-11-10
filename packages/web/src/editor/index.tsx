@@ -11,7 +11,10 @@ import {
   connect,
   createNodeSpec,
   DesignCanvas,
+  MIN_ZOOM,
   moveNode,
+  NODE_HEIGHT,
+  NODE_WIDTH,
   nextNodeId,
   removeElements,
   replaceNode,
@@ -32,7 +35,7 @@ import {
   occupiedRects,
   preferredPosition,
   rectContains,
-  snapToGrid,
+  revealViewport,
   visibleFlowRect,
 } from './placement.ts';
 import { RunBar } from './RunBar.tsx';
@@ -93,18 +96,21 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
     setSelection({ kind: 'node', id });
   };
 
-  const addInView = (kind: ComponentKind) => {
-    const preferred = preferredPosition(draft, kind);
+  // A clicked palette item goes to its natural place in the flow, and the view follows it there.
+  const addInFlow = (kind: ComponentKind) => {
     const handle = handleRef.current;
-    if (!handle) return addAt(kind, snapToGrid(preferred));
-    addAt(
-      kind,
-      findFreeSpot({
-        preferred,
-        view: visibleFlowRect(handle.getViewport(), handle.getSize()),
-        occupied: occupiedRects(draft, handle.getNodeRects()),
-      }),
-    );
+    const occupied = occupiedRects(draft, handle?.getNodeRects() ?? {});
+    const position = findFreeSpot({ preferred: preferredPosition(draft, kind), occupied });
+    addAt(kind, position);
+    if (!handle) return;
+    const viewport = revealViewport({
+      viewport: handle.getViewport(),
+      size: handle.getSize(),
+      target: { ...position, width: NODE_WIDTH, height: NODE_HEIGHT },
+      context: occupied,
+      minZoom: MIN_ZOOM,
+    });
+    if (viewport) void handle.setViewport(viewport, { durationMs: 300 });
   };
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -179,7 +185,7 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
       </div>
       <aside className="editor-sidebar" aria-label="Build tools">
         <div className="editor-sidebar__scroll">
-          <Palette components={level.components} onAdd={addInView} />
+          <Palette components={level.components} onAdd={addInFlow} />
           <Inspector draft={draft} selection={selection} onNodeChange={updateNode} onDelete={deleteSelection} />
           <IssueList issues={sortedIssues} onSelectNode={selectNode} />
         </div>

@@ -13,11 +13,11 @@ import {
   preferredPosition,
   rectContains,
   rectsOverlap,
+  revealViewport,
   visibleFlowRect,
 } from '../src/editor/placement.ts';
 import { isDeletable, resolveSelection } from '../src/editor/selection.ts';
 
-const VIEW: Rect = { x: -100, y: -400, width: 1400, height: 800 };
 const box = (x: number, y: number): Rect => ({ x, y, width: NODE_WIDTH, height: NODE_HEIGHT });
 
 describe('placement', () => {
@@ -27,37 +27,74 @@ describe('placement', () => {
     expect(preferredPosition(draft, 'appServer')).toEqual({ x: COLUMN_GAP, y: 0 });
   });
 
-  it('prefers the column right of the rightmost load balancer for an app server', () => {
+  it('prefers the column right of the rightmost load balancer for an app server, level with it', () => {
     const draft = addNode(emptyDraft(), createNodeSpec('loadBalancer', 'lb-1'), { x: 300, y: 50 });
-    expect(preferredPosition(draft, 'appServer')).toEqual({ x: 300 + COLUMN_GAP, y: 0 });
+    expect(preferredPosition(draft, 'appServer')).toEqual({ x: 300 + COLUMN_GAP, y: 50 });
   });
 
   it('uses the preferred spot when it is free', () => {
-    expect(findFreeSpot({ preferred: { x: 310, y: 0 }, view: VIEW, occupied: [box(0, 0)] })).toEqual({ x: 310, y: 0 });
+    expect(findFreeSpot({ preferred: { x: 310, y: 0 }, occupied: [box(0, 0)] })).toEqual({ x: 310, y: 0 });
   });
 
   it('stacks in the same column when the preferred spot is taken', () => {
     const occupied = [box(0, 0), box(310, 0)];
-    const spot = findFreeSpot({ preferred: { x: 310, y: 0 }, view: VIEW, occupied });
+    const spot = findFreeSpot({ preferred: { x: 310, y: 0 }, occupied });
     expect(spot.x).toBe(310);
     expect(Math.abs(spot.y)).toBeGreaterThanOrEqual(NODE_HEIGHT + PLACEMENT_MARGIN);
     expect(occupied.some((rect) => rectsOverlap(box(spot.x, spot.y), rect, PLACEMENT_MARGIN))).toBe(false);
   });
 
-  it('keeps new nodes inside the visible area', () => {
-    const view: Rect = { x: 0, y: 0, width: 600, height: 400 };
-    const spot = findFreeSpot({ preferred: { x: 5000, y: -5000 }, view, occupied: [] });
-    expect(rectContains(view, box(spot.x, spot.y))).toBe(true);
+  it('places by the flow, not by what happens to be in view', () => {
+    // Far off screen is still where it goes; the view follows (see revealViewport).
+    expect(findFreeSpot({ preferred: { x: 5000, y: -5000 }, occupied: [] })).toEqual({ x: 5000, y: -5000 });
   });
 
-  it('returns a grid-snapped spot in view when everything is crowded', () => {
-    const view: Rect = { x: 0, y: 0, width: 300, height: 200 };
-    const spot = findFreeSpot({ preferred: { x: 40, y: 40 }, view, occupied: [{ x: -50, y: -50, width: 400, height: 300 }] });
-    expect(spot.x % 10).toBe(0);
-    expect(spot.y % 10).toBe(0);
-    expect(rectContains(view, box(spot.x, spot.y))).toBe(true);
+  it('snaps to the grid', () => {
+    const spot = findFreeSpot({ preferred: { x: 43, y: 47 }, occupied: [] });
+    expect(spot).toEqual({ x: 40, y: 50 });
+  });
+});
+
+describe('revealing a new node', () => {
+  const size = { width: 640, height: 500 };
+  const inView = (viewport: { x: number; y: number; zoom: number }, rect: Rect) =>
+    rectContains(visibleFlowRect(viewport, size), rect);
+
+  it('leaves the view alone when the node is already visible', () => {
+    const viewport = { x: 0, y: 100, zoom: 1 };
+    expect(revealViewport({ viewport, size, target: box(100, 0), context: [box(-100, 0)] })).toBeNull();
   });
 
+  it('pans just enough to show a node right of the view, keeping the design in view', () => {
+    const viewport = { x: 220, y: 200, zoom: 1 };
+    const clients = box(0, 0);
+    const target = box(COLUMN_GAP, 0);
+    const next = revealViewport({ viewport, size, target, context: [clients] })!;
+    expect(next.zoom).toBe(1);
+    expect(next.y).toBe(200);
+    expect(inView(next, target)).toBe(true);
+    expect(inView(next, clients)).toBe(true);
+  });
+
+  it('zooms out (never in) when the design no longer fits', () => {
+    const viewport = { x: 220, y: 200, zoom: 1 };
+    const context = [box(0, 0), box(COLUMN_GAP, 0)];
+    const target = box(2 * COLUMN_GAP, 0);
+    const next = revealViewport({ viewport, size, target, context })!;
+    expect(next.zoom).toBeLessThan(1);
+    for (const rect of [...context, target]) expect(inView(next, rect)).toBe(true);
+  });
+
+  it('shows at least the new node when the design is too big to fit at the minimum zoom', () => {
+    const viewport = { x: 0, y: 0, zoom: 1 };
+    const target = box(9000, 0);
+    const next = revealViewport({ viewport, size, target, context: [box(-9000, 0)], minZoom: 0.5 })!;
+    expect(next.zoom).toBe(0.5);
+    expect(inView(next, target)).toBe(true);
+  });
+});
+
+describe('placement geometry', () => {
   it('centres a dropped node on the drop point, snapped to the grid', () => {
     expect(centeredAt({ x: 403, y: 98 })).toEqual({ x: 300, y: 60 });
   });
