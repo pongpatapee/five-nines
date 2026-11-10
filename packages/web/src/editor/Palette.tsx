@@ -13,7 +13,7 @@ const PRICE_LABEL: Record<ComponentKind, string> = {
   loadBalancer: formatUsd(LOAD_BALANCER.usdPerMonth),
 };
 
-/** The components this level allows. Click to add one in view, or drag it onto the canvas. */
+/** The components this level allows. Click to add one at its place in the flow, or drag it onto the canvas. */
 export function Palette({ components, onAdd }: PaletteProps) {
   const handleDragStart = (event: DragEvent<HTMLButtonElement>, kind: ComponentKind) => {
     event.dataTransfer.setData(PALETTE_DRAG_TYPE, kind);

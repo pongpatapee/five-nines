@@ -9,8 +9,6 @@ import type { Draft, Rect, XY } from '../canvas/types.ts';
 export const GRID = 10;
 /** Empty space kept around existing nodes when looking for a free spot. */
 export const PLACEMENT_MARGIN = 30;
-/** Inset from the visible edges of the canvas, so new nodes don't touch the border. */
-export const VIEW_PADDING = 24;
 /** Distance between candidate positions. */
 const SEARCH_STEP = 20;
 
@@ -25,19 +23,18 @@ export function centeredAt(point: XY): XY {
 
 /**
  * Where a new component would naturally sit in the left-to-right flow: a load balancer one column right of the
- * clients, an app server one column right of the rightmost load balancer (or of the clients when there is none).
- * Vertically aligned with the clients.
+ * clients, an app server one column right of the rightmost load balancer (or of the clients when there is none),
+ * level with the node it sits after.
  */
 export function preferredPosition(draft: Draft, kind: ComponentKind): XY {
-  const clients = draft.layout[CLIENTS_ID] ?? { x: 0, y: 0 };
-  let leftOf = clients.x;
+  let anchor = draft.layout[CLIENTS_ID] ?? { x: 0, y: 0 };
   if (kind === 'appServer') {
     for (const node of draft.design.nodes) {
       const position = draft.layout[node.id];
-      if (node.kind === 'loadBalancer' && position) leftOf = Math.max(leftOf, position.x);
+      if (node.kind === 'loadBalancer' && position && position.x > anchor.x) anchor = position;
     }
   }
-  return { x: leftOf + COLUMN_GAP, y: clients.y };
+  return { x: anchor.x + COLUMN_GAP, y: anchor.y };
 }
 
 export function rectsOverlap(a: Rect, b: Rect, margin = 0): boolean {
@@ -59,47 +56,42 @@ export function rectContains(outer: Rect, inner: Rect): boolean {
   );
 }
 
+/** The smallest rectangle containing every rectangle given (at least one). */
+export function unionRect(rects: readonly Rect[]): Rect {
+  const x = Math.min(...rects.map((r) => r.x));
+  const y = Math.min(...rects.map((r) => r.y));
+  const right = Math.max(...rects.map((r) => r.x + r.width));
+  const bottom = Math.max(...rects.map((r) => r.y + r.height));
+  return { x, y, width: right - x, height: bottom - y };
+}
+
 export interface FreeSpotOptions {
   /** Where the node would ideally go (top-left). */
   preferred: XY;
-  /** The visible part of the canvas, in flow coordinates. */
-  view: Rect;
   /** Boxes of the nodes already on the canvas. */
   occupied: readonly Rect[];
   /** Size of the node being placed. */
   size?: { width: number; height: number };
 }
 
-/**
- * The free position (top-left, grid-snapped) closest to `preferred` that is fully in view and keeps
- * `PLACEMENT_MARGIN` clear of every occupied box. Horizontal distance counts double, so nodes stack into the
- * preferred column before spilling into neighbouring ones.
- *
- * When nothing fits (a crowded or tiny view), returns the spot nearest `preferred` inside the view, overlapping or
- * not: the player can always drag it somewhere better.
- */
-export function findFreeSpot({ preferred, view, occupied, size = { width: NODE_WIDTH, height: NODE_HEIGHT } }: FreeSpotOptions): XY {
-  const area: Rect = {
-    x: view.x + VIEW_PADDING,
-    y: view.y + VIEW_PADDING,
-    width: Math.max(0, view.width - 2 * VIEW_PADDING - size.width),
-    height: Math.max(0, view.height - 2 * VIEW_PADDING - size.height),
-  };
-  const clamp = (point: XY): XY => ({
-    x: Math.min(Math.max(point.x, area.x), area.x + area.width),
-    y: Math.min(Math.max(point.y, area.y), area.y + area.height),
-  });
-  const start = snapToGrid(clamp(preferred));
+/** How far from the preferred spot to look for a free one, in flow units. */
+const SEARCH_RADIUS = 1600;
 
-  // Candidates on a grid through the (clamped) preferred spot, covering the whole visible area.
+/**
+ * The free position (top-left, grid-snapped) closest to `preferred` that keeps `PLACEMENT_MARGIN` clear of every
+ * occupied box. Horizontal distance counts double, so nodes stack into the preferred column before spilling into
+ * neighbouring ones. Independent of the viewport, so placement is predictable; the editor then brings the new node
+ * into view (`revealViewport`).
+ *
+ * When nothing within `SEARCH_RADIUS` is free, returns the preferred spot: the player can drag it somewhere better.
+ */
+export function findFreeSpot({ preferred, occupied, size = { width: NODE_WIDTH, height: NODE_HEIGHT } }: FreeSpotOptions): XY {
+  const start = snapToGrid(preferred);
+  const steps = Math.floor(SEARCH_RADIUS / SEARCH_STEP);
   let best: XY | null = null;
   let bestScore = Infinity;
-  const iMin = Math.ceil((area.x - start.x) / SEARCH_STEP);
-  const iMax = Math.floor((area.x + area.width - start.x) / SEARCH_STEP);
-  const jMin = Math.ceil((area.y - start.y) / SEARCH_STEP);
-  const jMax = Math.floor((area.y + area.height - start.y) / SEARCH_STEP);
-  for (let i = iMin; i <= iMax; i++) {
-    for (let j = jMin; j <= jMax; j++) {
+  for (let i = -steps; i <= steps; i++) {
+    for (let j = -steps; j <= steps; j++) {
       const candidate = { x: start.x + i * SEARCH_STEP, y: start.y + j * SEARCH_STEP };
       const dx = candidate.x - preferred.x;
       const dy = candidate.y - preferred.y;
@@ -112,6 +104,63 @@ export function findFreeSpot({ preferred, view, occupied, size = { width: NODE_W
     }
   }
   return best ?? start;
+}
+
+export interface Viewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export interface RevealOptions {
+  /** The current pan and zoom (`container = flow × zoom + (x, y)`). */
+  viewport: Viewport;
+  /** Canvas size in CSS pixels. */
+  size: { width: number; height: number };
+  /** The box that must end up in view (flow coordinates). */
+  target: Rect;
+  /** Boxes worth keeping in view alongside it (the rest of the design), when they fit. */
+  context: readonly Rect[];
+  /** Screen pixels kept clear between the boxes and the canvas edges. */
+  padding?: number;
+  /** Never zoom out further than this. */
+  minZoom?: number;
+}
+
+/**
+ * The viewport that brings `target` into view with the least movement: never zooms in, zooms out only as far as
+ * needed to fit the target plus its context, then pans just enough. Returns null when `target` is already in view.
+ */
+export function revealViewport({ viewport, size, target, context, padding = 40, minZoom = 0.25 }: RevealOptions): Viewport | null {
+  const pad = Math.min(padding, size.width / 4, size.height / 4);
+  const inset: Rect = {
+    x: (pad - viewport.x) / viewport.zoom,
+    y: (pad - viewport.y) / viewport.zoom,
+    width: (size.width - 2 * pad) / viewport.zoom,
+    height: (size.height - 2 * pad) / viewport.zoom,
+  };
+  if (rectContains(inset, target)) return null;
+
+  const all = unionRect([target, ...context]);
+  const fitZoom = Math.min((size.width - 2 * pad) / all.width, (size.height - 2 * pad) / all.height);
+  const zoom = Math.max(minZoom, Math.min(viewport.zoom, fitZoom));
+  const bounds = fitZoom >= zoom ? all : target;
+
+  // Zoom about the centre of the canvas, then pan the bounds into the padded view (left/top edge wins).
+  const pan = (offset: number, extent: number, start: number, length: number): number => {
+    const centre = (extent / 2 - offset) / viewport.zoom;
+    let next = extent / 2 - centre * zoom;
+    const far = (start + length) * zoom + next;
+    if (far > extent - pad) next -= far - (extent - pad);
+    const near = start * zoom + next;
+    if (near < pad) next += pad - near;
+    return next;
+  };
+  return {
+    x: pan(viewport.x, size.width, bounds.x, bounds.width),
+    y: pan(viewport.y, size.height, bounds.y, bounds.height),
+    zoom,
+  };
 }
 
 /**

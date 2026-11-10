@@ -36,6 +36,8 @@ const nodeTypes: NodeTypes = { clients: ClientsNode, appServer: AppServerNode, l
 const edgeTypes: EdgeTypes = { flow: FlowEdge };
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--edge-color)' } as const;
 const NO_MARKS: Readonly<Record<string, NodeMark>> = {};
+/** How far out the player can zoom. */
+export const MIN_ZOOM = 0.25;
 
 export interface DesignCanvasProps {
   /** The design and positions to render. The canvas never mutates it; edits come back through the callbacks. */
@@ -236,7 +238,7 @@ function DesignCanvasInner({
             zoomOnPinch={panZoom}
             zoomOnDoubleClick={false}
             preventScrolling={panZoom}
-            minZoom={0.25}
+            minZoom={MIN_ZOOM}
             maxZoom={2}
             fitView
             fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
