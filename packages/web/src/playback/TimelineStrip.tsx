@@ -7,6 +7,7 @@ import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent
 import { formatCount, formatMs, formatSimTime } from '../format.ts';
 import { areaPath, linePath, niceCeil, timeAtPointer } from './charts.ts';
 import { isFailingRate, type LiveFrame } from '../canvas/types.ts';
+import { eventCaption } from '../notebook/index.ts';
 
 export interface TimelineStripProps {
   timeline: readonly TimelineFrame[];
@@ -94,7 +95,7 @@ export function TimelineStrip(props: TimelineStripProps) {
           >
             {hovered === i && (
               <div className="pb-timeline__tooltip" role="tooltip">
-                <span className="num faint">{formatSimTime(event.atSec)}</span> {event.message}
+                <span className="num">{formatSimTime(event.atSec)}</span> {eventCaption(event).text}
               </div>
             )}
           </div>

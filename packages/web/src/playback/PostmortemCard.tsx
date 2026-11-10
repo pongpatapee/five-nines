@@ -2,6 +2,7 @@ import { AVAILABILITY_TIERS, type FailureCause, type SimEvent } from '@five-nine
 import { useEffect, useRef, type Ref } from 'react';
 import { describeCause } from '../describe.ts';
 import { formatAvailability, formatSimTime } from '../format.ts';
+import { CastLine, eventCaption, HandArrow, InkLoop, mentorHint } from '../notebook/index.ts';
 
 export interface PostmortemCardProps {
   /** The engine's `errorBudgetExhaustedAtSec`. */
@@ -17,7 +18,7 @@ export interface PostmortemCardProps {
   ref?: Ref<HTMLElement>;
 }
 
-/** The incident postmortem shown on the freeze-frame. */
+/** The incident postmortem shown on the freeze-frame: a sticky note, with Erasmus's nudge underneath. */
 export function PostmortemCard(props: PostmortemCardProps) {
   const { exhaustedAtSec, causes, events } = props;
   const primaryRef = useRef<HTMLButtonElement>(null);
@@ -25,53 +26,80 @@ export function PostmortemCard(props: PostmortemCardProps) {
   // Only what had happened by the freeze; later causes and events would be spoilers for "Keep watching".
   const shownCauses = causes.filter((cause) => cause.firstAtSec <= exhaustedAtSec + 1);
   const shownEvents = events.filter((event) => event.atSec <= exhaustedAtSec + 1);
+  const [rootCause, ...knockOn] = shownCauses;
 
   return (
-    <section ref={props.ref} className="pb-postmortem panel" role="dialog" aria-labelledby="pb-postmortem-title">
-      <div className="pb-postmortem__eyebrow eyebrow">Incident postmortem</div>
-      <h2 id="pb-postmortem-title" className="pb-postmortem__title">
-        Incident: error budget exhausted at {formatSimTime(exhaustedAtSec)}
-      </h2>
+    <section ref={props.ref} className="pb-postmortem" role="dialog" aria-labelledby="pb-postmortem-title">
+      <div className="pb-postmortem__note">
+        <span className="tape tape--center" aria-hidden />
+        <div className="pb-postmortem__head">
+          <span className="hand pb-postmortem__word">postmortem</span>
+          <span className="pb-postmortem__draft">draft · {formatSimTime(exhaustedAtSec)}</span>
+        </div>
+        <h2 id="pb-postmortem-title" className="pb-postmortem__title">
+          Incident: error budget exhausted at {formatSimTime(exhaustedAtSec)}
+        </h2>
 
-      <h3 className="pb-postmortem__heading eyebrow">What failed, in order</h3>
-      {shownCauses.length > 0 ? (
-        <ol className="pb-postmortem__causes">
-          {shownCauses.map((cause, i) => (
-            <li key={`${cause.nodeId}:${cause.reason}`} data-root={i === 0 || undefined}>
-              {describeCause(cause, { count: false })}
-              {i === 0 && <span className="pb-postmortem__root">root cause</span>}
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="muted">No single cause stood out.</p>
-      )}
+        {rootCause ? (
+          <div className="pb-postmortem__root">
+            <InkLoop width={320} height={70} delayMs={150} />
+            <b className="pb-postmortem__label">Root cause:</b> {describeCause(rootCause, { count: false })}
+          </div>
+        ) : (
+          <p>No single cause stood out.</p>
+        )}
 
-      <h3 className="pb-postmortem__heading eyebrow">Event log</h3>
-      {shownEvents.length > 0 ? (
-        <ul className="pb-postmortem__events">
-          {shownEvents.map((event, i) => (
-            <li key={i}>
-              <span className="num faint">{formatSimTime(event.atSec)}</span> {event.message}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted">No crashes or rotation changes before the incident.</p>
-      )}
+        {knockOn.length > 0 && (
+          <>
+            <h3 className="pb-postmortem__heading">Then:</h3>
+            <ol className="pb-postmortem__causes">
+              {knockOn.map((cause) => (
+                <li key={`${cause.nodeId}:${cause.reason}`}>{describeCause(cause, { count: false })}</li>
+              ))}
+            </ol>
+          </>
+        )}
 
-      <div className="pb-postmortem__availability">
-        <span className="muted">Availability so far</span>
-        <span className="num">{formatAvailability(props.availability)}</span>
-        <span className="faint">needs ≥ {formatAvailability(AVAILABILITY_TIERS.pass)}</span>
+        <h3 className="pb-postmortem__heading">Event log:</h3>
+        {shownEvents.length > 0 ? (
+          <ul className="pb-postmortem__events">
+            {shownEvents.map((event, i) => {
+              const caption = eventCaption(event);
+              return (
+                <li key={i} data-smudge={caption.bySmudge || undefined}>
+                  <span className="num pb-postmortem__time">{formatSimTime(event.atSec)}</span> {caption.text}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="pb-postmortem__quiet">No crashes or rotation changes before the incident.</p>
+        )}
+
+        <div className="pb-postmortem__availability">
+          <b className="pb-postmortem__label">Availability so far:</b>
+          <span className="num pb-postmortem__avail">{formatAvailability(props.availability)}</span>
+          <span className="muted">needs ≥ {formatAvailability(AVAILABILITY_TIERS.pass)}</span>
+        </div>
       </div>
 
+      <CastLine
+        who="mentor"
+        erasmusMood="leaning"
+        figureSize={64}
+        lead="Erasmus leans in:"
+        className="pb-postmortem__mentor"
+      >
+        {mentorHint(rootCause?.reason)}
+      </CastLine>
+
       <div className="pb-postmortem__actions">
-        <button type="button" className="btn" onClick={props.onKeepWatching}>
+        <button type="button" className="btn pb-postmortem__keep" onClick={props.onKeepWatching}>
           Keep watching
         </button>
-        <button ref={primaryRef} type="button" className="btn btn--primary" onClick={props.onSeeResults}>
+        <button ref={primaryRef} type="button" className="btn btn--primary pb-postmortem__results" onClick={props.onSeeResults}>
           See results
+          <HandArrow width={30} />
         </button>
       </div>
     </section>
