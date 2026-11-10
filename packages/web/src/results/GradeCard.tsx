@@ -10,7 +10,16 @@ import {
   formatUsdPerMonth,
   GRADE_LABELS,
 } from '../format.ts';
-import { gradeHeadline, nextTier, tierPercent, tierRequirementLabel, TIER_ORDER } from './grading.ts';
+import { bossVerdict, CastLine, Cross, HandArrow, InkLoop, mentorHint, NinesDots, Tick } from '../notebook/index.ts';
+import {
+  gradeHeadline,
+  nextTier,
+  NINES_PER_LEVEL,
+  ninesForGrade,
+  tierPercent,
+  tierRequirementLabel,
+  TIER_ORDER,
+} from './grading.ts';
 
 export interface GradeCardActions {
   onBackToEditor(): void;
@@ -22,24 +31,54 @@ export interface GradeCardActions {
 
 export interface GradeCardProps extends GradeCardActions {
   level: Level;
+  /** 1-based page number, for the heading. */
+  levelNumber: number;
   evaluation: GradedEvaluation;
 }
 
-export function GradeCard({ level, evaluation, onBackToEditor, onReplay, onShowDebrief, onNextLevel }: GradeCardProps) {
+export function GradeCard({
+  level,
+  levelNumber,
+  evaluation,
+  onBackToEditor,
+  onReplay,
+  onShowDebrief,
+  onNextLevel,
+}: GradeCardProps) {
   const { grade, checks, simulation } = evaluation;
   const passed = grade !== 'fail';
   const upNext = nextTier(grade);
   const mainCause = simulation.causes[0];
+  const verdict = bossVerdict(evaluation);
 
   return (
-    <section className="grade-card panel" aria-labelledby="grade-card-title" data-grade={grade}>
+    <section className="grade-card" aria-labelledby="grade-card-title" data-grade={grade}>
+      <span className="tape tape--left" aria-hidden />
+      <span className="tape tape--right" aria-hidden />
       <header className="grade-card__head">
-        <div className="eyebrow">{level.title} · result</div>
-        <h2 id="grade-card-title" className="grade-card__grade">
-          {GRADE_LABELS[grade]}
-        </h2>
+        <div className="eyebrow">
+          p.{levelNumber} · {level.title} · graded
+        </div>
+        <div className="grade-card__mark">
+          <h2 id="grade-card-title" className="grade-card__grade hand">
+            {!passed && <InkLoop width={150} height={70} delayMs={100} />}
+            {GRADE_LABELS[grade]}
+          </h2>
+          <NinesDots filled={ninesForGrade(grade)} total={NINES_PER_LEVEL} />
+        </div>
         <p className="grade-card__headline">{gradeHeadline(grade)}</p>
       </header>
+
+      <CastLine
+        who="boss"
+        tallyMood={passed ? 'pleased' : 'unimpressed'}
+        figureSize={92}
+        lead={verdict.exclaim}
+        tone={passed ? 'note' : 'alarm'}
+        className="grade-card__boss"
+      >
+        {verdict.line}
+      </CastLine>
 
       <div className="grade-card__checks">
         <CheckRow
@@ -81,8 +120,13 @@ export function GradeCard({ level, evaluation, onBackToEditor, onReplay, onShowD
 
       {mainCause && (
         <p className="grade-card__note">
-          <span className="eyebrow">First failure</span> {describeCause(mainCause)}
+          <b className="grade-card__note-label">First failure:</b> {describeCause(mainCause)}
         </p>
+      )}
+      {!passed && mainCause && (
+        <CastLine who="mentor" erasmusMood="leaning" figureSize={56} className="grade-card__mentor">
+          {mentorHint(mainCause.reason)}
+        </CastLine>
       )}
       {upNext && passed && <p className="grade-card__note muted">Next: {tierRequirementLabel(upNext)}.</p>}
       {evaluation.warnings.length > 0 && (
@@ -105,7 +149,8 @@ export function GradeCard({ level, evaluation, onBackToEditor, onReplay, onShowD
         </button>
         {onNextLevel && (
           <button type="button" className="btn btn--primary" onClick={onNextLevel}>
-            Next level →
+            Next page
+            <HandArrow width={30} />
           </button>
         )}
       </footer>
@@ -128,9 +173,7 @@ function CheckRow({
 }) {
   return (
     <div className="check-row" data-ok={ok}>
-      <span className="check-row__icon" aria-label={ok ? 'met' : 'not met'}>
-        {ok ? '✓' : '✕'}
-      </span>
+      <span className="check-row__icon">{ok ? <Tick label="met" /> : <Cross label="not met" />}</span>
       <span className="check-row__label">{label}</span>
       <span className="check-row__actual num">{actual}</span>
       <span className="check-row__required num muted">{required}</span>

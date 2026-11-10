@@ -37,3 +37,11 @@ export function gradeHeadline(grade: Grade): string {
       return 'Five nines. Flawless.';
   }
 }
+
+/** Nines a level can earn: one each for pass (99.9%), star (99.99%) and mastered (99.999%). */
+export const NINES_PER_LEVEL = TIER_ORDER.length;
+
+/** Filled nines for a grade. Unplayed and failed levels have none. */
+export function ninesForGrade(grade: Grade | undefined): number {
+  return grade === undefined || grade === 'fail' ? 0 : TIER_ORDER.indexOf(grade) + 1;
+}

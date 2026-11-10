@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import './results.css';
 import { DesignCanvas, draftFromDesign } from '../canvas/index.ts';
 import { formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
+import { Cross } from '../notebook/index.ts';
 
 export interface DebriefPanelProps {
   level: Level;
@@ -20,7 +21,7 @@ export function DebriefPanel({ level, spoilers, onClose, closeLabel = 'Close' }:
       <header className="panel__header debrief__header">
         <div>
           <div className="eyebrow">{level.concept}</div>
-          <h2 id="debrief-title" className="debrief__title">
+          <h2 id="debrief-title" className="debrief__title hand">
             Debrief &amp; solutions
           </h2>
         </div>
@@ -60,7 +61,10 @@ export function DebriefPanel({ level, spoilers, onClose, closeLabel = 'Close' }:
               {level.antiSolutions.map((trap) => (
                 <li key={trap.name} className="trap">
                   <div className="trap__head">
-                    <span className="trap__name">{trap.name}</span>
+                    <span className="trap__name">
+                      <Cross size={14} />
+                      {trap.name}
+                    </span>
                     <span className="trap__fails">
                       {trap.expectedFailure === 'invalid' ? "can't run" : `fails ${trap.expectedFailure.join(', ')}`}
                     </span>
