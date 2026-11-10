@@ -1,0 +1,177 @@
+/* ------------------------------------------------------------------ the notebook */
+
+.notebook {
+  position: relative;
+  height: 100%;
+  padding-left: var(--spiral-width);
+}
+
+.notebook__page {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+}
+
+.spiral-binding {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 40;
+  width: var(--spiral-width);
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ pen strokes */
+
+/* A stroke that draws itself in. Give the path pathLength="1". */
+.ink-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: ink-draw var(--duration-ink) var(--ease) both;
+}
+
+@keyframes ink-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+.ink-loop,
+.ink-scribble {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ink-loop {
+  inset: -10px -12px;
+  width: calc(100% + 24px);
+  height: calc(100% + 20px);
+}
+
+.ink-scribble {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.85;
+}
+
+/* ------------------------------------------------------------------ nines */
+
+.nines-dots {
+  display: block;
+  overflow: visible;
+}
+
+.nines-dots__nine {
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ cast */
+
+.cast-figure {
+  display: block;
+  flex: none;
+  overflow: visible;
+  color: var(--ink);
+}
+
+.cast-figure__glyph {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.smudge-bob {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: smudge-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes smudge-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+
+  50% {
+    transform: translateY(-4px) rotate(3deg);
+  }
+}
+
+.cast-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.cast-line__figure {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.cast-line__name {
+  font-family: var(--font-note);
+  font-size: var(--text-xs);
+  line-height: 1.25;
+  text-align: center;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cast-line__role {
+  display: block;
+}
+
+.cast-line__bubble {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: var(--stroke-pen) solid var(--ink);
+  border-radius: var(--radius-hand-alt);
+  background: var(--paper-card);
+  box-shadow: 3px 3px 0 rgb(31 42 68 / 0.15);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+/* The bubble's tail, pointing at the speaker. */
+.cast-line__bubble::before {
+  content: '';
+  position: absolute;
+  top: 22px;
+  left: -10px;
+  width: 16px;
+  height: 16px;
+  border-bottom: var(--stroke-pen) solid var(--ink);
+  border-left: var(--stroke-pen) solid var(--ink);
+  background: var(--paper-card);
+  transform: skewY(-30deg) rotate(20deg);
+}
+
+.cast-line__lead {
+  font-family: var(--font-hand);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: var(--space-1);
+}
+
+.cast-line[data-tone='alarm'] .cast-line__lead {
+  color: var(--red-pen-text);
+}
+
+/* ------------------------------------------------------------------ motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .ink-draw,
+  .smudge-bob {
+    animation: none;
+  }
+}

@@ -1,16 +1,20 @@
 /*
  * Global reset and shared UI primitives. Module-specific styles live next to their components
- * (canvas/canvas.css, screens/screens.css, results/results.css, editor/…, playback/…).
+ * (canvas/canvas.css, screens/screens.css, results/results.css, editor/…, playback/…, notebook/notebook.css).
  *
  * Primitives available everywhere:
- *   .btn, .btn--primary, .btn--ghost, .btn--danger, .btn--sm   buttons
- *   .panel, .panel__header, .panel__title                       framed surfaces
+ *   .btn, .btn--primary, .btn--ghost, .btn--danger, .btn--sm   hand-drawn buttons (primary = highlighter yellow)
+ *   .panel, .panel__header, .panel__title                       paper cards
  *   .eyebrow                                                    small uppercase label
- *   .num                                                        tabular monospace numbers
- *   .muted, .faint                                              secondary text
+ *   .hand                                                       hand-lettered heading text (Caveat)
+ *   .num                                                        tabular numbers
+ *   .muted, .faint                                              secondary (pencil) text
  *   .kbd                                                        keyboard hint
- *   .grade-badge[data-grade]                                    FAIL / PASS / ★ / MASTERED badge
+ *   .highlight                                                  highlighter swipe behind text
+ *   .grade-badge[data-grade]                                    FAIL / PASS / ★ / MASTERED stamp
  *   .status-dot[data-status=healthy|busy|failing]               small status dot
+ *   .graph-paper                                                the graph-paper background
+ *   .visually-hidden                                            screen-reader-only text
  */
 
 *,
@@ -27,9 +31,9 @@ body,
 }
 
 body {
-  background: var(--bg);
+  background-color: var(--paper);
   color: var(--text);
-  font-family: var(--font-sans);
+  font-family: var(--font-note);
   font-size: var(--text-md);
   line-height: var(--leading);
   -webkit-font-smoothing: antialiased;
@@ -51,8 +55,8 @@ h2,
 h3,
 h4 {
   color: var(--text-strong);
-  font-weight: 600;
-  line-height: 1.25;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 a {
@@ -64,7 +68,8 @@ a:hover {
   color: var(--accent-strong);
 }
 
-button {
+button,
+input {
   font: inherit;
   color: inherit;
 }
@@ -75,27 +80,49 @@ button {
 }
 
 ::selection {
-  background: var(--accent-soft);
+  background: var(--highlighter);
 }
 
-/* Scrollbars: thin and quiet. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: var(--pencil-line) transparent;
+}
+
+/* ---------------------------------------------------------------- paper */
+
+.graph-paper {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+  background-size:
+    var(--grid-major-size) var(--grid-major-size),
+    var(--grid-major-size) var(--grid-major-size),
+    var(--grid-minor-size) var(--grid-minor-size),
+    var(--grid-minor-size) var(--grid-minor-size);
 }
 
 /* ---------------------------------------------------------------- text helpers */
 
 .eyebrow {
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
+.hand {
+  font-family: var(--font-hand);
+  font-weight: 700;
+  line-height: 1.05;
+}
+
 .num {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
 
@@ -107,18 +134,35 @@ button {
   color: var(--text-faint);
 }
 
+.highlight {
+  padding: 0 0.2em;
+  background: linear-gradient(transparent 42%, var(--highlighter) 42%, var(--highlighter) 88%, transparent 88%);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .kbd {
   display: inline-block;
-  min-width: 18px;
+  min-width: 20px;
   padding: 0 5px;
-  border: 1px solid var(--border-strong);
-  border-bottom-width: 2px;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
+  border: 1.5px solid currentColor;
+  border-bottom-width: 2.5px;
+  border-radius: 5px 3px 6px 4px;
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
-  line-height: 16px;
+  font-weight: 600;
+  line-height: 17px;
   text-align: center;
   color: var(--text-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------- buttons */
@@ -128,63 +172,90 @@ button {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: 32px;
+  min-height: 34px;
   padding: 0 var(--space-3);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--text);
+  border: var(--stroke-pen) solid var(--ink);
+  border-radius: var(--radius-hand);
+  background: var(--paper-card);
+  color: var(--ink);
+  font-family: var(--font-note);
   font-size: var(--text-md);
-  font-weight: 500;
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
+  box-shadow: var(--shadow-ink-sm);
   transition:
     background var(--duration-fast) var(--ease),
-    border-color var(--duration-fast) var(--ease),
-    color var(--duration-fast) var(--ease);
+    transform var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease);
 }
 
 .btn:hover:not(:disabled) {
   background: var(--surface-hover);
-  border-color: var(--text-faint);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 0 0 0 var(--ink);
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  border-style: dashed;
+  color: var(--text-muted);
+  border-color: var(--pencil);
+  box-shadow: none;
   cursor: not-allowed;
 }
 
 .btn--primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0b1020;
-  font-weight: 600;
+  background: var(--cta);
+  font-family: var(--font-hand);
+  font-size: 22px;
+  line-height: 1;
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: var(--cta);
+  filter: saturate(1.15);
+}
+
+.btn--primary:disabled {
+  background: var(--paper-shade);
 }
 
 .btn--ghost {
-  background: transparent;
   border-color: transparent;
-  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--pencil-line);
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }
 
 .btn--ghost:hover:not(:disabled) {
-  background: var(--surface-2);
-  border-color: transparent;
-  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  text-decoration-color: var(--ink);
+}
+
+.btn--danger {
+  color: var(--red-pen-text);
+  border-color: var(--red-pen);
+  box-shadow: 2px 2px 0 var(--red-pen);
 }
 
 .btn--danger:hover:not(:disabled) {
-  border-color: var(--failing);
-  color: var(--failing);
+  background: var(--red-wash);
+  box-shadow: 3px 3px 0 var(--red-pen);
 }
 
 .btn--sm {
-  height: 26px;
+  min-height: 28px;
   padding: 0 var(--space-2);
   font-size: var(--text-sm);
 }
@@ -192,9 +263,10 @@ button {
 /* ---------------------------------------------------------------- panels */
 
 .panel {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  background: var(--paper-card);
+  box-shadow: var(--shadow-paper);
 }
 
 .panel__header {
@@ -203,15 +275,14 @@ button {
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--margin-rule);
 }
 
 .panel__title {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-family: var(--font-hand);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--ink);
 }
 
 /* ---------------------------------------------------------------- badges */
@@ -219,16 +290,18 @@ button {
 .grade-badge {
   display: inline-flex;
   align-items: center;
-  height: 20px;
+  min-height: 22px;
   padding: 0 var(--space-2);
-  border: 1px solid currentColor;
-  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-radius: 6px 3px 7px 4px;
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
-  color: var(--text-faint);
+  color: var(--text-muted);
+  transform: rotate(-3deg);
 }
 
 .grade-badge[data-grade='fail'] {
@@ -249,20 +322,21 @@ button {
 
 .status-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--ink);
   border-radius: 50%;
-  background: var(--text-faint);
+  background: var(--paper-card);
 }
 
 .status-dot[data-status='healthy'] {
-  background: var(--healthy);
+  background: var(--healthy-line);
 }
 
 .status-dot[data-status='busy'] {
-  background: var(--busy);
+  background: var(--busy-line);
 }
 
 .status-dot[data-status='failing'] {
-  background: var(--failing);
+  background: var(--failing-line);
 }
