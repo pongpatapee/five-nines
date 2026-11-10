@@ -19,6 +19,14 @@ export function formatCount(n: number, compact = false): string {
   return integer.format(Math.round(n));
 }
 
+/** Short counts for tight spaces: "800", "2.5k", "10k", "120k". */
+export function formatCompact(n: number): string {
+  const abs = Math.abs(n);
+  if (abs < 1000) return integer.format(Math.round(n));
+  const k = n / 1000;
+  return `${Math.abs(k) < 10 ? Number(k.toFixed(1)) : Math.round(k)}k`;
+}
+
 /** "5,000 req/s" */
 export function formatRps(rps: number, compact = false): string {
   return `${formatCount(rps, compact)} req/s`;
@@ -53,6 +61,20 @@ export function formatDuration(sec: number): string {
   const min = Math.floor(sec / 60);
   const rest = Math.round(sec - min * 60);
   return rest === 0 ? `${min} min` : `${min} min ${rest} s`;
+}
+
+/** Compact durations for settings: "10 s", "5 min", "1 h". */
+export function formatDurationShort(sec: number): string {
+  if (sec < 60) return `${sec} s`;
+  if (sec < 3600) return `${Math.round(sec / 60)} min`;
+  return `${Math.round(sec / 3600)} h`;
+}
+
+/** A measured time in seconds: "0.43 s", "1.9 s", "12 s". */
+export function formatSeconds(sec: number): string {
+  if (sec < 1) return `${sec.toFixed(2)} s`;
+  if (sec < 10) return `${sec.toFixed(1)} s`;
+  return `${Math.round(sec)} s`;
 }
 
 /** "t=64s" */

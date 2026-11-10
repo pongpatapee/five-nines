@@ -6,7 +6,7 @@
  * playhead at `t` (seconds, 0…`durationSec`) has seen every whole second before `floor(t)` plus the elapsed fraction
  * of the current one, so cumulative quantities grow linearly within a second.
  */
-import { AVAILABILITY_TIERS, type NodeFrame, type SimulationResult, type TimelineFrame } from '@five-nines/sim';
+import { AVAILABILITY_TIERS, type EdgeFrame, type NodeFrame, type SimulationResult, type TimelineFrame } from '@five-nines/sim';
 import type { LiveFrame } from '../canvas/types.ts';
 
 /** Precomputed prefix sums so cumulative queries are O(1). */
@@ -144,7 +144,18 @@ export function sampleFrame(timeline: readonly TimelineFrame[], t: number): Live
       }),
     };
     if (discrete.inRotation !== undefined) node.inRotation = discrete.inRotation;
+    for (const key of OPTIONAL_RATES) {
+      const value = discrete[key];
+      if (value !== undefined) node[key] = lerp(na[key] ?? value, nb[key] ?? value, f);
+    }
     nodes[id] = node;
+  }
+
+  const edges: Record<string, EdgeFrame> = {};
+  for (const [key, discrete] of Object.entries(current.edges)) {
+    const ea = a.edges[key] ?? discrete;
+    const eb = b.edges[key] ?? discrete;
+    edges[key] = { rps: lerp(ea.rps, eb.rps, f), writeRps: lerp(ea.writeRps, eb.writeRps, f) };
   }
 
   return {
@@ -152,8 +163,12 @@ export function sampleFrame(timeline: readonly TimelineFrame[], t: number): Live
     offeredRps: lerp(a.offeredRps, b.offeredRps, f),
     failedRps: lerp(a.failedRps, b.failedRps, f),
     nodes,
+    edges,
   };
 }
+
+/** Node stats that only some kinds report, blended like the rest. */
+const OPTIONAL_RATES = ['readRps', 'writeRps', 'hitRate', 'replicationLagSec'] as const satisfies readonly (keyof NodeFrame)[];
 
 export function lerp(a: number, b: number, f: number): number {
   return a + (b - a) * f;

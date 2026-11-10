@@ -241,8 +241,13 @@
   --event-color: var(--busy);
 }
 
-.pb-timeline__event--restoredToRotation {
+.pb-timeline__event--restoredToRotation,
+.pb-timeline__event--replicationLagRecovered {
   --event-color: var(--healthy);
+}
+
+.pb-timeline__event--replicationLagHigh {
+  --event-color: var(--busy);
 }
 
 .pb-timeline__tooltip {

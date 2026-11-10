@@ -1,17 +1,12 @@
-import { APP_SERVER_SIZES, COMPONENT_LABELS, LOAD_BALANCER, type ComponentKind } from '@five-nines/sim';
+import type { ComponentKind } from '@five-nines/sim';
 import type { DragEvent } from 'react';
-import { formatUsd } from '../format.ts';
-import { COMPONENT_HINTS, PALETTE_DRAG_TYPE } from './config.ts';
+import { COMPONENTS } from '../components/registry.ts';
+import { PALETTE_DRAG_TYPE } from './config.ts';
 
 export interface PaletteProps {
   components: readonly ComponentKind[];
   onAdd(kind: ComponentKind): void;
 }
-
-const PRICE_LABEL: Record<ComponentKind, string> = {
-  appServer: `from ${formatUsd(APP_SERVER_SIZES.small.usdPerMonth)}`,
-  loadBalancer: formatUsd(LOAD_BALANCER.usdPerMonth),
-};
 
 /** The components this level allows. Click to add one at its place in the flow, or drag it onto the canvas. */
 export function Palette({ components, onAdd }: PaletteProps) {
@@ -39,10 +34,10 @@ export function Palette({ components, onAdd }: PaletteProps) {
               <span className="palette-item__glyph" data-kind={kind} aria-hidden />
               <span className="palette-item__text">
                 <span className="palette-item__name">
-                  {COMPONENT_LABELS[kind]}
-                  <span className="palette-item__price num">{PRICE_LABEL[kind]}/mo</span>
+                  {COMPONENTS[kind].label}
+                  <span className="palette-item__price num">{COMPONENTS[kind].priceLabel}/mo</span>
                 </span>
-                <span className="palette-item__hint">{COMPONENT_HINTS[kind]}</span>
+                <span className="palette-item__hint">{COMPONENTS[kind].hint}</span>
               </span>
             </button>
           </li>

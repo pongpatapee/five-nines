@@ -32,6 +32,14 @@ describe('placement', () => {
     expect(preferredPosition(draft, 'appServer')).toEqual({ x: 300 + COLUMN_GAP, y: 50 });
   });
 
+  it('puts data-tier components a column right of what they follow', () => {
+    let draft = addNode(emptyDraft(), createNodeSpec('appServer', 'app-1'), { x: 300, y: 50 });
+    expect(preferredPosition(draft, 'cache')).toEqual({ x: 300 + COLUMN_GAP, y: 50 });
+    expect(preferredPosition(draft, 'database')).toEqual({ x: 300 + COLUMN_GAP, y: 50 });
+    draft = addNode(draft, createNodeSpec('database', 'db-1'), { x: 700, y: -40 });
+    expect(preferredPosition(draft, 'readReplicas')).toEqual({ x: 700 + COLUMN_GAP, y: -40 });
+  });
+
   it('uses the preferred spot when it is free', () => {
     expect(findFreeSpot({ preferred: { x: 310, y: 0 }, occupied: [box(0, 0)] })).toEqual({ x: 310, y: 0 });
   });

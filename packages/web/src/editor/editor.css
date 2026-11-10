@@ -101,6 +101,19 @@
   border-radius: 50%;
 }
 
+.palette-item__glyph[data-kind='cache'] {
+  border-style: dashed;
+}
+
+.palette-item__glyph[data-kind='database'],
+.palette-item__glyph[data-kind='readReplicas'] {
+  border-radius: 50% / 28%;
+}
+
+.palette-item__glyph[data-kind='readReplicas'] {
+  box-shadow: 3px -3px 0 -1.5px var(--surface-1), 3px -3px 0 0 var(--text-muted);
+}
+
 .palette-item__text {
   display: grid;
   gap: 1px;
