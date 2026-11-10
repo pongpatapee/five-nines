@@ -15,5 +15,4 @@ export * from './layout.ts';
 export * from './draft.ts';
 export * from './flow.ts';
 export * from './types.ts';
-export { appServerConfigLabel, queueFill, utilizationLevel, type UtilizationLevel } from './nodes/AppServerNode.tsx';
-export { loadBalancerConfigLabel } from './nodes/LoadBalancerNode.tsx';
+export { queueFill, utilizationLevel, type UtilizationLevel } from './nodes/live.tsx';

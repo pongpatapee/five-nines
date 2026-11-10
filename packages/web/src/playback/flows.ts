@@ -1,11 +1,8 @@
 /**
- * How much traffic each edge and node shows, and how that maps to particles on screen.
- *
- * The engine reports per-node totals, not per-edge flows, so edge flow is derived:
- * - the clients → entry edge carries everything offered;
- * - any other edge carries an equal share of its target's arrivals (target `arrivalRps` / number of incoming edges).
+ * How much traffic each edge and node shows, and how that maps to particles on screen. Edge flows come straight from
+ * the engine's per-edge rates.
  */
-import { CLIENTS_ID, type Design } from '@five-nines/sim';
+import type { Design } from '@five-nines/sim';
 import { edgeKey } from '../canvas/draft.ts';
 import { isFailingRate, type LiveFrame } from '../canvas/types.ts';
 
@@ -14,22 +11,17 @@ export interface EdgeFlow {
   from: string;
   to: string;
   rps: number;
+  /** The part of `rps` that is writes, drawn in its own colour. */
+  writeRps: number;
 }
 
-/** Number of incoming edges per node id. */
-export function incomingCounts(design: Design): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const edge of design.edges) counts.set(edge.to, (counts.get(edge.to) ?? 0) + 1);
-  return counts;
-}
-
-/** The flow on every edge of `design` for a live frame. */
-export function edgeFlows(design: Design, frame: LiveFrame, incoming = incomingCounts(design)): EdgeFlow[] {
+/** The flow on every edge of `design` for a live frame. Edges the frame doesn't know about carry nothing. */
+export function edgeFlows(design: Design, frame: LiveFrame): EdgeFlow[] {
   return design.edges.map((edge) => {
-    let rps: number;
-    if (edge.from === CLIENTS_ID) rps = frame.offeredRps;
-    else rps = (frame.nodes[edge.to]?.arrivalRps ?? 0) / Math.max(1, incoming.get(edge.to) ?? 1);
-    return { key: edgeKey(edge), from: edge.from, to: edge.to, rps: Math.max(0, rps) };
+    const key = edgeKey(edge);
+    const flow = frame.edges[key];
+    const rps = Math.max(0, flow?.rps ?? 0);
+    return { key, from: edge.from, to: edge.to, rps, writeRps: Math.min(rps, Math.max(0, flow?.writeRps ?? 0)) };
   });
 }
 

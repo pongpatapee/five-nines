@@ -27,6 +27,7 @@ export function syntheticSimulation(offered: number[], failed: number[]): Simula
     failedRps: failed[i] ?? 0,
     p99Ms: 20,
     nodes: { app: node(offeredRps, failed[i] ?? 0) },
+    edges: { 'clients->app': { rps: offeredRps, writeRps: 0 } },
   }));
   const totalRequests = offered.reduce((a, b) => a + b, 0);
   const failedRequests = failed.reduce((a, b) => a + b, 0);
@@ -38,6 +39,7 @@ export function syntheticSimulation(offered: number[], failed: number[]): Simula
     causes: [],
     events: [],
     timeline,
+    dataTier: { cacheHitRate: {}, peakReplicationLagSec: {} },
   };
 }
 

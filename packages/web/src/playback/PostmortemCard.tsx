@@ -57,7 +57,7 @@ export function PostmortemCard(props: PostmortemCardProps) {
           ))}
         </ul>
       ) : (
-        <p className="muted">No crashes or rotation changes before the incident.</p>
+        <p className="muted">Nothing logged before the incident: no crashes, rotation changes or replica lag.</p>
       )}
 
       <div className="pb-postmortem__availability">

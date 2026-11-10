@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Design } from '../src/schema.ts';
 import { validateDesign } from '../src/validate.ts';
-import { balanced, makeLevel, singleServer } from './fixtures.ts';
+import { balanced, dataDesign, dataLevel, makeLevel, singleServer } from './fixtures.ts';
 
 const level = makeLevel();
 const codes = (design: Design, onLevel = level) => validateDesign(design, onLevel).map((issue) => issue.code);
@@ -83,5 +83,54 @@ describe('validateDesign', () => {
     expect(validateDesign(design, level)).toEqual([
       expect.objectContaining({ severity: 'warning', code: 'unreachable', nodeId: 'idle' }),
     ]);
+  });
+});
+
+describe('validateDesign: data tier', () => {
+  const data = dataLevel();
+  const dataCodes = (design: Design) => codes(design, data);
+
+  it('accepts an app server with a database, a cache and replicas', () => {
+    expect(dataCodes(dataDesign())).toEqual([]);
+    expect(dataCodes(dataDesign({ cache: { size: 'small', ttlSec: 60 }, replicas: { size: 'small', count: 2 } }))).toEqual([]);
+  });
+
+  it('requires a database when requests touch data', () => {
+    expect(dataCodes(singleServer('small'))).toEqual(['needs_database']);
+  });
+
+  it('keeps app servers from forwarding when there is no data tier', () => {
+    expect(codes(dataDesign(), makeLevel({ components: data.components }))).toEqual(['unexpected_outgoing']);
+  });
+
+  it('only lets the clients reach app servers and load balancers', () => {
+    const design: Design = { nodes: [{ id: 'db', kind: 'database', size: 'small' }], edges: [{ from: 'clients', to: 'db' }] };
+    expect(dataCodes(design)).toEqual(['entry_not_allowed']);
+  });
+
+  it('needs replicas to copy exactly one database, the one the app writes to', () => {
+    const orphan = dataDesign({ replicas: { size: 'small', count: 1 } });
+    orphan.edges = orphan.edges.filter((edge) => edge.from !== 'db');
+    expect(dataCodes(orphan)).toEqual(['needs_primary']);
+
+    const other = dataDesign({ replicas: { size: 'small', count: 1 } });
+    other.nodes.push({ id: 'db2', kind: 'database', size: 'small' });
+    other.edges = other.edges.map((edge) => (edge.from === 'db' && edge.to === 'replicas' ? { from: 'db2', to: 'replicas' } : edge));
+    expect(dataCodes(other)).toEqual(expect.arrayContaining(['multiple_databases', 'replica_mismatch']));
+  });
+
+  it('rejects connections the data tier has no use for', () => {
+    const design = dataDesign({ cache: { size: 'small', ttlSec: 60 }, replicas: { size: 'small', count: 1 } });
+    design.edges.push({ from: 'cache', to: 'db' }, { from: 'replicas', to: 'cache' });
+    expect(dataCodes(design)).toEqual(expect.arrayContaining(['unexpected_outgoing', 'cycle']));
+
+    const twoCaches = dataDesign({ cache: { size: 'small', ttlSec: 60 } });
+    twoCaches.nodes.push({ id: 'cache2', kind: 'cache', size: 'small', ttlSec: 60 });
+    twoCaches.edges.push({ from: 'app', to: 'cache2' });
+    expect(dataCodes(twoCaches)).toEqual(['duplicate_data_target']);
+
+    const dbToCache = dataDesign({ cache: { size: 'small', ttlSec: 60 } });
+    dbToCache.edges.push({ from: 'db', to: 'cache' });
+    expect(dataCodes(dbToCache)).toEqual(['invalid_target']);
   });
 });

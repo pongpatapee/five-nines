@@ -193,7 +193,7 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
       <aside className="editor-sidebar" aria-label="Build tools">
         <div className="editor-sidebar__scroll">
           <Palette components={level.components} onAdd={addInFlow} />
-          <Inspector draft={draft} selection={selection} onNodeChange={updateNode} onDelete={deleteSelection} />
+          <Inspector level={level} draft={draft} selection={selection} onNodeChange={updateNode} onDelete={deleteSelection} />
           <IssueList issues={sortedIssues} onSelectNode={selectNode} />
         </div>
         <RunBar blocker={blocker} notice={notice} onRun={run} onReset={reset} />
