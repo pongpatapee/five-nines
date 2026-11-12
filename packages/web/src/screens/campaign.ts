@@ -2,7 +2,7 @@
  * The contents page as a campaign map: which levels exist, how many nines each has earned and where the player is.
  * Pure, so the map component only lays things out.
  */
-import type { Grade } from '@five-nines/sim';
+import { CHAPTERS, isWritten, type Grade } from '@five-nines/sim';
 import { isPassingGrade } from '../format.ts';
 import { ninesForGrade, NINES_PER_LEVEL } from '../results/grading.ts';
 
@@ -52,29 +52,25 @@ export interface XYPoint {
   y: number;
 }
 
-/** The chapters that exist, in order. Every level belongs to exactly one, and they cover `LEVELS` in order. */
-export const WRITTEN_CHAPTERS: readonly WrittenChapter[] = [
-  {
-    title: 'Getting Traffic In',
-    wash: 'green',
-    levelIds: ['01-hello-traffic', '02-scale-out', '03-pull-the-plug'],
-    label: { x: 22, y: 30 },
-    tilt: -1,
-  },
-  {
-    title: 'Remember Things',
-    wash: 'blue',
-    levelIds: ['04-read-all-about-it', '05-cache-miss', '06-bank-balance'],
-    label: { x: 560, y: 30 },
-    tilt: 1,
-  },
+/** Where each chapter's label sits on the map and how it's washed, in `CHAPTERS` order. */
+const CHAPTER_LABELS: readonly { wash: ChapterWash; label: XYPoint; tilt: number }[] = [
+  { wash: 'green', label: { x: 22, y: 30 }, tilt: -1 },
+  { wash: 'blue', label: { x: 560, y: 30 }, tilt: 1 },
+  { wash: 'peach', label: { x: 290, y: 280 }, tilt: -1 },
+  { wash: 'pink', label: { x: 222, y: 520 }, tilt: 1 },
 ];
 
+/** The chapters that exist, in order. Every level belongs to exactly one, and they cover `LEVELS` in order. */
+export const WRITTEN_CHAPTERS: readonly WrittenChapter[] = CHAPTERS.filter(isWritten).map((chapter, c) => ({
+  title: chapter.title,
+  levelIds: chapter.levelIds,
+  ...CHAPTER_LABELS[c]!,
+}));
+
 /** Chapters that aren't written yet. Shown as locked "coming soon" pages: titles only, nothing playable. */
-export const FUTURE_CHAPTERS: readonly { title: string; wash: ChapterWash }[] = [
-  { title: 'Split It Up', wash: 'peach' },
-  { title: 'The Big Leagues', wash: 'pink' },
-];
+export const FUTURE_CHAPTERS: readonly { title: string; wash: ChapterWash }[] = CHAPTERS.filter(
+  (chapter) => !isWritten(chapter),
+).map((chapter, c) => ({ title: chapter.title, wash: CHAPTER_LABELS[WRITTEN_CHAPTERS.length + c]!.wash }));
 
 /** The chapter label's width for a title, in map units. */
 export function chapterLabelWidth(title: string): number {
@@ -109,8 +105,8 @@ export const LOCKED_CHAPTER_LAYOUT: readonly {
   note: XYPoint;
   pages: readonly XYPoint[];
 }[] = [
-  { label: { x: 290, y: 280 }, tilt: -1, note: { x: 455, y: 336 }, pages: [{ x: 590, y: 350 }, { x: 420, y: 420 }, { x: 250, y: 370 }] },
-  { label: { x: 222, y: 520 }, tilt: 1, note: { x: 238, y: 566 }, pages: [{ x: 100, y: 450 }, { x: 170, y: 600 }, { x: 420, y: 650 }] },
+  { label: CHAPTER_LABELS[2]!.label, tilt: -1, note: { x: 455, y: 336 }, pages: [{ x: 590, y: 350 }, { x: 420, y: 420 }, { x: 250, y: 370 }] },
+  { label: CHAPTER_LABELS[3]!.label, tilt: 1, note: { x: 238, y: 566 }, pages: [{ x: 100, y: 450 }, { x: 170, y: 600 }, { x: 420, y: 650 }] },
 ];
 
 /** The finale page at the end of the trail (locked). */

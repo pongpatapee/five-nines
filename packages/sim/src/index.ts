@@ -24,3 +24,4 @@ export {
 } from './data-model.ts';
 export { evaluateDesign, availabilityGrade, type Checks, type Evaluation } from './evaluate.ts';
 export { LEVELS, getLevel } from './levels/index.ts';
+export { CHAPTERS, isWritten, type Chapter } from './levels/chapters.ts';
