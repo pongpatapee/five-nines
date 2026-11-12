@@ -14,8 +14,12 @@ export const ROW_GAP = 170;
  * Layered left-to-right layout. The clients sit in layer 0 at the origin, and every other node sits in the layer of
  * its longest path from the clients, so every edge points rightwards (read replicas sit right of the database they
  * copy, even though the app servers also connect to them). Edges that close a cycle are ignored for this. Nodes that
- * can't be reached from the clients go in one extra layer at the end. Each layer is centred vertically on y = 0,
- * ordered by discovery (which follows edge order), so the result is deterministic for a given design.
+ * can't be reached from the clients go in one extra layer at the end. Each layer is ordered by discovery (which
+ * follows edge order) and centred vertically on y = 0, so the result is deterministic for a given design.
+ *
+ * An edge that skips layers (the app servers' reads going straight to read replicas, past the database) keeps a lane
+ * clear for itself: each layer it skips reserves a row level with the edge's source, and that layer's nodes move up
+ * out of its way. Without this the edge would run straight behind the node it skips.
  *
  * Returns top-left positions for the clients node and every node in the design.
  */
@@ -82,10 +86,29 @@ export function autoLayout(design: Design): Record<string, XY> {
     layers.set(d, layer);
   }
 
+  // The lanes of edges that skip layers: for each layer skipped, the source whose row the lane keeps clear.
+  const lanes = new Map<number, string[]>();
+  for (const [from, targets] of outgoing) {
+    for (const to of new Set(targets)) {
+      if (backEdges.has(`${from}->${to}`) || !depth.has(from)) continue;
+      for (let d = depth.get(from)! + 1; d < depth.get(to)!; d++) {
+        const sources = lanes.get(d) ?? [];
+        if (!sources.includes(from)) sources.push(from);
+        lanes.set(d, sources);
+      }
+    }
+  }
+
+  // Layers in order, so a lane's source is placed before the layers it skips. A layer with lanes stacks its nodes
+  // above them, its first lane level with that lane's source; any other layer is centred on y = 0.
   const layout: Record<string, XY> = {};
-  for (const [d, layer] of layers) {
-    layer.forEach((id, i) => {
-      layout[id] = { x: d * COLUMN_GAP, y: (i - (layer.length - 1) / 2) * ROW_GAP };
+  for (const d of [...layers.keys()].sort((a, b) => a - b)) {
+    const nodes = layers.get(d)!;
+    const sources = lanes.get(d) ?? [];
+    const rows = nodes.length + sources.length;
+    const top = sources.length > 0 ? layout[sources[0]!]!.y - nodes.length * ROW_GAP : (-(rows - 1) / 2) * ROW_GAP;
+    nodes.forEach((id, i) => {
+      layout[id] = { x: d * COLUMN_GAP, y: top + i * ROW_GAP };
     });
   }
   return layout;
