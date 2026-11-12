@@ -1,6 +1,7 @@
 import { CLIENTS_ID, LEVELS, type Design } from '@five-nines/sim';
 import { describe, expect, it } from 'vitest';
-import { autoLayout, COLUMN_GAP, completeLayout, draftFromDesign, ROW_GAP } from '../src/canvas/layout.ts';
+import { pointOnEdge } from '../src/canvas/geometry.ts';
+import { autoLayout, COLUMN_GAP, completeLayout, draftFromDesign, NODE_HEIGHT, NODE_WIDTH, ROW_GAP } from '../src/canvas/layout.ts';
 
 const lbDesign: Design = {
   nodes: [
@@ -77,6 +78,32 @@ describe('autoLayout', () => {
     });
     expect(layout.db!.x).toBe(2 * COLUMN_GAP);
     expect(layout.replicas!.x).toBe(3 * COLUMN_GAP);
+    // The app → replicas edge skips the database's layer, so the database moves up a row out of its way.
+    expect(layout.replicas!.y).toBe(layout.app!.y);
+    expect(layout.db!.y).toBe(layout.app!.y - ROW_GAP);
+  });
+
+  it('never runs a reference solution\'s edge through a node, even one made taller by live stats', () => {
+    const height = NODE_HEIGHT * 1.75;
+    for (const level of LEVELS) {
+      for (const solution of level.solutions) {
+        const layout = autoLayout(solution.design);
+        for (const edge of solution.design.edges) {
+          const from = layout[edge.from]!;
+          const to = layout[edge.to]!;
+          const source = { x: from.x + NODE_WIDTH, y: from.y + NODE_HEIGHT / 2 };
+          const target = { x: to.x, y: to.y + NODE_HEIGHT / 2 };
+          for (const [id, box] of Object.entries(layout)) {
+            if (id === edge.from || id === edge.to) continue;
+            for (let t = 0; t <= 1; t += 0.02) {
+              const p = pointOnEdge(source, target, t);
+              const inside = p.x > box.x && p.x < box.x + NODE_WIDTH && p.y > box.y && p.y < box.y + height;
+              expect(inside, `${level.id} "${solution.name}": ${edge.from} → ${edge.to} crosses ${id}`).toBe(false);
+            }
+          }
+        }
+      }
+    }
   });
 
   it('lays out the empty design as just the clients', () => {
