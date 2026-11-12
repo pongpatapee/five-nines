@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { evaluateDesign } from '../src/evaluate.ts';
+import { CHAPTERS, isWritten } from '../src/levels/chapters.ts';
 import { LEVELS } from '../src/levels/index.ts';
 import { validateDesign } from '../src/validate.ts';
 
@@ -13,6 +14,13 @@ describe('level catalogue', () => {
     const ids = LEVELS.map((level) => level.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect([...ids].sort()).toEqual(ids);
+  });
+
+  it('groups every level into exactly one chapter, in play order, before the planned chapters', () => {
+    const written = CHAPTERS.filter(isWritten);
+    expect(written.flatMap((chapter) => chapter.levelIds)).toEqual(LEVELS.map((level) => level.id));
+    expect(CHAPTERS.slice(0, written.length)).toEqual(written);
+    expect(new Set(CHAPTERS.map((chapter) => chapter.id)).size).toBe(CHAPTERS.length);
   });
 });
 
