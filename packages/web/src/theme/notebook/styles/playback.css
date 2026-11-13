@@ -306,8 +306,9 @@
   transform: rotate(-45deg);
 }
 
+/* Warnings use the darker amber: the pen amber is too light to read as a dot on the paper (2.5:1). */
 .pb-timeline__event--removedFromRotation {
-  --event-color: var(--amber-pen);
+  --event-color: var(--busy);
 }
 
 .pb-timeline__event--restoredToRotation,
@@ -318,7 +319,7 @@
 
 .pb-timeline__event--replicationLagHigh,
 .pb-timeline__event--queueFull {
-  --event-color: var(--amber-pen);
+  --event-color: var(--busy);
 }
 
 .pb-timeline__tooltip {

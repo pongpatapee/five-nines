@@ -199,9 +199,18 @@ export interface CampaignMapProps {
   nextUp: number | null;
 }
 
+/**
+ * What a gauge's reading measures. Machines are busy; a queue's reading is its backlog against a limit: the share of
+ * the deadline its oldest message waits (`deadline`), the share of its room the backlog fills (`room`), or whichever
+ * is more when the gauge doesn't say (`backlog`).
+ */
+export type GaugeMeasure = 'busy' | 'deadline' | 'room' | 'backlog';
+
 export interface UtilizationGaugeProps {
   /** Load ÷ capacity: 0.5 is half busy, above 1 overloaded, Infinity when nothing is left to serve. */
   utilization: number;
+  /** What the reading measures; `busy` (a machine) when omitted. */
+  measure?: GaugeMeasure;
   /** `full`: the inspector's gauge with its reading. `mark`: a small dial on a canvas node. Both are labelled. */
   variant: 'full' | 'mark';
 }

@@ -51,7 +51,7 @@ export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, select
       ) : (
         <div className="design-node__config-row">
           <div className="design-node__config">{config}</div>
-          <UtilizationGauge utilization={expected} variant="mark" />
+          <UtilizationGauge utilization={expected} variant="mark" measure={kind === 'queue' ? 'backlog' : 'busy'} />
         </div>
       )}
       {children}
