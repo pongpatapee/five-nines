@@ -13,8 +13,14 @@ import {
   COMPONENT_LABELS,
   DATABASE_SIZES,
   LOAD_BALANCER,
+  PAYMENT_PROVIDER,
+  QUEUE,
+  QUEUE_SIZES,
   REPLICATION,
+  SHARDING,
+  workerThroughput,
   type ComponentKind,
+  type Level,
   type NodeSpec,
 } from '@five-nines/sim';
 import { formatCompact, formatDurationShort, formatMs, formatUsd, formatUsdPerMonth } from '../format.ts';
@@ -31,8 +37,11 @@ export interface ComponentMeta<K extends ComponentKind> {
   hint: string;
   /** Palette price, e.g. "from $60". */
   priceLabel: string;
-  /** A new component with the engine's defaults. */
-  create(id: string): SpecOf<K>;
+  /**
+   * A new component with the engine's defaults. `level`, when given, fills settings that only make sense against a
+   * level's workload (a sharded database's shard key).
+   */
+  create(id: string, level?: Level): SpecOf<K>;
   /** The node's one-line summary under its name, e.g. "xlarge × 4 · 64 vCPU". */
   summary(spec: SpecOf<K>): string;
   /**
@@ -87,7 +96,15 @@ export const COMPONENTS: Registry = {
     hint: 'Keeps popular data in memory. App servers check it before the database.',
     priceLabel: `from ${formatUsd(CACHE_SIZES.small.usdPerMonth)}`,
     create: (id) => ({ id, kind: 'cache', size: 'small', ttlSec: 60 }),
-    summary: (spec) => `${CACHE_SIZES[spec.size].memoryGb} GB · TTL ${formatDurationShort(spec.ttlSec)}`,
+    summary: (spec) =>
+      [
+        `${CACHE_SIZES[spec.size].memoryGb} GB · TTL ${formatDurationShort(spec.ttlSec)}`,
+        spec.coalesceMisses && 'coalesced',
+        spec.invalidateOnWrite && 'invalidated',
+        spec.replicated && 'replicated',
+      ]
+        .filter(Boolean)
+        .join(' · '),
     follows: ['appServer'],
     reference: {
       heading: `${COMPONENT_LABELS.cache} (${formatCompact(CACHE.opsPerSec)} lookups/s)`,
@@ -134,7 +151,74 @@ export const COMPONENTS: Registry = {
       ],
     },
   },
+
+  shards: {
+    label: COMPONENT_LABELS.shards,
+    idPrefix: 'shards',
+    hint: 'Splits the data across several databases by a shard key. Each shard takes its own writes.',
+    priceLabel: `from ${formatUsd(DATABASE_SIZES.small.usdPerMonth * SHARDING.minCount)}`,
+    create: (id, level) => ({
+      id,
+      kind: 'shards',
+      size: 'small',
+      count: 4,
+      shardKey: level?.workload.data?.shardKeys?.[0]?.id ?? '',
+    }),
+    summary: (spec) => `${spec.size} × ${spec.count} · by ${spec.shardKey || '?'}`,
+    follows: ['appServer'],
+    reference: {
+      heading: `${COMPONENT_LABELS.shards} (per shard)`,
+      rows: [
+        ['any', 'same sizes as the database', 'same price'],
+        ['count', `${SHARDING.minCount} to ${SHARDING.maxCount} shards`, ''],
+      ],
+    },
+  },
+
+  queue: {
+    label: COMPONENT_LABELS.queue,
+    idPrefix: 'queue',
+    hint: 'Holds orders so app servers answer at once; workers charge them at the provider later.',
+    priceLabel: `from ${formatUsd(QUEUE_SIZES.small.usdPerMonth)}`,
+    create: (id) => ({ id, kind: 'queue', size: 'small', workers: 4 }),
+    summary: (spec) => `holds ${formatCompact(QUEUE_SIZES[spec.size].maxDepth)} · ${spec.workers} workers`,
+    follows: ['appServer'],
+    reference: {
+      heading: `${COMPONENT_LABELS.queue} (messages it holds)`,
+      rows: [
+        ...sizes(QUEUE_SIZES).map(
+          (size) =>
+            [
+              size,
+              `${formatCompact(QUEUE_SIZES[size].maxDepth)} messages`,
+              formatUsdPerMonth(QUEUE_SIZES[size].usdPerMonth),
+            ] as const,
+        ),
+        ['worker', `${QUEUE.workerConcurrency} charges in flight`, formatUsdPerMonth(QUEUE.workerUsdPerMonth)],
+      ],
+    },
+  },
+
+  paymentProvider: {
+    label: COMPONENT_LABELS.paymentProvider,
+    idPrefix: 'payments',
+    hint: 'The outside service that charges cards. It refuses calls over its rate limit.',
+    priceLabel: formatUsd(PAYMENT_PROVIDER.usdPerMonth),
+    create: (id) => ({ id, kind: 'paymentProvider' }),
+    summary: () => 'external · rate limited',
+    follows: ['queue', 'appServer'],
+    reference: {
+      heading: COMPONENT_LABELS.paymentProvider,
+      rows: [['any', 'rate limit set by the level', formatUsdPerMonth(PAYMENT_PROVIDER.usdPerMonth)]],
+    },
+  },
 };
+
+/** "100 charges/s per worker" for a level's provider latency. */
+export function workerRateLabel(level: Level): string | null {
+  const payments = level.workload.payments;
+  return payments ? `${formatCompact(workerThroughput(payments))} charges/s per worker` : null;
+}
 
 /** "10k reads · 4k writes" */
 function databaseCapacity(size: keyof typeof DATABASE_SIZES): string {

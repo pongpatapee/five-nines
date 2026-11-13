@@ -1,0 +1,365 @@
+{
+  "id": "07-the-write-wall",
+  "title": "The Write Wall",
+  "concept": "Sharding",
+  "briefing": [
+    "A social app at the top of the charts: 12,000 likes and comments a second, climbing to 15,000 within a minute. Every request is a write.",
+    "The biggest database takes 8,000 writes a second, and read replicas won't help: each one replays every write the primary takes. The data has to be split over several primaries, shards, each owning part of it. The shard key decides which shard a row lives on.",
+    "Choose it with care. About a minute and a half in, a celebrity posts, and for 40 seconds a quarter of all writes are reactions to that one post."
+  ],
+  "debrief": [
+    "15,000 writes a second against the biggest database's 8,000 is 188%. Replicas replay every write, so they would be just as overloaded; they only add read capacity.",
+    "Five large shards keyed by user ID take 3,000 writes a second each: 75% busy. Each user's writes live on their own shard, and millions of users write at similar rates, so the load spreads evenly. Ten medium shards cost the same and do the same.",
+    "Keyed by time posted, every new write lands on the shard that owns the newest range: all 15,000 a second on one 4,000-write machine, 375%, while the other shards sit idle. Ever-growing keys (timestamps, auto-increment ids) always make one hot shard.",
+    "Keyed by post ID, the shards look even, about 20% of the writes each, until the celebrity posts. Then a quarter of all writes are about one post, and one post lives on one shard: about 6,100 writes a second, 153% of a large shard. Keyed by user ID, the same reactions come from millions of different users and spread over every shard.",
+    "Real systems pick the shard key by how the writes spread, then plan for the hot values: Instagram and Twitter shard by user and treat celebrities specially, and DynamoDB and Cassandra both warn about hot partitions. In an interview, name the shard key and say what happens when one of its values gets hot."
+  ],
+  "components": [
+    "appServer",
+    "loadBalancer",
+    "database",
+    "readReplicas",
+    "shards"
+  ],
+  "durationSec": 180,
+  "seed": 707,
+  "workload": {
+    "cpuMsPerRequest": 0.5,
+    "timeoutMs": 1000,
+    "traffic": [
+      {
+        "atSec": 0,
+        "rps": 12000
+      },
+      {
+        "atSec": 60,
+        "rps": 15000
+      },
+      {
+        "atSec": 180,
+        "rps": 15000
+      }
+    ],
+    "data": {
+      "readShare": 0,
+      "keys": {
+        "count": 1000000000,
+        "zipf": 0.9,
+        "valueKb": 1
+      },
+      "shardKeys": [
+        {
+          "id": "createdAt",
+          "label": "time posted",
+          "spread": {
+            "kind": "sequential"
+          }
+        },
+        {
+          "id": "postId",
+          "label": "post ID",
+          "spread": {
+            "kind": "hash",
+            "count": 1000000000,
+            "zipf": 0.9
+          }
+        },
+        {
+          "id": "userId",
+          "label": "user ID",
+          "spread": {
+            "kind": "hash",
+            "count": 50000000,
+            "zipf": 0.6
+          }
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "atSec": 100,
+      "kind": "hotKey",
+      "untilSec": 140,
+      "shardKey": "postId",
+      "share": 0.25,
+      "label": "a celebrity's post"
+    }
+  ],
+  "requirements": {
+    "p99Ms": 50,
+    "budgetUsdPerMonth": 3500
+  },
+  "estimate": {
+    "quantity": "shardsAtFullLoad",
+    "size": "large",
+    "answer": 3.75
+  },
+  "solutions": [
+    {
+      "name": "Five large shards by user ID",
+      "explanation": "3,000 writes a second on each shard, 75% busy, before and during the celebrity's post: the reactions come from millions of users, so they spread like everything else.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 3
+          },
+          {
+            "id": "shards",
+            "kind": "shards",
+            "size": "large",
+            "count": 5,
+            "shardKey": "userId"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "shards"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    },
+    {
+      "name": "Ten medium shards by user ID",
+      "explanation": "The same capacity for the same price, in smaller pieces: 1,500 writes a second on each, 75% busy.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 3
+          },
+          {
+            "id": "shards",
+            "kind": "shards",
+            "size": "medium",
+            "count": 10,
+            "shardKey": "userId"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "shards"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "The biggest database",
+      "explanation": "15,000 writes a second is 188% of the 8,000 an xlarge database can take.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "xlarge"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Read replicas",
+      "explanation": "Replicas serve reads and replay every write. All 15,000 writes still go to the one primary.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "xlarge"
+          },
+          {
+            "id": "replicas",
+            "kind": "readReplicas",
+            "size": "large",
+            "count": 2,
+            "readYourWritesSec": 0
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "db",
+            "to": "replicas"
+          },
+          {
+            "from": "app",
+            "to": "replicas"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Shards by time posted",
+      "explanation": "New posts all have the newest timestamp, so every write goes to the last shard: 375% busy, while four shards sit idle.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 3
+          },
+          {
+            "id": "shards",
+            "kind": "shards",
+            "size": "large",
+            "count": 5,
+            "shardKey": "createdAt"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "shards"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Shards by post ID",
+      "explanation": "Even enough until the celebrity posts. Then a quarter of all writes are about one post, which lives on one shard: 153% busy for 40 seconds.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "medium",
+            "instances": 3
+          },
+          {
+            "id": "shards",
+            "kind": "shards",
+            "size": "large",
+            "count": 5,
+            "shardKey": "postId"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "shards"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    }
+  ]
+}

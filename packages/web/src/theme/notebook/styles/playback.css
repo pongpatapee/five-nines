@@ -283,9 +283,13 @@
   background: var(--event-color);
 }
 
-/* Smudge's crash: a red-pen cross on the ruler. */
+/* Smudge's doing (a crash, a cache reboot, a post gone viral): a red-pen cross on the ruler. */
 .pb-timeline__event--instanceFailed::before,
-.pb-timeline__event--instanceFailed::after {
+.pb-timeline__event--instanceFailed::after,
+.pb-timeline__event--cacheRestarted::before,
+.pb-timeline__event--cacheRestarted::after,
+.pb-timeline__event--hotKeyStarted::before,
+.pb-timeline__event--hotKeyStarted::after {
   content: '';
   position: absolute;
   inset: 7px -1px auto;
@@ -296,7 +300,9 @@
   transform: rotate(45deg);
 }
 
-.pb-timeline__event--instanceFailed::after {
+.pb-timeline__event--instanceFailed::after,
+.pb-timeline__event--cacheRestarted::after,
+.pb-timeline__event--hotKeyStarted::after {
   transform: rotate(-45deg);
 }
 
@@ -305,11 +311,13 @@
 }
 
 .pb-timeline__event--restoredToRotation,
-.pb-timeline__event--replicationLagRecovered {
+.pb-timeline__event--replicationLagRecovered,
+.pb-timeline__event--hotKeyEnded {
   --event-color: var(--green-pen);
 }
 
-.pb-timeline__event--replicationLagHigh {
+.pb-timeline__event--replicationLagHigh,
+.pb-timeline__event--queueFull {
   --event-color: var(--amber-pen);
 }
 

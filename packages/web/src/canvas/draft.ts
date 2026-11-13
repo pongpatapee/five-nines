@@ -3,7 +3,7 @@
  * whether to apply them and uses these helpers to do so. None of them validate the design: that's
  * `validateDesign`'s job, so the player can build invalid intermediate states.
  */
-import { CLIENTS_ID, edgeKey as engineEdgeKey, type ComponentKind, type Edge, type NodeSpec } from '@five-nines/sim';
+import { CLIENTS_ID, edgeKey as engineEdgeKey, type ComponentKind, type Edge, type Level, type NodeSpec } from '@five-nines/sim';
 import { COMPONENTS } from '../components/registry.ts';
 import type { DeleteRequest, Draft, XY } from './types.ts';
 
@@ -31,9 +31,9 @@ export function nextNodeId(draft: Draft, kind: ComponentKind): string {
   }
 }
 
-/** A new component with the engine's defaults. */
-export function createNodeSpec(kind: ComponentKind, id: string): NodeSpec {
-  return COMPONENTS[kind].create(id);
+/** A new component with the engine's defaults, fitted to `level` where a setting depends on it. */
+export function createNodeSpec(kind: ComponentKind, id: string, level?: Level): NodeSpec {
+  return COMPONENTS[kind].create(id, level);
 }
 
 export function addNode(draft: Draft, node: NodeSpec, position: XY): Draft {

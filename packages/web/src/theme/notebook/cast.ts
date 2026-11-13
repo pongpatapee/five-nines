@@ -4,7 +4,8 @@
  *
  * - Ms. Tally, the budget boss: sets the bar in the briefing and delivers the verdict.
  * - Erasmus, the mentor eraser: voices hints, design checks and the postmortem nudge.
- * - Smudge, the ink-blot troublemaker: owns the level's stress (traffic surges, crashed servers).
+ * - Smudge, the ink-blot troublemaker: owns the level's stress (traffic surges, crashed servers, a rebooted cache, a
+ *   post gone viral).
  */
 import { COMPONENT_LABELS, type FailureReason, type Grade } from '@five-nines/sim';
 import { formatAvailability, formatCount, formatMs, formatPercent, formatUsd } from '../../format.ts';
@@ -19,17 +20,23 @@ const MEMBERS = {
   troublemaker: { name: 'Smudge', title: 'troublemaker' },
 } as const;
 
-/** "30 seconds", "about a minute", "about 3 minutes": how a character would say when something happens. */
+/** "30 seconds", "about a minute", "about a minute and a half", "about 3 minutes": how a character would say when something happens. */
 export function roughly(sec: number): string {
   if (sec < 60) return `${Math.round(sec)} seconds`;
-  const minutes = Math.round(sec / 60);
-  return minutes === 1 ? 'about a minute' : `about ${minutes} minutes`;
+  const halves = Math.round(sec / 30);
+  if (halves === 2) return 'about a minute';
+  if (halves === 3) return 'about a minute and a half';
+  return `about ${Math.round(sec / 60)} minutes`;
 }
 
 function troublemakerTease(stress: LevelStress): string {
   switch (stress.kind) {
     case 'crash':
       return `heh. ${roughly(stress.atSec)} in, I unplug your busiest ${COMPONENT_LABELS.appServer.toLowerCase()}.`;
+    case 'cacheRestart':
+      return `heh. ${roughly(stress.atSec)} in, I reboot your cache. everything it remembered? gone.`;
+    case 'hotKey':
+      return `heh. ${roughly(stress.atSec)} in, ${stress.label} goes viral: ${formatPercent(stress.share)} of all writes, one key.`;
     case 'readAfterWrite':
       return `heh. ${formatPercent(stress.share)} of reads check something the reader just wrote. I'd love to show them the old version.`;
     case 'staleness':
@@ -62,9 +69,11 @@ function bossVerdict(verdict: Verdict): { exclaim: string; line: string } {
     case 'availability':
       return {
         exclaim: `${formatAvailability(verdict.availability)}?!`,
-        line: verdict.staleReads
-          ? `Customers saw out-of-date data. We promised ${tierPercent('pass')}. See me after.`
-          : `We promised ${tierPercent('pass')}. See me after.`,
+        line: verdict.lostOrders
+          ? `Every one of those was a paying customer we turned away. We promised ${tierPercent('pass')}. See me after.`
+          : verdict.staleReads
+            ? `Customers saw out-of-date data. We promised ${tierPercent('pass')}. See me after.`
+            : `We promised ${tierPercent('pass')}. See me after.`,
       };
     case 'praise':
       return BOSS_PRAISE[verdict.grade];
@@ -80,7 +89,12 @@ const MENTOR_HINTS: Record<FailureReason, string> = {
     'Requests waited in line until they gave up. That box ran out of capacity. Make it bigger, add more of it, or send fewer requests its way?',
   overloaded: 'More requests arrived than that box can handle. Could the load be spread out instead?',
   stale_read:
-    'Someone read an old copy. Replicas run a little behind the primary, so which reads can afford to wait, and which must see the latest write?',
+    'Someone read an old copy. Replicas and caches both run behind the latest write: which reads can afford that, and what could tell a copy its value changed?',
+  rate_limited:
+    "The provider said no: you called faster than it allows. Does the customer have to wait for the charge, or could it happen a moment later?",
+  queue_full: 'The queue ran out of room and turned orders away. Did it need more room, or faster draining?',
+  deadline_missed:
+    'Orders sat in the queue past the deadline. How fast must the workers drain it to clear the spike in time?',
 };
 
 export const NOTEBOOK_SCRIPT: CastScript = {
@@ -89,6 +103,8 @@ export const NOTEBOOK_SCRIPT: CastScript = {
   bossVerdict,
   troublemakerTease,
   troublemakerCrash: (nodeId, instance) => `${MEMBERS.troublemaker.name} pulls the plug on ${nodeId} instance ${instance + 1}`,
+  troublemakerCacheRestart: (nodeId) => `${MEMBERS.troublemaker.name} reboots ${nodeId}`,
+  troublemakerHotKey: (label) => `${MEMBERS.troublemaker.name} makes ${label} go viral`,
   mentorHints: MENTOR_HINTS,
   mentorSignOff: "Mistakes rub out. That's what I'm for.",
   mentorWelcome: 'Rule one, kid: every box you draw can break. Plan for it.',

@@ -1,0 +1,415 @@
+{
+  "id": "08-thundering-herd",
+  "title": "Thundering Herd",
+  "concept": "Cache stampedes",
+  "briefing": [
+    "A shopping feed on launch day: 4,000 requests a second at opening, 30,000 a minute later. 99% are reads of a million items, and a few thousand popular ones get most of them. Even the smallest cache holds every item.",
+    "Warm, the cache answers almost every read and the database idles. Then, a minute and a half in, the cache node restarts. It comes back empty, and every read misses at once.",
+    "Make the database survive that moment. A cache can coalesce misses (the first miss on an item fetches it, the rest wait for that fetch), keep a replica that takes over warm, or the database can simply be big enough."
+  ],
+  "debrief": [
+    "Warm, a cache with a 5-minute TTL answers about 94% of reads. A large database then sees about 1,600 reads and 300 writes a second (750 read-equivalents): 24% busy. A medium one would be 48%, which is why it's tempting.",
+    "The moment the cache comes back empty, the database gets all 29,700 reads plus the writes: 304% of a large one. The popular items come back fast, three quarters of reads hit again within a second, but only once their fetch returns, and the database's queue is now a second long. Until then every read of even the most popular item misses too, and joins the queue: the stampede. About 12,600 requests time out, nearly three times the 4,600 the run can lose.",
+    "Coalescing breaks the loop: the database sees one read per item instead of thousands, and a large database rides it out. A replicated cache never goes cold, for $30 more a month, so even a medium database copes. Or an xlarge database takes 20,000 reads a second and absorbs the burst, for $600 more. Coalescing can't rescue a database too small for the refill, though: a medium one still times out requests for ten seconds.",
+    "Facebook's Memcache hands out leases so that only one client refills a key; Go's singleflight and Varnish's request coalescing do the same, and production caches warm a replacement before it takes traffic. In an interview, whenever you add a cache, say what happens when it's empty."
+  ],
+  "components": [
+    "appServer",
+    "loadBalancer",
+    "cache",
+    "database",
+    "readReplicas"
+  ],
+  "durationSec": 180,
+  "seed": 808,
+  "workload": {
+    "cpuMsPerRequest": 0.5,
+    "timeoutMs": 1000,
+    "traffic": [
+      {
+        "atSec": 0,
+        "rps": 4000
+      },
+      {
+        "atSec": 60,
+        "rps": 30000
+      },
+      {
+        "atSec": 180,
+        "rps": 30000
+      }
+    ],
+    "data": {
+      "readShare": 0.99,
+      "keys": {
+        "count": 1000000,
+        "zipf": 1.1,
+        "valueKb": 1
+      }
+    }
+  },
+  "events": [
+    {
+      "atSec": 90,
+      "kind": "cacheRestart",
+      "target": {
+        "kind": "cache",
+        "pick": "busiest"
+      }
+    }
+  ],
+  "requirements": {
+    "p99Ms": 50,
+    "budgetUsdPerMonth": 2000
+  },
+  "estimate": {
+    "quantity": "coldCacheDatabaseLoad",
+    "databaseSize": "large",
+    "answer": 304.5
+  },
+  "solutions": [
+    {
+      "name": "Coalesce misses",
+      "explanation": "The empty cache sends each item's first miss to the large database and holds the rest until that fetch returns. The database's queue never fills.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300,
+            "coalesceMisses": true
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    },
+    {
+      "name": "A replicated cache",
+      "explanation": "When the node restarts, its replica takes over with every item still cached, so the database never notices. Doubling a $30 cache is the cheapest protection, enough even for a medium database.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300,
+            "replicated": true
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    },
+    {
+      "name": "A database big enough for the burst",
+      "explanation": "An xlarge database takes 20,000 reads a second. The empty cache sends it more for a moment, but it refills too fast for the queue to fill.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "xlarge"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "Built for the warm cache",
+      "explanation": "A medium database is 48% busy while the cache is warm, and 609% the moment it's empty.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "A large database, unprotected",
+      "explanation": "304% of capacity when the cache empties. Refills wait in the database's queue, so for a second even the popular items keep missing, and about 12,600 requests time out.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Coalescing in front of a medium database",
+      "explanation": "Coalescing stops the duplicate reads, but refilling the cache still takes more than a medium database has: it times out requests for ten seconds.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300,
+            "coalesceMisses": true
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "No cache, the biggest database",
+      "explanation": "29,700 reads a second is 152% of an xlarge database, all the time.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 3
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "xlarge"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    }
+  ]
+}

@@ -53,12 +53,15 @@ describe('notebook cast lines', () => {
   });
 
   it('Ms. Tally complains about the check that failed', () => {
-    expect(NOTEBOOK_SCRIPT.bossVerdict({ kind: 'availability', availability: 0.99, staleReads: false }).line).toBe(
+    expect(NOTEBOOK_SCRIPT.bossVerdict({ kind: 'availability', availability: 0.99, staleReads: false, lostOrders: false }).line).toBe(
       'We promised 99.9%. See me after.',
     );
-    expect(NOTEBOOK_SCRIPT.bossVerdict({ kind: 'availability', availability: 0.99, staleReads: true }).line).toMatch(
+    expect(NOTEBOOK_SCRIPT.bossVerdict({ kind: 'availability', availability: 0.99, staleReads: true, lostOrders: false }).line).toMatch(
       /^Customers saw out-of-date data/,
     );
+    expect(
+      NOTEBOOK_SCRIPT.bossVerdict({ kind: 'availability', availability: 0.99, staleReads: false, lostOrders: true }).line,
+    ).toMatch(/paying customer/);
     expect(NOTEBOOK_SCRIPT.bossVerdict({ kind: 'latency', p99Ms: 120, requiredMs: 75 }).exclaim).toMatch(/^p99 of/);
     expect(NOTEBOOK_SCRIPT.bossVerdict({ kind: 'budget', costUsdPerMonth: 300, budgetUsdPerMonth: 250 }).line).toMatch(
       /Not a cent over/,

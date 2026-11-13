@@ -3,6 +3,7 @@
  * working carries every number in it, so the mentor can show the arithmetic after the player answers.
  */
 import { APP_SERVER_SIZES, DATABASE_SIZES, type AppServerSize, type DatabaseSize } from './catalog.ts';
+import { interpolate } from './math.ts';
 import { peakRps } from './peak-load.ts';
 import type { Estimate, Level } from './schema.ts';
 
@@ -43,6 +44,41 @@ export type EstimateWorking =
       peakRps: number;
       readShare: number;
       readAfterWriteShare: number;
+      result: number;
+    }
+  | {
+      quantity: 'shardsAtFullLoad';
+      size: DatabaseSize;
+      peakRps: number;
+      readsPerSec: number;
+      writesPerSec: number;
+      /** One shard's capacity. */
+      shardReadsPerSec: number;
+      shardWritesPerSec: number;
+      writeCost: number;
+      /** Shards' worth of work, before headroom. */
+      result: number;
+    }
+  | {
+      quantity: 'coldCacheDatabaseLoad';
+      databaseSize: DatabaseSize;
+      /** When the cache restarts, and the request rate then. */
+      atSec: number;
+      rps: number;
+      readsPerSec: number;
+      writesPerSec: number;
+      writeCost: number;
+      databaseReadsPerSec: number;
+      /** Percent. */
+      result: number;
+    }
+  | {
+      quantity: 'queueDrainRateNeeded';
+      peakRps: number;
+      /** How long the traffic stays at its peak. */
+      spikeSec: number;
+      deadlineSec: number;
+      /** Orders per second. */
       result: number;
     };
 
@@ -103,6 +139,55 @@ export function workEstimate(level: Level, estimate: Estimate): EstimateWorking 
         readShare,
         readAfterWriteShare: share,
         result: peak * readShare * share,
+      };
+    }
+    case 'shardsAtFullLoad': {
+      const db = DATABASE_SIZES[estimate.size];
+      const readsPerSec = peak * readShare;
+      const writesPerSec = peak - readsPerSec;
+      const writeCost = db.readsPerSec / db.writesPerSec;
+      return {
+        quantity: estimate.quantity,
+        size: estimate.size,
+        peakRps: peak,
+        readsPerSec,
+        writesPerSec,
+        shardReadsPerSec: db.readsPerSec,
+        shardWritesPerSec: db.writesPerSec,
+        writeCost,
+        result: (readsPerSec + writesPerSec * writeCost) / db.readsPerSec,
+      };
+    }
+    case 'coldCacheDatabaseLoad': {
+      const db = DATABASE_SIZES[estimate.databaseSize];
+      const restart = level.events.find((event) => event.kind === 'cacheRestart');
+      const atSec = restart?.atSec ?? 0;
+      const rps = restart ? interpolate(level.workload.traffic, atSec) : peak;
+      const readsPerSec = rps * readShare;
+      const writesPerSec = rps - readsPerSec;
+      const writeCost = db.readsPerSec / db.writesPerSec;
+      return {
+        quantity: estimate.quantity,
+        databaseSize: estimate.databaseSize,
+        atSec,
+        rps,
+        readsPerSec,
+        writesPerSec,
+        writeCost,
+        databaseReadsPerSec: db.readsPerSec,
+        result: ((readsPerSec + writesPerSec * writeCost) / db.readsPerSec) * 100,
+      };
+    }
+    case 'queueDrainRateNeeded': {
+      const atPeak = level.workload.traffic.filter((point) => point.rps === peak);
+      const spikeSec = atPeak.length > 0 ? atPeak[atPeak.length - 1]!.atSec - atPeak[0]!.atSec : 0;
+      const deadlineSec = level.requirements.processWithinSec ?? Infinity;
+      return {
+        quantity: estimate.quantity,
+        peakRps: peak,
+        spikeSec,
+        deadlineSec,
+        result: (peak * spikeSec) / (deadlineSec + spikeSec),
       };
     }
   }

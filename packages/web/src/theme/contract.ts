@@ -58,6 +58,10 @@ export interface CastScript {
   troublemakerTease(stress: LevelStress): string;
   /** A crash, credited to the troublemaker on the timeline and in the postmortem's event log. */
   troublemakerCrash(nodeId: string, instance: number): string;
+  /** A cache restart, credited to the troublemaker the same way. */
+  troublemakerCacheRestart(nodeId: string): string;
+  /** A hot key, credited to the troublemaker: `label` is what turned hot, as the level words it. */
+  troublemakerHotKey(label: string): string;
   /** The mentor's nudge for each failure reason: points at the fix without giving it away. */
   mentorHints: Readonly<Record<FailureReason, string>>;
   /** The mentor's line when there's nothing specific to say. */

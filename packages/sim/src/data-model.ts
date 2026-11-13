@@ -6,6 +6,7 @@
  * accounting.
  */
 import { REPLICATION } from './catalog.ts';
+import type { ShardKey } from './schema.ts';
 
 /** Keys summed one by one before the tail is integrated. */
 const EXACT_KEYS = 64;
@@ -81,15 +82,33 @@ export class ZipfKeys {
  * Chance that a read of one key finds it in the cache, for a key the cache has room for.
  *
  * Two things must hold. The key must have been read since the cache started empty (`readsSoFar` reads in all, this
- * key getting share p of them): 1 − e^(−p·readsSoFar). And its last fetch must not have expired yet: with reads of
- * the key arriving at rate r = p·readRps and values living `ttlSec`, a fraction r·T / (1 + r·T) of reads land
- * inside a live value. The smaller of the two is the hit chance: early on the first term limits it (warm-up),
- * later the second.
+ * key getting share p of them), and the fetch that read started must have finished: a fetch takes a while when the
+ * database is backed up, and the cache only holds what was read `fillLagReads` reads ago. So it is cached with chance
+ * 1 − e^(−p·(readsSoFar − fillLagReads)). And its last fetch must not have expired yet: with reads of the key arriving
+ * at rate r = p·readRps and values living L seconds, a fraction r·L / (1 + r·L) of reads land inside a live value.
+ * L is the TTL, or shorter when writes delete the key (`keyWriteRps`, see `cachedLifetimeSec`). The smaller of the
+ * two is the hit chance: early on the first term limits it (warm-up), later the second.
  */
-export function keyHitProbability(share: number, readsSoFar: number, readRps: number, ttlSec: number): number {
-  const seen = -Math.expm1(-share * readsSoFar);
-  const live = share * readRps * ttlSec;
-  return Math.min(seen, live / (1 + live));
+export function keyHitProbability(
+  share: number,
+  readsSoFar: number,
+  readRps: number,
+  ttlSec: number,
+  fillLagReads = 0,
+  keyWriteRps = 0,
+): number {
+  const cached = -Math.expm1(-share * Math.max(0, readsSoFar - fillLagReads));
+  const live = share * readRps * cachedLifetimeSec(ttlSec, keyWriteRps);
+  return Math.min(cached, live / (1 + live));
+}
+
+/**
+ * How long a cached value lives on average: its TTL, or until the next write deletes it when writes invalidate. With
+ * writes to the key at rate w, that's E[min(TTL, Exp(w))] = (1 − e^(−w·TTL)) ÷ w.
+ */
+export function cachedLifetimeSec(ttlSec: number, keyWriteRps: number): number {
+  if (!(keyWriteRps > 0)) return ttlSec;
+  return -Math.expm1(-keyWriteRps * ttlSec) / keyWriteRps;
 }
 
 export interface CacheConditions {
@@ -101,6 +120,17 @@ export interface CacheConditions {
   /** Reads reaching the cache now. */
   readRps: number;
   ttlSec: number;
+  /** Reads that arrived while the fetches they started were still in flight (see `keyHitProbability`). Default 0. */
+  fillLagReads?: number;
+  /** Writes per second that delete their key from the cache (invalidation on write), spread like reads. Default 0. */
+  invalidationWriteRps?: number;
+}
+
+/** Each key's hit chance under the conditions, by its share of reads. */
+export function keyHitFunction(c: CacheConditions, lagged = true): (share: number) => number {
+  const lag = lagged ? (c.fillLagReads ?? 0) : 0;
+  const writes = c.invalidationWriteRps ?? 0;
+  return (p) => keyHitProbability(p, c.readsSoFar, c.readRps, c.ttlSec, lag, p * writes);
 }
 
 /** How many values of `valueKb` fit in `memoryGb`. */
@@ -110,7 +140,62 @@ export function cacheCapacityKeys(memoryGb: number, valueKb: number): number {
 
 /** Share of reads the cache serves: Σ over the keys it has room for of p × the key's hit chance. */
 export function cacheHitRate(c: CacheConditions): number {
-  return c.keys.expect((p) => keyHitProbability(p, c.readsSoFar, c.readRps, c.ttlSec), c.capacityKeys);
+  return c.keys.expect(keyHitFunction(c), c.capacityKeys);
+}
+
+/**
+ * Share of reads that miss only because their key's fetch is still in flight: they would hit if fetches were
+ * instant. Without request coalescing each of them reads the database too (the stampede); with it, they wait for the
+ * fetch already under way.
+ */
+export function cacheInFlightRate(c: CacheConditions): number {
+  if (!((c.fillLagReads ?? 0) > 0)) return 0;
+  const instant = keyHitFunction(c, false);
+  const lagged = keyHitFunction(c);
+  return c.keys.expect((p) => Math.max(0, instant(p) - lagged(p)), c.capacityKeys);
+}
+
+// ---------------------------------------------------------------------------
+// Sharding
+// ---------------------------------------------------------------------------
+
+/**
+ * Each shard's share of the data operations when they are split by `key` over `count` shards.
+ *
+ * - Sequential keys (timestamps, ever-growing ids) put all new data in the newest range: one shard takes everything.
+ * - Hashed keys: the most popular values are placed one by one, by a fixed hash of their popularity rank, so two
+ *   popular values can land on the same shard; the long tail spreads evenly.
+ *
+ * `hotShare` is the share of all operations that one value of this key takes during a hot key event (0 if none). It
+ * is the most popular value, so it lands where rank 1 does; everything else shrinks to make room.
+ */
+export function shardShares(key: ShardKey, count: number, hotShare = 0): number[] {
+  const shares = new Array<number>(count).fill(0);
+  if (key.spread.kind === 'sequential') {
+    shares[count - 1] = 1;
+    return shares;
+  }
+  const keys = new ZipfKeys(key.spread.count, key.spread.zipf);
+  const top = Math.min(EXACT_KEYS, keys.count);
+  let placed = 0;
+  for (let rank = 1; rank <= top; rank++) {
+    const share = keys.share(rank);
+    shares[shardOf(rank, count)]! += share;
+    placed += share;
+  }
+  const tail = Math.max(0, 1 - placed) / count;
+  for (let i = 0; i < count; i++) shares[i] = (shares[i]! + tail) * (1 - hotShare);
+  shares[shardOf(1, count)]! += hotShare;
+  return shares;
+}
+
+/** The shard a value of popularity rank `rank` hashes to: a fixed integer hash (a murmur3 finalizer), mod `count`. */
+export function shardOf(rank: number, count: number): number {
+  let h = Math.imul(rank ^ 0x9e3779b9, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) % count;
 }
 
 // ---------------------------------------------------------------------------

@@ -53,6 +53,9 @@ export const COMPONENT_LABELS = {
   cache: 'Cache',
   database: 'Database',
   readReplicas: 'Read replicas',
+  shards: 'Shards',
+  queue: 'Queue',
+  paymentProvider: 'Payment provider',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -74,10 +77,12 @@ export const CACHE_SIZES: Record<CacheSize, { memoryGb: number; usdPerMonth: num
 };
 
 export const CACHE = {
-  /** Lookups per second one cache node serves. */
+  /** Lookups per second one cache node serves. Invalidations (deletes on write) cost one lookup each. */
   opsPerSec: 100_000,
   /** Lookups it works on at once. */
   workers: 4,
+  /** A replicated cache runs a standby copy that takes over, contents intact, if the node restarts: it costs this many times as much. */
+  replicatedCostFactor: 2,
 } as const;
 
 export type DatabaseSize = 'small' | 'medium' | 'large' | 'xlarge';
@@ -114,4 +119,49 @@ export const REPLICATION = {
 export const READ_YOUR_WRITES_WINDOWS = [0, 1, 2, 5, 10, 30] as const;
 
 /** The cache expiry times (TTL) the game offers, in seconds. */
-export const CACHE_TTLS = [10, 60, 300, 3_600] as const;
+export const CACHE_TTLS = [5, 10, 60, 300, 3_600] as const;
+
+// ---------------------------------------------------------------------------
+// Sharding
+// ---------------------------------------------------------------------------
+
+/**
+ * A sharded database: several primaries of one size, each holding the keys the shard key assigns it. They are the
+ * database machines (`DATABASE_SIZES`), priced per shard.
+ */
+export const SHARDING = {
+  minCount: 2,
+  maxCount: 16,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Queues, workers and the payment provider
+// ---------------------------------------------------------------------------
+
+export type QueueSize = 'small' | 'medium' | 'large' | 'xlarge';
+
+/** A message queue (SQS/RabbitMQ-like): its size is how many messages it holds before refusing more. */
+export const QUEUE_SIZES: Record<QueueSize, { maxDepth: number; usdPerMonth: number }> = {
+  small: { maxDepth: 10_000, usdPerMonth: 20 },
+  medium: { maxDepth: 100_000, usdPerMonth: 45 },
+  large: { maxDepth: 1_000_000, usdPerMonth: 120 },
+  xlarge: { maxDepth: 10_000_000, usdPerMonth: 450 },
+};
+
+export const QUEUE = {
+  /** Time to put a message on the queue and answer the producer. */
+  enqueueMs: 2,
+  /**
+   * Charges one worker keeps in flight. A worker mostly waits on the provider, so it handles concurrency ÷ the
+   * provider's latency charges a second: 30 ÷ 300 ms = 100.
+   */
+  workerConcurrency: 30,
+  /** One worker's monthly price (a small VM). */
+  workerUsdPerMonth: 60,
+  maxWorkers: 64,
+} as const;
+
+/** An external payment provider. It bills per charge, outside the infrastructure budget. */
+export const PAYMENT_PROVIDER = {
+  usdPerMonth: 0,
+} as const;

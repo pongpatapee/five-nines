@@ -1,7 +1,7 @@
 import { designCostUsdPerMonth, type Design, type Level } from '@five-nines/sim';
 import { Fragment } from 'react';
 import { COMPONENTS } from '../components/registry.ts';
-import { capitalize, formatDuration, formatMs, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
+import { capitalize, formatCount, formatDuration, formatMs, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
 import { cast, CastLine, troublemakerTease, words } from '../theme/index.ts';
 import { tierPercent } from '../results/grading.ts';
 import { CostMeter } from './CostMeter.tsx';
@@ -95,6 +95,20 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
               <div>
                 <dt>Consistency</dt>
                 <dd>users always see their own writes</dd>
+              </div>
+            )}
+            {level.requirements.processWithinSec !== undefined && (
+              <div>
+                <dt>Charging</dt>
+                <dd className="num">every order within {formatDuration(level.requirements.processWithinSec)}</dd>
+              </div>
+            )}
+            {level.workload.payments && (
+              <div>
+                <dt>Provider</dt>
+                <dd className="num">
+                  ≤ {formatCount(level.workload.payments.rateLimitRps)} calls/s · {formatMs(level.workload.payments.latencyMs)} each
+                </dd>
               </div>
             )}
             <div>

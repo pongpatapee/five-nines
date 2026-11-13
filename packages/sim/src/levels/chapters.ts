@@ -22,7 +22,11 @@ export const CHAPTERS: readonly Chapter[] = checkChapters([
     title: 'Growing Pains',
     levelIds: ['04-read-all-about-it', '05-cache-miss', '06-bank-balance'],
   },
-  { id: 'hypergrowth', title: 'Hypergrowth', levelIds: [] },
+  {
+    id: 'hypergrowth',
+    title: 'Hypergrowth',
+    levelIds: ['07-the-write-wall', '08-thundering-herd', '09-stale-prices', '10-flash-sale'],
+  },
   { id: 'worldwide', title: 'Worldwide', levelIds: [] },
 ]);
 

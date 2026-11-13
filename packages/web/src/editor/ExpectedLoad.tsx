@@ -1,5 +1,5 @@
 import { COMFORTABLE_UTILIZATION, HOT_UTILIZATION, type NodeLoad, type PeakLoad } from '@five-nines/sim';
-import { formatCount, formatPercent } from '../format.ts';
+import { formatCount, formatPercent, formatSeconds } from '../format.ts';
 import { UtilizationGauge } from '../theme/index.ts';
 
 export interface ExpectedLoadProps {
@@ -14,6 +14,7 @@ export interface ExpectedLoadProps {
 export function ExpectedLoad({ nodeId, load }: ExpectedLoadProps) {
   const node = load.nodes[nodeId];
   const afterCrash = load.afterCrash?.[nodeId];
+  const duringHotKey = load.duringHotKey?.[nodeId];
   return (
     <section className="expected-load" aria-labelledby="expected-load-title">
       <h3 id="expected-load-title" className="expected-load__title">
@@ -28,6 +29,15 @@ export function ExpectedLoad({ nodeId, load }: ExpectedLoadProps) {
               <span>After the busiest instance crashes:</span>
               <UtilizationGauge utilization={afterCrash.utilization} variant="mark" />
             </p>
+          )}
+          {duringHotKey && node.kind === 'shards' && duringHotKey.utilization > node.utilization + 0.005 && (
+            <>
+              <p className="expected-load__crash">
+                <span>While one value is hot:</span>
+                <UtilizationGauge utilization={duringHotKey.utilization} variant="mark" />
+              </p>
+              <p className="expected-load__working num">{working(duringHotKey)}</p>
+            </>
           )}
           <p className="field__help">
             Load ÷ capacity. Under {formatPercent(COMFORTABLE_UTILIZATION)} is comfortable; past{' '}
@@ -60,5 +70,22 @@ export function working(node: NodeLoad): string {
       const reads = node.readRps ?? 0;
       return `${n(reads)} reads ÷ ${node.machines} = ${n(reads / node.machines)} each, + ${n(node.writeRps ?? 0)} writes replayed × ${node.writeCost} = ${n(node.load)} of ${n(node.capacity)} reads/s per replica`;
     }
+    case 'shards': {
+      const shares = node.shardShares ?? [];
+      const hottest = node.hottestShard ?? 0;
+      const total = (node.readRps ?? 0) + (node.writeRps ?? 0) * (node.writeCost ?? 1);
+      const reads = (node.readRps ?? 0) > 0 ? `${n(node.readRps ?? 0)} reads + ` : '';
+      return `${reads}${n(node.writeRps ?? 0)} writes × ${node.writeCost} = ${n(total)} · shard ${hottest + 1} gets ${formatPercent(shares[hottest] ?? 0)} = ${n(node.load)} of ${n(node.capacity)} reads/s`;
+    }
+    case 'queue': {
+      const q = node.queue;
+      if (!q) return '';
+      const backlog = `${n(q.peakArrivalRps)} orders/s in at the peak, ${n(q.drainRps)}/s charged · backlog up to ${n(q.peakBacklog)} of ${n(q.maxDepth)}`;
+      if (!Number.isFinite(q.deadlineSec)) return backlog;
+      const wait = Number.isFinite(q.maxWaitSec) ? formatSeconds(q.maxWaitSec) : 'forever';
+      return `${backlog} · oldest waits ${wait} of ${formatSeconds(q.deadlineSec)}`;
+    }
+    case 'paymentProvider':
+      return `${n(node.load)} calls/s ÷ ${n(node.capacity)} calls/s allowed`;
   }
 }

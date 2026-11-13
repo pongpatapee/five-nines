@@ -121,6 +121,18 @@ export function GradeCard({
             <dd className="num">{formatSeconds(lag)}</dd>
           </div>
         ))}
+        {Object.entries(simulation.payments.peakQueueDepth).map(([id, depth]) => (
+          <div key={`depth:${id}`}>
+            <dt>{id} peak backlog</dt>
+            <dd className="num">{formatCount(depth)}</dd>
+          </div>
+        ))}
+        {Object.entries(simulation.payments.peakQueueWaitSec).map(([id, wait]) => (
+          <div key={`wait:${id}`}>
+            <dt>{id} longest wait</dt>
+            <dd className="num">{formatSeconds(wait)}</dd>
+          </div>
+        ))}
       </dl>
 
       {failover && (

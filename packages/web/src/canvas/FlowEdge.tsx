@@ -6,7 +6,8 @@ import { edgePath } from './geometry.ts';
 
 /**
  * The one edge type. Draws the shared Bézier from `geometry.ts` and records its endpoints in the canvas's edge
- * registry, so the playback overlay animates along exactly what's on screen.
+ * registry, so the playback overlay animates along exactly what's on screen. An edge out of a queue is drawn as async
+ * (`flow-edge--async`): its work leaves when a worker takes it, not when a request arrives.
  */
 export const FlowEdge = memo(function FlowEdge({
   id,
@@ -18,6 +19,7 @@ export const FlowEdge = memo(function FlowEdge({
   targetY,
   selected,
   markerEnd,
+  data,
 }: EdgeProps<DesignFlowEdge>) {
   const registry = useContext(EdgeRegistryContext);
 
@@ -37,7 +39,7 @@ export const FlowEdge = memo(function FlowEdge({
     <BaseEdge
       id={id}
       path={edgePath({ x: sourceX, y: sourceY }, { x: targetX, y: targetY })}
-      className={selected ? 'flow-edge is-selected' : 'flow-edge'}
+      className={['flow-edge', selected && 'is-selected', data?.async && 'flow-edge--async'].filter(Boolean).join(' ')}
       markerEnd={markerEnd}
       interactionWidth={18}
     />
