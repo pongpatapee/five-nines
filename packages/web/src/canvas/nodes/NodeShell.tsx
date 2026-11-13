@@ -2,7 +2,7 @@ import type { ComponentKind } from '@five-nines/sim';
 import { Handle, Position } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { formatUsdPerMonth } from '../../format.ts';
-import { ComponentArt, marks as themeMarks } from '../../theme/index.ts';
+import { ComponentArt, marks as themeMarks, UtilizationGauge } from '../../theme/index.ts';
 import { useDecorations } from '../context.ts';
 import { isFailingRate } from '../types.ts';
 
@@ -25,7 +25,8 @@ export interface NodeShellProps {
 
 /** The frame every node shares: handles, header, marks, selection and the failing glow. */
 export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
-  const { live, marks } = useDecorations();
+  const { live, marks, forecast } = useDecorations();
+  const expected = live ? undefined : forecast?.[id];
   const failing = isFailingRate(live?.nodes[id]?.failedRps ?? 0);
   const mark = marks[id];
   const classes = ['design-node'];
@@ -45,7 +46,14 @@ export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, select
         {costUsdPerMonth !== undefined && <span className="design-node__cost num">{formatUsdPerMonth(costUsdPerMonth)}</span>}
       </div>
       <div className="design-node__id">{id}</div>
-      <div className="design-node__config">{config}</div>
+      {expected === undefined ? (
+        <div className="design-node__config">{config}</div>
+      ) : (
+        <div className="design-node__config-row">
+          <div className="design-node__config">{config}</div>
+          <UtilizationGauge utilization={expected} variant="mark" />
+        </div>
+      )}
       {children}
       <Handle type="source" position={Position.Right} className="design-node__handle" />
     </div>

@@ -1,5 +1,5 @@
-import { AVAILABILITY_TIERS } from '@five-nines/sim';
-import type { ReactNode } from 'react';
+import type { Grade } from '@five-nines/sim';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { describeCause } from '../../describe.ts';
 import {
   formatAvailability,
@@ -12,6 +12,7 @@ import {
 } from '../../format.ts';
 import {
   gradeHeadline,
+  litTiers,
   nextTier,
   NINES_PER_LEVEL,
   ninesForGrade,
@@ -20,7 +21,7 @@ import {
   TIER_ORDER,
 } from '../../results/grading.ts';
 import type { GradeCardProps } from '../contract.ts';
-import { mentorHint, verdictFor } from '../situations.ts';
+import { verdictFor, type HintLadder } from '../situations.ts';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
 import { Cross, HandArrow, InkLoop, NinesDots, Tick } from './ink.tsx';
@@ -30,6 +31,8 @@ export function GradeCard({
   level,
   levelNumber,
   evaluation,
+  hints,
+  failover,
   onBackToEditor,
   onReplay,
   onShowDebrief,
@@ -77,7 +80,7 @@ export function GradeCard({
           actual={formatAvailability(checks.availability.value)}
           required={`≥ ${tierPercent('pass')}`}
         >
-          <TierLadder availability={checks.availability.value} />
+          <TierLadder grade={grade} />
         </CheckRow>
         <CheckRow
           label="p99 latency"
@@ -120,16 +123,22 @@ export function GradeCard({
         ))}
       </dl>
 
-      {mainCause && (
+      {failover && (
+        <div className="grade-card__failover">
+          <b className="grade-card__failover-label">Failover</b>
+          <ul>
+            {NOTEBOOK_SCRIPT.failoverLines(failover).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {passed && mainCause && (
         <p className="grade-card__note">
           <b className="grade-card__note-label">First failure:</b> {describeCause(mainCause)}
         </p>
       )}
-      {!passed && mainCause && (
-        <CastLine role="mentor" mood="concerned" size={56} className="grade-card__mentor">
-          {mentorHint(mainCause.reason, NOTEBOOK_SCRIPT)}
-        </CastLine>
-      )}
+      {hints && <MentorHints key={hints.topic} ladder={hints} />}
       {upNext && passed && <p className="grade-card__note muted">Next: {tierRequirementLabel(upNext)}.</p>}
       {evaluation.warnings.length > 0 && (
         <ul className="grade-card__warnings">
@@ -184,19 +193,64 @@ function CheckRow({
   );
 }
 
-/** Pass, star and mastered thresholds, lit up to the tier reached. */
-function TierLadder({ availability }: { availability: number }) {
+/** Pass, star and mastered thresholds, lit up to the grade earned. A failed run lights none, and says why. */
+function TierLadder({ grade }: { grade: Grade }) {
+  const lit = litTiers(grade);
   return (
-    <ol className="tier-ladder">
-      {TIER_ORDER.map((tier) => {
-        const reached = availability >= AVAILABILITY_TIERS[tier];
-        return (
-          <li key={tier} className="tier-ladder__step" data-tier={tier} data-reached={reached}>
-            <span className="tier-ladder__name">{GRADE_LABELS[tier]}</span>
-            <span className="tier-ladder__value num">{tierPercent(tier)}</span>
+    <>
+      <ol className="tier-ladder" aria-label="Nines earned">
+        {TIER_ORDER.map((tier) => {
+          const reached = lit.includes(tier);
+          return (
+            <li key={tier} className="tier-ladder__step" data-tier={tier} data-reached={reached}>
+              <span className="tier-ladder__name">{GRADE_LABELS[tier]}</span>
+              <span className="tier-ladder__value num">{tierPercent(tier)}</span>
+              <span className="visually-hidden">{reached ? ', earned' : ', not earned'}</span>
+            </li>
+          );
+        })}
+      </ol>
+      {grade === 'fail' && <p className="tier-ladder__void">No nines this run: they only count when every check passes.</p>}
+    </>
+  );
+}
+
+/** Erasmus's hints, one rung at a time: where it broke, why, the idea, the fix. */
+function MentorHints({ ladder }: { ladder: HintLadder }) {
+  const [shown, setShown] = useState(1);
+  const total = ladder.rungs.length;
+  const words = NOTEBOOK_SCRIPT.mentorLadder;
+  // Each new hint takes the focus, so keyboard and screen-reader players land on what they asked for.
+  const latest = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (shown > 1) latest.current?.focus();
+  }, [shown]);
+  return (
+    <CastLine
+      role="mentor"
+      mood="concerned"
+      size={56}
+      className="grade-card__mentor"
+      lead={`Hint ${shown} of ${total}`}
+    >
+      <ol className="hint-ladder">
+        {ladder.rungs.slice(0, shown).map((rung, i) => (
+          <li
+            key={rung.step}
+            ref={i === shown - 1 ? latest : undefined}
+            tabIndex={-1}
+            className="hint-ladder__rung"
+            data-step={rung.step}
+          >
+            <b className="hint-ladder__label">{words.stepLabels[rung.step]}:</b> {rung.text}
           </li>
-        );
-      })}
-    </ol>
+        ))}
+      </ol>
+      {shown < total && (
+        <button type="button" className="btn btn--sm btn--ghost hint-ladder__more" onClick={() => setShown(shown + 1)}>
+          {words.more} ({shown + 1} of {total})
+        </button>
+      )}
+    </CastLine>
   );
 }

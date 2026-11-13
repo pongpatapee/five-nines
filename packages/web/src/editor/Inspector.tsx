@@ -1,13 +1,16 @@
-import { CLIENTS_ID, nodeCostUsdPerMonth, type Edge, type Level, type NodeSpec } from '@five-nines/sim';
+import { CLIENTS_ID, nodeCostUsdPerMonth, type Edge, type Level, type NodeSpec, type PeakLoad } from '@five-nines/sim';
 import type { CanvasSelection, Draft } from '../canvas/types.ts';
 import { COMPONENTS } from '../components/registry.ts';
 import { formatUsdPerMonth } from '../format.ts';
+import { ExpectedLoad } from './ExpectedLoad.tsx';
 import { NodeFields } from './fields.tsx';
 
 export interface InspectorProps {
   /** The level being played: some settings explain themselves in its terms (e.g. how many values a cache holds). */
   level: Level;
   draft: Draft;
+  /** Expected load at the level's peak for the current draft. */
+  load: PeakLoad;
   /** Already resolved against the draft: never points at something that doesn't exist. */
   selection: CanvasSelection | null;
   onNodeChange(node: NodeSpec): void;
@@ -15,7 +18,7 @@ export interface InspectorProps {
 }
 
 /** Settings for the selected node or edge, or a short how-to when nothing is selected. */
-export function Inspector({ level, draft, selection, onNodeChange, onDelete }: InspectorProps) {
+export function Inspector({ level, draft, load, selection, onNodeChange, onDelete }: InspectorProps) {
   if (!selection) return <HowTo />;
   if (selection.kind === 'edge') return <EdgeInspector edge={selection.edge} onDelete={onDelete} />;
   if (selection.id === CLIENTS_ID) return <ClientsInspector />;
@@ -30,6 +33,7 @@ export function Inspector({ level, draft, selection, onNodeChange, onDelete }: I
         <span className="muted">Monthly cost</span>
         <span className="num">{formatUsdPerMonth(nodeCostUsdPerMonth(node))}</span>
       </div>
+      <ExpectedLoad nodeId={node.id} load={load} />
     </section>
   );
 }

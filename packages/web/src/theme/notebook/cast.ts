@@ -11,6 +11,7 @@ import { formatAvailability, formatCount, formatMs, formatPercent, formatUsd } f
 import { tierPercent } from '../../results/grading.ts';
 import type { CastScript } from '../contract.ts';
 import type { LevelStress, Verdict } from '../situations.ts';
+import { failoverLines, MENTOR_ESTIMATE, MENTOR_LADDER, mentorLatency } from './hints.ts';
 
 const MEMBERS = {
   boss: { name: 'Ms. Tally', title: 'budget boss' },
@@ -101,4 +102,8 @@ export const NOTEBOOK_SCRIPT: CastScript = {
     if (warnings > 0) return `Only warnings. It'll run, but read them before ${MEMBERS.boss.name} does.`;
     return "Looks runnable to me. Press Run and let's see what breaks.";
   },
+  mentorLadder: MENTOR_LADDER,
+  mentorLatency,
+  failoverLines,
+  mentorEstimate: MENTOR_ESTIMATE,
 };

@@ -20,7 +20,8 @@ import { incidentAtFreeze } from './incident.ts';
 import { prepareSeries } from './series.ts';
 import { TimelineStrip } from './TimelineStrip.tsx';
 import { useReducedMotion } from './useReducedMotion.ts';
-import { BudgetMeter, PostmortemCard } from '../theme/index.ts';
+import { BudgetMeter, failoverSituation, PostmortemCard } from '../theme/index.ts';
+import { LatencyNote } from './LatencyNote.tsx';
 
 export interface PlaybackProps {
   /** The level that was run. */
@@ -59,6 +60,11 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
   // ---- freeze-frame: highlight the root cause and bring it into view ----
 
   const frozen = clock.freeze.kind === 'frozen';
+  const exhaustedAtSec = evaluation.errorBudgetExhaustedAtSec;
+  const failover = useMemo(
+    () => (exhaustedAtSec === null ? null : failoverSituation(draft.design, simulation, exhaustedAtSec + 1)),
+    [draft.design, simulation, exhaustedAtSec],
+  );
   const rootCauseId = simulation.causes[0]?.nodeId ?? null;
   const marks = useMemo(
     () => (frozen && rootCauseId ? { [rootCauseId]: 'focus' as const } : NO_MARKS),
@@ -147,6 +153,9 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
           overlay={overlay}
           onReady={onReady}
         />
+        {!frozen && (
+          <LatencyNote timeline={simulation.timeline} timeSec={clock.timeSec} requiredMs={level.requirements.p99Ms} />
+        )}
         {frozen && (
           <div className="pb-incident-stamp" aria-hidden>
             Incident
@@ -158,6 +167,7 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
             exhaustedAtSec={evaluation.errorBudgetExhaustedAtSec}
             {...incidentAtFreeze(simulation.causes, simulation.events, evaluation.errorBudgetExhaustedAtSec)}
             availability={snapshot.availability}
+            failover={failover}
             onKeepWatching={controller.keepWatching}
             onSeeResults={onFinished}
           />

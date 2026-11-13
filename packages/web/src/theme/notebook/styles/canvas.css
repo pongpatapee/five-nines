@@ -353,3 +353,135 @@
   /* "Read replicas" is the longest kind; keep it on one line beside the cost. */
   white-space: nowrap;
 }
+
+/* ------------------------------------------------------------------ utilization gauge: a pressure dial in ink */
+
+.util-gauge {
+  --zone-color: var(--healthy);
+  color: var(--ink);
+}
+
+.util-gauge[data-zone='busy'] {
+  --zone-color: var(--busy);
+}
+
+.util-gauge[data-zone='hot'],
+.util-gauge[data-zone='overloaded'] {
+  --zone-color: var(--failing);
+}
+
+.util-gauge__dial {
+  display: block;
+  overflow: visible;
+}
+
+.util-gauge__zone {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: butt;
+}
+
+.util-gauge__zone[data-zone='comfortable'] {
+  stroke: var(--highlighter-green);
+}
+
+.util-gauge__zone[data-zone='busy'] {
+  stroke: var(--highlighter);
+}
+
+.util-gauge__zone[data-zone='hot'] {
+  stroke: var(--red-pen);
+  stroke-opacity: 0.45;
+}
+
+/* Past full load: red-pen hatching. */
+.util-gauge__zone[data-zone='overloaded'] {
+  stroke: var(--red-pen);
+  stroke-dasharray: 2 2.5;
+}
+
+.util-gauge__tick {
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.util-gauge__tick-label {
+  fill: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 10px;
+}
+
+.util-gauge__needle {
+  stroke: var(--ink);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+.util-gauge__hub {
+  fill: var(--ink);
+}
+
+.util-gauge[data-zone='overloaded'] .util-gauge__needle {
+  stroke: var(--red-pen);
+}
+
+.util-gauge__value {
+  font-weight: 700;
+  color: var(--zone-color);
+}
+
+/* In the inspector: the dial with its reading beside it. */
+.util-gauge--full {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.util-gauge--full .util-gauge__dial {
+  width: 120px;
+  height: 67px;
+  flex: none;
+}
+
+.util-gauge__reading {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+
+.util-gauge--full .util-gauge__value {
+  font-size: var(--text-2xl);
+  line-height: 1;
+}
+
+.util-gauge__zone-word {
+  font-family: var(--font-note);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--zone-color);
+}
+
+/* On a canvas node: a small dial and its reading, at the end of the config line. */
+.util-gauge--mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+
+.util-gauge--mark .util-gauge__dial {
+  width: 30px;
+  height: 17px;
+}
+
+.util-gauge--mark .util-gauge__value {
+  font-size: var(--text-xs);
+}
+
+.design-node__config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}

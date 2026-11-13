@@ -46,6 +46,17 @@ export function PostmortemCard(props: PostmortemCardProps) {
           </>
         )}
 
+        {props.failover && (
+          <>
+            <h3 className="pb-postmortem__heading">Failover:</h3>
+            <ul className="pb-postmortem__failover">
+              {NOTEBOOK_SCRIPT.failoverLines(props.failover).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </>
+        )}
+
         <h3 className="pb-postmortem__heading">Event log:</h3>
         {shownEvents.length > 0 ? (
           <ul className="pb-postmortem__events">

@@ -3,7 +3,22 @@
  * decides *which* situation applies, a theme's script decides how its characters say it. So no theme can make a
  * character claim something the simulation didn't do.
  */
-import type { DesignIssue, FailureReason, Grade, Level, SimEvent } from '@five-nines/sim';
+import {
+  HEALTH_CHECK,
+  LOAD_BALANCER,
+  nodeCostUsdPerMonth,
+  type ComponentKind,
+  type Design,
+  type DesignIssue,
+  type FailureReason,
+  type Grade,
+  type Level,
+  type LoadBalancerSpec,
+  type ReadReplicasSpec,
+  type SimEvent,
+  type SimulationResult,
+  type TimelineFrame,
+} from '@five-nines/sim';
 import type { GradedEvaluation } from '../engine/index.ts';
 import type { CastScript } from './contract.ts';
 
@@ -98,4 +113,312 @@ export function mentorHint(reason: FailureReason | null | undefined, script: Cas
 export function troublemakerTease(level: Level, script: CastScript): string | null {
   const stress = levelStress(level);
   return stress ? script.troublemakerTease(stress) : null;
+}
+
+// ---------------------------------------------------------------------------- latency
+
+/** The busiest machine in a second of the run: the up instance with the highest utilization, by node. */
+export interface Busiest {
+  nodeId: string;
+  utilization: number;
+}
+
+/** Why p99 was where it was in one second of the run: the requirement, and the busiest machine then. */
+export interface LatencySituation {
+  atSec: number;
+  p99Ms: number;
+  requiredMs: number;
+  /** Null when no machine was measurably busy (nothing to blame but the route itself). */
+  busiest: Busiest | null;
+}
+
+/** Below this, a machine isn't busy enough to explain a latency problem. */
+const NOTABLY_BUSY = 0.05;
+
+export function busiestAt(frame: Pick<TimelineFrame, 'nodes'>): Busiest | null {
+  let best: Busiest | null = null;
+  for (const [nodeId, node] of Object.entries(frame.nodes)) {
+    for (const instance of node.instances) {
+      if (instance.up && (best === null || instance.utilization > best.utilization)) {
+        best = { nodeId, utilization: instance.utilization };
+      }
+    }
+  }
+  return best && best.utilization >= NOTABLY_BUSY ? best : null;
+}
+
+/** The latency situation in one second of the run. Null when no request succeeded that second. */
+export function latencyAt(frame: TimelineFrame, requiredMs: number): LatencySituation | null {
+  if (frame.p99Ms === null) return null;
+  return { atSec: frame.atSec, p99Ms: frame.p99Ms, requiredMs, busiest: busiestAt(frame) };
+}
+
+/** The second with the worst p99 in the run, and why. */
+export function worstLatency(timeline: readonly TimelineFrame[], requiredMs: number): LatencySituation | null {
+  let worst: TimelineFrame | null = null;
+  for (const frame of timeline) {
+    if (frame.p99Ms !== null && (worst === null || frame.p99Ms > worst.p99Ms!)) worst = frame;
+  }
+  return worst ? latencyAt(worst, requiredMs) : null;
+}
+
+/** p99 within this share of the limit counts as climbing towards it. */
+export const LATENCY_WARNING_SHARE = 0.8;
+
+/** Whether p99 is worth a word during playback: over the limit, or climbing close to it. */
+export function latencyWorthNoting(situation: LatencySituation | null): situation is LatencySituation {
+  return situation !== null && situation.p99Ms > situation.requiredMs * LATENCY_WARNING_SHARE;
+}
+
+// ---------------------------------------------------------------------------- failover
+
+/** What happened around a crashed instance: when it died, when the load balancer noticed, and what it cost. */
+export interface FailoverSituation {
+  crashedAtSec: number;
+  nodeId: string;
+  instance: number;
+  /** The load balancer in front of the instance; null when there is none. */
+  balancerId: string | null;
+  healthCheckIntervalSec: number | null;
+  /** Failed checks in a row before an instance leaves rotation. */
+  checksToRemove: number;
+  /** When the balancer took the instance out of rotation, or null if it never did. */
+  removedAtSec: number | null;
+  /** Whether the balancer retries refused connections on another instance. */
+  retries: boolean;
+  /** Instances in rotation before the crash: the dead one got 1 in this many of the balancer's requests. */
+  rotationSize: number;
+  /** Requests that failed at the crashed instance's server, up to `asOfSec`. */
+  lostRequests: number;
+  /** `lostRequests` over all requests up to `asOfSec`. */
+  lostShare: number;
+  /** The moment this describes: the freeze-frame, or the end of the run. */
+  asOfSec: number;
+}
+
+/**
+ * The run's first crash and the failover around it, counting losses up to `asOfSec` (default: the whole run). Null when
+ * nothing crashed.
+ */
+export function failoverSituation(
+  design: Design,
+  simulation: Pick<SimulationResult, 'events' | 'causes' | 'timeline' | 'totalRequests'>,
+  asOfSec?: number,
+): FailoverSituation | null {
+  const crash = simulation.events.find((event) => event.kind === 'instanceFailed');
+  if (!crash || crash.instance === undefined) return null;
+  const balancer = design.nodes.find(
+    (node): node is LoadBalancerSpec =>
+      node.kind === 'loadBalancer' && design.edges.some((edge) => edge.from === node.id && edge.to === crash.nodeId),
+  );
+  const removed = simulation.events.find(
+    (event) =>
+      event.kind === 'removedFromRotation' &&
+      event.nodeId === crash.nodeId &&
+      event.instance === crash.instance &&
+      event.atSec >= crash.atSec,
+  );
+  const rotationSize = balancer
+    ? design.edges
+        .filter((edge) => edge.from === balancer.id)
+        .reduce((sum, edge) => {
+          const target = design.nodes.find((node) => node.id === edge.to);
+          return sum + (target?.kind === 'appServer' ? target.instances : 0);
+        }, 0)
+    : 1;
+
+  const end = simulation.timeline.length;
+  const until = asOfSec === undefined ? end : Math.min(end, asOfSec);
+  let lostRequests: number;
+  let offered: number;
+  if (asOfSec === undefined) {
+    lostRequests = simulation.causes
+      .filter((cause) => cause.nodeId === crash.nodeId && cause.reason === 'instance_down')
+      .reduce((sum, cause) => sum + cause.requests, 0);
+    offered = simulation.totalRequests;
+  } else {
+    lostRequests = 0;
+    offered = 0;
+    for (const frame of simulation.timeline) {
+      if (frame.atSec >= until) break;
+      offered += frame.offeredRps;
+      if (frame.atSec >= Math.floor(crash.atSec)) lostRequests += frame.nodes[crash.nodeId]?.failedRps ?? 0;
+    }
+  }
+
+  return {
+    crashedAtSec: crash.atSec,
+    nodeId: crash.nodeId,
+    instance: crash.instance,
+    balancerId: balancer?.id ?? null,
+    healthCheckIntervalSec: balancer?.healthCheckIntervalSec ?? null,
+    checksToRemove: HEALTH_CHECK.unhealthyThreshold,
+    removedAtSec: removed?.atSec ?? null,
+    retries: balancer?.retryOnConnectFailure ?? false,
+    rotationSize,
+    lostRequests,
+    lostShare: offered > 0 ? lostRequests / offered : 0,
+    asOfSec: asOfSec === undefined ? end : until,
+  };
+}
+
+// ---------------------------------------------------------------------------- the hint ladder
+
+/** What kind of failure a run had, for the mentor's hints. */
+export type HintTopic = 'overload' | 'crash' | 'stale' | 'latency' | 'budget';
+
+export const HINT_TOPICS: readonly HintTopic[] = ['overload', 'crash', 'stale', 'latency', 'budget'];
+
+/** The rungs of the hint ladder, in the order the mentor offers them (docs/design.md, "Hints and iteration"). */
+export const HINT_STEPS = ['where', 'why', 'concept', 'fix'] as const;
+export type HintStep = (typeof HINT_STEPS)[number];
+
+/** What went wrong in a failed run, with the numbers the mentor's hints quote. Derived from the first failed check. */
+export type FailureStory =
+  | {
+      topic: 'overload';
+      nodeId: string;
+      kind: ComponentKind;
+      firstAtSec: number;
+      /** The node's highest utilization in the run, from the timeline. Null if it reported none. */
+      peakUtilization: number | null;
+      timeoutMs: number;
+    }
+  | {
+      topic: 'crash';
+      nodeId: string;
+      firstAtSec: number;
+      /** True when the load balancer had nothing left in rotation at all. */
+      noneLeft: boolean;
+      failover: FailoverSituation | null;
+    }
+  | {
+      topic: 'stale';
+      nodeId: string;
+      kind: ComponentKind;
+      firstAtSec: number;
+      /** Highest replication lag of the replicas that served the stale reads, if they were replicas. */
+      peakLagSec: number | null;
+      limitSec: number | null;
+      /** Whether readers must see their own writes (read-after-write traffic). */
+      readAfterWrite: boolean;
+      /** The read-your-writes window on the design's replicas, 0 when off. */
+      pinnedSec: number;
+    }
+  | { topic: 'latency'; p99Ms: number | null; requiredMs: number; worst: LatencySituation | null }
+  | {
+      topic: 'budget';
+      costUsdPerMonth: number;
+      budgetUsdPerMonth: number;
+      /** The most expensive component in the design. */
+      priciest: { nodeId: string; usdPerMonth: number } | null;
+    };
+
+/** The story of a failed run, or null when it passed. */
+export function failureStory(level: Level, design: Design, evaluation: GradedEvaluation): FailureStory | null {
+  if (evaluation.grade !== 'fail') return null;
+  const { checks, simulation } = evaluation;
+  switch (evaluation.failedChecks[0]) {
+    case 'latency':
+      return {
+        topic: 'latency',
+        p99Ms: checks.latency.p99Ms,
+        requiredMs: checks.latency.requiredMs,
+        worst: worstLatency(simulation.timeline, checks.latency.requiredMs),
+      };
+    case 'budget': {
+      const priciest = design.nodes
+        .map((node) => ({ nodeId: node.id, usdPerMonth: nodeCostUsdPerMonth(node) }))
+        .reduce<{ nodeId: string; usdPerMonth: number } | null>((best, n) => (best && best.usdPerMonth >= n.usdPerMonth ? best : n), null);
+      return {
+        topic: 'budget',
+        costUsdPerMonth: checks.budget.costUsdPerMonth,
+        budgetUsdPerMonth: checks.budget.budgetUsdPerMonth,
+        priciest,
+      };
+    }
+    default:
+      break;
+  }
+
+  const cause = simulation.causes[0];
+  const kindOf = (id: string): ComponentKind => design.nodes.find((node) => node.id === id)?.kind ?? 'appServer';
+  if (!cause) {
+    // Availability failed without a recorded cause can't happen; fall back to latency so the ladder still helps.
+    return { topic: 'latency', p99Ms: checks.latency.p99Ms, requiredMs: checks.latency.requiredMs, worst: null };
+  }
+  switch (cause.reason) {
+    case 'instance_down':
+    case 'no_healthy_backend':
+      return {
+        topic: 'crash',
+        nodeId: cause.nodeId,
+        firstAtSec: cause.firstAtSec,
+        noneLeft: cause.reason === 'no_healthy_backend',
+        failover: failoverSituation(design, simulation),
+      };
+    case 'stale_read': {
+      const replicas = design.nodes.find((node): node is ReadReplicasSpec => node.kind === 'readReplicas');
+      return {
+        topic: 'stale',
+        nodeId: cause.nodeId,
+        kind: kindOf(cause.nodeId),
+        firstAtSec: cause.firstAtSec,
+        peakLagSec: simulation.dataTier.peakReplicationLagSec[cause.nodeId] ?? null,
+        limitSec: level.requirements.maxStalenessSec ?? null,
+        readAfterWrite: level.workload.data?.readAfterWrite !== undefined,
+        pinnedSec: replicas?.readYourWritesSec ?? 0,
+      };
+    }
+    case 'timeout':
+    case 'overloaded':
+      return {
+        topic: 'overload',
+        nodeId: cause.nodeId,
+        kind: kindOf(cause.nodeId),
+        firstAtSec: cause.firstAtSec,
+        peakUtilization: peakUtilization(simulation.timeline, cause.nodeId, design),
+        timeoutMs: level.workload.timeoutMs,
+      };
+  }
+}
+
+/** A node's highest utilization over the run: its busiest machine, or a load balancer's share of its limit. */
+function peakUtilization(timeline: readonly TimelineFrame[], nodeId: string, design: Design): number | null {
+  const isBalancer = design.nodes.some((node) => node.id === nodeId && node.kind === 'loadBalancer');
+  let peak: number | null = null;
+  for (const frame of timeline) {
+    const node = frame.nodes[nodeId];
+    if (!node) continue;
+    const values = isBalancer
+      ? [node.arrivalRps / LOAD_BALANCER.maxRps]
+      : node.instances.filter((instance) => instance.up).map((instance) => instance.utilization);
+    for (const value of values) peak = peak === null ? value : Math.max(peak, value);
+  }
+  return peak;
+}
+
+/** One rung of the ladder, worded. */
+export interface HintRung {
+  step: HintStep;
+  text: string;
+}
+
+export interface HintLadder {
+  topic: HintTopic;
+  rungs: readonly HintRung[];
+}
+
+/** The mentor's four hints for a failed run, in order: where it broke, why, the concept, the fix. */
+export function hintLadder(level: Level, story: FailureStory, script: CastScript): HintLadder {
+  const words = script.mentorLadder;
+  return {
+    topic: story.topic,
+    rungs: [
+      { step: 'where', text: words.where(story) },
+      { step: 'why', text: words.why(story) },
+      { step: 'concept', text: words.concept(level.id, story.topic) },
+      { step: 'fix', text: words.fix(level.id, story.topic) },
+    ],
+  };
 }

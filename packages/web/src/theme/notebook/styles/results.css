@@ -389,3 +389,87 @@
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------ grade card: no nines on a failed run */
+
+.tier-ladder__void {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--failing);
+}
+
+.grade-card[data-grade='fail'] .tier-ladder__step {
+  text-decoration: line-through;
+  text-decoration-color: var(--red-pen);
+}
+
+/* ------------------------------------------------------------------ grade card: failover and the hint ladder */
+
+.grade-card__failover {
+  margin: 0 var(--space-6) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--blue-pen);
+  background: var(--paper-card-veil);
+  font-size: var(--text-sm);
+}
+
+.grade-card__failover-label {
+  font-family: var(--font-hand);
+  font-size: var(--text-xl);
+  color: var(--blue-pen-strong);
+}
+
+.grade-card__failover ul {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+}
+
+.hint-ladder {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hint-ladder__rung {
+  border-radius: var(--radius-sm);
+  animation: hint-ink-in var(--duration-ink) var(--ease);
+}
+
+.hint-ladder__rung:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.hint-ladder__rung + .hint-ladder__rung {
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--pencil-line);
+}
+
+.hint-ladder__label {
+  color: var(--blue-pen-strong);
+}
+
+.hint-ladder__rung[data-step='fix'] .hint-ladder__label {
+  color: var(--green-pen-text);
+}
+
+.hint-ladder__more {
+  margin-top: var(--space-2);
+}
+
+@keyframes hint-ink-in {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint-ladder__rung {
+    animation: none;
+  }
+}

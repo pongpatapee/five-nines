@@ -49,6 +49,8 @@ export interface DesignCanvasProps {
   live?: LiveFrame | null;
   /** Visual marks per node id: validation issues, or the playback focus pulse. */
   marks?: Readonly<Record<string, NodeMark>>;
+  /** Expected peak utilization per node id (`peakLoad`), shown on the nodes while there are no live stats. */
+  forecast?: Readonly<Record<string, number>> | null;
 
   /**
    * Controlled selection. Pass it together with `onSelectionChange`; leave it undefined to let the canvas track
@@ -98,6 +100,7 @@ function DesignCanvasInner({
   mode,
   live = null,
   marks = NO_MARKS,
+  forecast = null,
   selection: controlledSelection,
   onSelectionChange,
   onNodeMove,
@@ -206,7 +209,7 @@ function DesignCanvasInner({
     onReady?.(handle);
   }, [handle, onReady]);
 
-  const decorations = useMemo(() => ({ live, marks }), [live, marks]);
+  const decorations = useMemo(() => ({ live, marks, forecast }), [live, marks, forecast]);
   const classes = ['design-canvas', `design-canvas--${mode}`];
   if (live) classes.push('design-canvas--live');
   if (className) classes.push(className);
