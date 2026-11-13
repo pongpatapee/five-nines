@@ -3,8 +3,8 @@
  *
  * - `controller.ts` owns the clock and the requestAnimationFrame loop; React only sees throttled snapshots (~20 Hz).
  * - `ParticleLayer` draws request dots and failure marks on a Canvas2D overlay, every frame, outside React.
- * - `TimelineStrip`, `BudgetBar` and `ControlBar` make up the dock under the canvas.
- * - On the freeze-frame (the error budget runs out) the root-cause node is highlighted and `PostmortemCard` shows.
+ * - `TimelineStrip`, the theme's `BudgetMeter` and `ControlBar` make up the dock under the canvas.
+ * - On the freeze-frame (the error budget runs out) the root-cause node is highlighted and the theme's `PostmortemCard` shows.
  *
  * The maths (clock, interpolation, edge flows, spawn rates, budget) lives in pure modules with unit tests.
  */
@@ -12,16 +12,15 @@ import { AVAILABILITY_TIERS, type Level } from '@five-nines/sim';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { DesignCanvas, type CanvasHandle, type Draft, type NodeMark } from '../canvas/index.ts';
 import type { GradedEvaluation } from '../engine/index.ts';
-import { BudgetBar } from './BudgetBar.tsx';
 import { ControlBar } from './ControlBar.tsx';
 import { PlaybackController } from './controller.ts';
 import { ParticleLayer } from './ParticleLayer.tsx';
 import { focusViewport } from './focus.ts';
-import { PostmortemCard } from './PostmortemCard.tsx';
+import { incidentAtFreeze } from './incident.ts';
 import { prepareSeries } from './series.ts';
 import { TimelineStrip } from './TimelineStrip.tsx';
 import { useReducedMotion } from './useReducedMotion.ts';
-import './playback.css';
+import { BudgetMeter, PostmortemCard } from '../theme/index.ts';
 
 export interface PlaybackProps {
   /** The level that was run. */
@@ -157,8 +156,7 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
           <PostmortemCard
             ref={postmortemRef}
             exhaustedAtSec={evaluation.errorBudgetExhaustedAtSec}
-            causes={simulation.causes}
-            events={simulation.events}
+            {...incidentAtFreeze(simulation.causes, simulation.events, evaluation.errorBudgetExhaustedAtSec)}
             availability={snapshot.availability}
             onKeepWatching={controller.keepWatching}
             onSeeResults={onFinished}
@@ -190,7 +188,7 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
             onScrubStart={onScrubStart}
             onScrubEnd={onScrubEnd}
           />
-          <BudgetBar usage={snapshot.budget} />
+          <BudgetMeter usage={snapshot.budget} />
         </div>
       </div>
     </div>

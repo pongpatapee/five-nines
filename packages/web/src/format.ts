@@ -99,3 +99,8 @@ export function gradeRank(grade: Grade): number {
 export function isPassingGrade(grade: Grade | undefined): boolean {
   return grade !== undefined && grade !== 'fail';
 }
+
+/** "page" → "Page". */
+export function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}

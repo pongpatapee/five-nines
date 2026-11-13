@@ -1,6 +1,7 @@
-import { formatCount } from '../format.ts';
-import { InkLoop, TALLY_BUNDLE, tallyState } from '../notebook/index.ts';
-import type { BudgetUsage } from './series.ts';
+import { formatCount } from '../../format.ts';
+import type { BudgetMeterProps } from '../contract.ts';
+import { InkLoop } from './ink.tsx';
+import { TALLY_BUNDLE, tallyState } from './tally.ts';
 
 const BUNDLE_WIDTH = 38;
 const HEIGHT = 56;
@@ -9,7 +10,7 @@ const HEIGHT = 56;
  * The pass-level error budget (0.1% of all requests in the run) as tally marks in bundles of five. Strokes are
  * crossed out as failures spend the budget; once it's exhausted the whole tally is struck through in red pen.
  */
-export function BudgetBar({ usage }: { usage: BudgetUsage }) {
+export function BudgetMeter({ usage }: BudgetMeterProps) {
   const tally = tallyState(usage.fraction, usage.exhausted);
   const remaining = Math.max(0, 1 - usage.fraction);
   const bundles = tally.total / TALLY_BUNDLE;

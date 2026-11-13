@@ -46,7 +46,7 @@
   padding: 2px var(--space-3);
   border: var(--stroke-marker) solid var(--red-pen);
   border-radius: 6px 3px 7px 4px;
-  background: rgb(255 254 250 / 0.85);
+  background: var(--paper-card-veil);
   font-family: var(--font-sans);
   font-size: var(--text-xl);
   font-weight: 700;
@@ -240,7 +240,7 @@
 .pb-timeline__played {
   position: absolute;
   inset: 0 auto 0 0;
-  background: rgb(255 228 92 / 0.28);
+  background: var(--highlighter-wash);
   pointer-events: none;
 }
 
@@ -457,7 +457,7 @@
   position: relative;
   padding: var(--space-5) var(--space-5) var(--space-6);
   background: var(--sticky);
-  filter: drop-shadow(3px 5px 0 rgb(31 42 68 / 0.14));
+  filter: drop-shadow(3px 5px 0 var(--ink-shade));
   transform: rotate(1deg);
   clip-path: polygon(
     0 0,

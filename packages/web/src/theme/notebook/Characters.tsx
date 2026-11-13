@@ -4,8 +4,8 @@
  *
  * Ink strokes use `currentColor` (set to --ink by `.cast-figure`), material colours come from tokens.
  */
-import type { ReactNode } from 'react';
-import { CAST, type CastMember } from './cast.ts';
+import type { CastLineProps, CastMood } from '../contract.ts';
+import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { paint } from './ink.tsx';
 
 const INK = 'currentColor';
@@ -94,8 +94,8 @@ export function Erasmus({ mood = 'calm', size = 96 }: { mood?: ErasmusMood; size
   );
 }
 
-/** Smudge, the troublemaker: an ink blot with a drip, mischievous eyes and a toothy grin. Optionally holding a plug. */
-export function Smudge({ size = 90, holdingPlug = false }: { size?: number; holdingPlug?: boolean }) {
+/** Smudge, the troublemaker: an ink blot with a drip, mischievous eyes and a toothy grin. */
+export function Smudge({ size = 90 }: { size?: number }) {
   return (
     <svg className="cast-figure cast-figure--smudge" width={size} height={size} viewBox="-56 -44 112 108" aria-hidden>
       <g className="smudge-bob">
@@ -114,16 +114,7 @@ export function Smudge({ size = 90, holdingPlug = false }: { size?: number; hold
         <path d="M-14,8 Q2,22 18,6" style={paint('var(--paper-card)', 'var(--paper-card)', 2)} />
         <path d="M-6,12 L-5,17 M4,14 L4,19 M12,11 L11,15" style={paint(null, INK, 1.6)} />
         <path d="M-32,4 L-46,-6" style={paint(null, INK, 3)} strokeLinecap="round" />
-        {holdingPlug ? (
-          <g>
-            <path d="M30,12 L42,2" style={paint(null, INK, 3)} strokeLinecap="round" />
-            <rect x="40" y="-12" width="12" height="13" rx="2" style={paint(INK)} />
-            <path d="M43,-12 L43,-19 M49,-12 L49,-19" style={paint(null, INK, 2)} strokeLinecap="round" />
-            <path d="M46,1 C48,14 40,22 30,26" style={paint(null, INK, 2.2)} strokeLinecap="round" />
-          </g>
-        ) : (
-          <path d="M30,12 L44,4" style={paint(null, INK, 3)} strokeLinecap="round" />
-        )}
+        <path d="M30,12 L44,4" style={paint(null, INK, 3)} strokeLinecap="round" />
         <circle cx="-48" cy="20" r="2.5" style={paint(INK)} />
         <circle cx="40" cy="30" r="2" style={paint(INK)} />
       </g>
@@ -131,45 +122,22 @@ export function Smudge({ size = 90, holdingPlug = false }: { size?: number; hold
   );
 }
 
-export interface CastLineProps {
-  who: CastMember;
-  children: ReactNode;
-  /** A hand-lettered lead-in above the line, e.g. "Erasmus leans in:" or "99.70%?!". */
-  lead?: ReactNode;
-  /** Figure size in px (height for Ms. Tally, width for the others). */
-  figureSize?: number;
-  /** Visual pose for the figure. */
-  tallyMood?: TallyMood;
-  erasmusMood?: ErasmusMood;
-  smudgeHoldingPlug?: boolean;
-  /** `alarm` draws the lead-in in red pen. */
-  tone?: 'note' | 'alarm';
-  className?: string;
-}
+const TALLY_MOOD: Record<CastMood, TallyMood> = { neutral: 'stern', pleased: 'pleased', concerned: 'unimpressed' };
+const ERASMUS_MOOD: Record<CastMood, ErasmusMood> = { neutral: 'calm', pleased: 'calm', concerned: 'leaning' };
 
 /** A character with a speech bubble. The caption under the figure names them, so screen readers get the speaker. */
-export function CastLine({
-  who,
-  children,
-  lead,
-  figureSize,
-  tallyMood,
-  erasmusMood,
-  smudgeHoldingPlug,
-  tone = 'note',
-  className,
-}: CastLineProps) {
-  const member = CAST[who];
+export function CastLine({ role, children, lead, size, mood = 'neutral', tone = 'note', className }: CastLineProps) {
+  const member = NOTEBOOK_SCRIPT.members[role];
   return (
-    <figure className={`cast-line cast-line--${who}${className ? ` ${className}` : ''}`} data-tone={tone}>
+    <figure className={`cast-line cast-line--${role}${className ? ` ${className}` : ''}`} data-tone={tone}>
       <div className="cast-line__figure">
-        {who === 'boss' && <MsTally mood={tallyMood} size={figureSize ?? 110} />}
-        {who === 'mentor' && <Erasmus mood={erasmusMood} size={figureSize ?? 78} />}
-        {who === 'troublemaker' && <Smudge size={figureSize ?? 72} holdingPlug={smudgeHoldingPlug} />}
+        {role === 'boss' && <MsTally mood={TALLY_MOOD[mood]} size={size ?? 110} />}
+        {role === 'mentor' && <Erasmus mood={ERASMUS_MOOD[mood]} size={size ?? 78} />}
+        {role === 'troublemaker' && <Smudge size={size ?? 72} />}
         <figcaption className="cast-line__name">
           {member.name}
           <span className="visually-hidden">, </span>
-          <span className="cast-line__role">{member.role}</span>
+          <span className="cast-line__role">{member.title}</span>
         </figcaption>
       </div>
       <blockquote className="cast-line__bubble">

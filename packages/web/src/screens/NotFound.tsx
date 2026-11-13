@@ -1,5 +1,4 @@
 import { routeHref } from '../routing.ts';
-import './screens.css';
 
 export function NotFound({ levelId }: { levelId: string }) {
   return (

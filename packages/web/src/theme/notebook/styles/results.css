@@ -9,7 +9,7 @@
   justify-content: center;
   overflow-y: auto;
   padding: var(--space-8) var(--space-6);
-  background: rgb(251 248 239 / 0.72);
+  background: var(--paper-veil);
   backdrop-filter: blur(1.5px);
   animation: results-fade-in var(--duration) var(--ease);
 }

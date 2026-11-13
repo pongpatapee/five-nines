@@ -1,32 +1,18 @@
-import { AVAILABILITY_TIERS, type FailureCause, type SimEvent } from '@five-nines/sim';
-import { useEffect, useRef, type Ref } from 'react';
-import { describeCause } from '../describe.ts';
-import { formatAvailability, formatSimTime } from '../format.ts';
-import { CastLine, eventCaption, HandArrow, InkLoop, mentorHint } from '../notebook/index.ts';
-
-export interface PostmortemCardProps {
-  /** The engine's `errorBudgetExhaustedAtSec`. */
-  exhaustedAtSec: number;
-  /** In order of onset. */
-  causes: readonly FailureCause[];
-  events: readonly SimEvent[];
-  /** Availability of the requests up to the freeze. */
-  availability: number;
-  onKeepWatching(): void;
-  onSeeResults(): void;
-  /** The card's element, so playback can keep the root-cause node out from under it. */
-  ref?: Ref<HTMLElement>;
-}
+import { AVAILABILITY_TIERS } from '@five-nines/sim';
+import { useEffect, useRef } from 'react';
+import { describeCause } from '../../describe.ts';
+import { formatAvailability, formatSimTime } from '../../format.ts';
+import type { PostmortemCardProps } from '../contract.ts';
+import { eventCaption, mentorHint } from '../situations.ts';
+import { NOTEBOOK_SCRIPT } from './cast.ts';
+import { CastLine } from './Characters.tsx';
+import { HandArrow, InkLoop } from './ink.tsx';
 
 /** The incident postmortem shown on the freeze-frame: a sticky note, with Erasmus's nudge underneath. */
 export function PostmortemCard(props: PostmortemCardProps) {
-  const { exhaustedAtSec, causes, events } = props;
+  const { exhaustedAtSec, rootCause, knockOn, events: shownEvents } = props;
   const primaryRef = useRef<HTMLButtonElement>(null);
   useEffect(() => primaryRef.current?.focus({ preventScroll: true }), []);
-  // Only what had happened by the freeze; later causes and events would be spoilers for "Keep watching".
-  const shownCauses = causes.filter((cause) => cause.firstAtSec <= exhaustedAtSec + 1);
-  const shownEvents = events.filter((event) => event.atSec <= exhaustedAtSec + 1);
-  const [rootCause, ...knockOn] = shownCauses;
 
   return (
     <section ref={props.ref} className="pb-postmortem" role="dialog" aria-labelledby="pb-postmortem-title">
@@ -64,9 +50,9 @@ export function PostmortemCard(props: PostmortemCardProps) {
         {shownEvents.length > 0 ? (
           <ul className="pb-postmortem__events">
             {shownEvents.map((event, i) => {
-              const caption = eventCaption(event);
+              const caption = eventCaption(event, NOTEBOOK_SCRIPT);
               return (
-                <li key={i} data-smudge={caption.bySmudge || undefined}>
+                <li key={i} data-smudge={caption.byTroublemaker || undefined}>
                   <span className="num pb-postmortem__time">{formatSimTime(event.atSec)}</span> {caption.text}
                 </li>
               );
@@ -84,13 +70,13 @@ export function PostmortemCard(props: PostmortemCardProps) {
       </div>
 
       <CastLine
-        who="mentor"
-        erasmusMood="leaning"
-        figureSize={64}
-        lead="Erasmus leans in:"
+        role="mentor"
+        mood="concerned"
+        size={64}
+        lead={NOTEBOOK_SCRIPT.mentorPostmortemLead}
         className="pb-postmortem__mentor"
       >
-        {mentorHint(rootCause?.reason)}
+        {mentorHint(rootCause?.reason, NOTEBOOK_SCRIPT)}
       </CastLine>
 
       <div className="pb-postmortem__actions">

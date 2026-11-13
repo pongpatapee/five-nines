@@ -1,29 +1,23 @@
-import type { Grade, Level } from '@five-nines/sim';
+import { isWritten, type Grade, type Level } from '@five-nines/sim';
 import type { ReactNode } from 'react';
-import { GRADE_LABELS } from '../format.ts';
-import { CastLine, MENTOR_RULE_ONE, NinesDots, paint } from '../notebook/index.ts';
-import { routeHref } from '../routing.ts';
+import { GRADE_LABELS } from '../../format.ts';
+import { NINES_PER_LEVEL, ninesForGrade } from '../../results/grading.ts';
+import { routeHref } from '../../routing.ts';
+import type { CampaignMapProps } from '../contract.ts';
+import { NOTEBOOK_SCRIPT } from './cast.ts';
+import { CastLine } from './Characters.tsx';
+import { NinesDots, paint } from './ink.tsx';
 import {
+  CHAPTER_LABELS,
   chapterLabelWidth,
   FINALE_SLOT,
-  FUTURE_CHAPTERS,
   LEVEL_SLOTS,
-  LOCKED_CHAPTER_LAYOUT,
   MAP_SIZE,
-  NINES_PER_LEVEL,
-  ninesForGrade,
+  PLANNED_CHAPTER_PAGES,
   TRAIL_SEGMENTS,
-  WRITTEN_CHAPTERS,
   type ChapterWash,
   type XYPoint,
-} from './campaign.ts';
-
-export interface CampaignMapProps {
-  levels: readonly Level[];
-  best: Readonly<Record<string, Grade>>;
-  /** Index of the level to play next, or null when all are passed. */
-  nextUp: number | null;
-}
+} from './mapLayout.ts';
 
 const WASH: Record<ChapterWash, string> = {
   green: 'var(--wash-green)',
@@ -33,65 +27,67 @@ const WASH: Record<ChapterWash, string> = {
 };
 
 /**
- * The contents page as a hand-drawn trail: the written chapters' levels (each a link), then the chapters still to be
- * written as locked, dashed placeholders. The trail is inked as far as the player has passed, pencilled beyond.
+ * The contents page as a hand-drawn trail: the written chapters' levels (each a link), then the planned chapters as
+ * locked, dashed placeholders. The trail is inked as far as the player has passed, pencilled beyond.
+ *
+ * The map is drawn for 880 units across. Its frame scrolls sideways when the page is narrower than it can shrink to.
  */
-export function CampaignMap({ levels, best, nextUp }: CampaignMapProps) {
+export function CampaignMap({ chapters, levels, best, nextUp }: CampaignMapProps) {
+  const written = chapters.filter(isWritten);
+  const planned = chapters.filter((chapter) => !isWritten(chapter));
   return (
     <div className="campaign-map">
-      <svg
-        className="campaign-map__svg"
-        viewBox={`0 0 ${MAP_SIZE.width} ${MAP_SIZE.height}`}
-        role="group"
-        aria-label={`Campaign map. ${WRITTEN_CHAPTERS.map((chapter, c) => `Chapter ${c + 1}, ${chapter.title}: ${chapter.levelIds.length} pages.`).join(' ')} Later chapters coming soon.`}
-      >
-        {WRITTEN_CHAPTERS.map((chapter, c) => (
-          <ChapterLabel key={chapter.title} at={chapter.label} tilt={chapter.tilt} width={chapterLabelWidth(chapter.title)} wash={WASH[chapter.wash]}>
-            Ch. {c + 1} · {chapter.title}
-          </ChapterLabel>
-        ))}
+      <div className="campaign-map__frame">
+        <svg
+          className="campaign-map__svg"
+          viewBox={`0 0 ${MAP_SIZE.width} ${MAP_SIZE.height}`}
+          role="group"
+          aria-label={`Campaign map. ${written.map((chapter, c) => `Chapter ${c + 1}, ${chapter.title}: ${chapter.levelIds.length} pages.`).join(' ')} Later chapters coming soon.`}
+        >
+          {written.map((chapter, c) => (
+            <ChapterLabel key={chapter.id} layout={CHAPTER_LABELS[c]!} title={chapter.title}>
+              Ch. {c + 1} · {chapter.title}
+            </ChapterLabel>
+          ))}
 
-        <g filter="url(#nb-wobble)">
-          {TRAIL_SEGMENTS.map((d, i) => {
-            // A segment is inked once the page it leaves is passed.
-            const inked = i < levels.length - 1 && ninesForGrade(best[levels[i]!.id]) > 0;
-            return <path key={i} d={d} className={inked ? 'map-trail map-trail--ink' : 'map-trail'} />;
-          })}
-        </g>
+          <g filter="url(#nb-wobble)">
+            {TRAIL_SEGMENTS.map((d, i) => {
+              // A segment is inked once the page it leaves is passed.
+              const inked = i < levels.length - 1 && ninesForGrade(best[levels[i]!.id]) > 0;
+              return <path key={i} d={d} className={inked ? 'map-trail map-trail--ink' : 'map-trail'} />;
+            })}
+          </g>
 
-        <LockedChapters />
+          <LockedChapters titles={planned.map((chapter) => chapter.title)} firstNumber={written.length + 1} />
 
-        {levels.map((level, i) => (
-          <LevelStop key={level.id} level={level} index={i} at={LEVEL_SLOTS[i]!} grade={best[level.id]} current={i === nextUp} />
-        ))}
-      </svg>
+          {levels.map((level, i) => (
+            <LevelStop key={level.id} level={level} index={i} at={LEVEL_SLOTS[i]!} grade={best[level.id]} current={i === nextUp} />
+          ))}
+        </svg>
+      </div>
 
-      <CastLine who="mentor" className="campaign-map__mentor" figureSize={74}>
-        {MENTOR_RULE_ONE}
+      <CastLine role="mentor" className="campaign-map__mentor" size={74}>
+        {NOTEBOOK_SCRIPT.mentorWelcome}
       </CastLine>
     </div>
   );
 }
 
 function ChapterLabel({
-  at,
-  tilt,
-  width,
-  wash,
-  muted = false,
+  layout,
+  title,
   children,
 }: {
-  at: XYPoint;
-  tilt: number;
-  width: number;
-  wash: string;
-  muted?: boolean;
+  layout: (typeof CHAPTER_LABELS)[number];
+  title: string;
   children: ReactNode;
 }) {
+  const { at, tilt } = layout;
+  const width = chapterLabelWidth(title);
   return (
     <g transform={`rotate(${tilt} ${at.x + width / 2} ${at.y + 13})`}>
-      <rect x={at.x} y={at.y} width={width} height={26} rx={6} style={{ fill: wash, opacity: 0.9 }} />
-      <text x={at.x + 8} y={at.y + 22} className={`map-text map-text--chapter${muted ? ' map-text--muted' : ''}`}>
+      <rect x={at.x} y={at.y} width={width} height={26} rx={6} style={{ fill: WASH[layout.wash], opacity: 0.9 }} />
+      <text x={at.x + 8} y={at.y + 22} className="map-text map-text--chapter">
         {children}
       </text>
     </g>
@@ -202,16 +198,15 @@ function GradeMark({ grade, at }: { grade: Grade | undefined; at: XYPoint }) {
 }
 
 /** Chapters not written yet: dashed placeholder pages with padlocks. Nothing here is interactive. */
-function LockedChapters() {
+function LockedChapters({ titles, firstNumber }: { titles: readonly string[]; firstNumber: number }) {
   return (
     <g className="map-locked" aria-hidden>
-      {FUTURE_CHAPTERS.map((chapter, c) => {
-        const layout = LOCKED_CHAPTER_LAYOUT[c]!;
-        const width = chapterLabelWidth(chapter.title);
+      {titles.map((title, c) => {
+        const layout = PLANNED_CHAPTER_PAGES[c]!;
         return (
-          <g key={chapter.title}>
-            <ChapterLabel at={layout.label} tilt={layout.tilt} width={width} wash={WASH[chapter.wash]}>
-              Ch. {WRITTEN_CHAPTERS.length + c + 1} · {chapter.title}
+          <g key={title}>
+            <ChapterLabel layout={CHAPTER_LABELS[firstNumber - 1 + c]!} title={title}>
+              Ch. {firstNumber + c} · {title}
             </ChapterLabel>
             <text x={layout.note.x} y={layout.note.y} className="map-text map-text--locked">
               coming soon
@@ -242,7 +237,7 @@ function LockedChapters() {
         The finale
       </text>
       <text x={FINALE_SLOT.x} y={FINALE_SLOT.y + 104} textAnchor="middle" className="map-text map-text--locked">
-        (Ms. Tally grades it)
+        ({NOTEBOOK_SCRIPT.members.boss.name} grades it)
       </text>
     </g>
   );

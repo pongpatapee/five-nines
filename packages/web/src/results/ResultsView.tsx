@@ -2,8 +2,8 @@ import { LEVELS, type Level } from '@five-nines/sim';
 import type { GradedEvaluation } from '../engine/index.ts';
 import { isPassingGrade } from '../format.ts';
 import { useBestGrade } from '../state/index.ts';
+import { GradeCard } from '../theme/index.ts';
 import { DebriefPanel } from './DebriefPanel.tsx';
-import { GradeCard } from './GradeCard.tsx';
 import type { ResultView } from '../screens/levelMode.ts';
 import { useRecordBestGrade } from './useRecordBestGrade.ts';
 

@@ -2,14 +2,13 @@ import type { ComponentKind } from '@five-nines/sim';
 import { Handle, Position } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { formatUsdPerMonth } from '../../format.ts';
-import { ComponentDoodle } from '../../notebook/doodles.tsx';
-import { InkLoop } from '../../notebook/ink.tsx';
+import { ComponentArt, marks as themeMarks } from '../../theme/index.ts';
 import { useDecorations } from '../context.ts';
 import { isFailingRate } from '../types.ts';
 
 export interface NodeShellProps {
   id: string;
-  /** The component kind (or "clients"): picks the doodle and is exposed as `data-kind` so themes can style each kind. */
+  /** The component kind (or "clients"): picks the art and is exposed as `data-kind` so themes can style each kind. */
   kind: ComponentKind | 'clients';
   /** Uppercase kind label, e.g. "App server". */
   kindLabel: string;
@@ -36,11 +35,11 @@ export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, select
 
   return (
     <div className={classes.join(' ')} data-node-id={id} data-kind={kind}>
-      {mark === 'focus' && <RootCauseCircle />}
+      {mark === 'focus' && <themeMarks.RootCause />}
       {hasTarget && <Handle type="target" position={Position.Left} className="design-node__handle" />}
       <div className="design-node__header">
         <span className="design-node__kind">
-          <ComponentDoodle kind={kind} size={20} />
+          <ComponentArt kind={kind} size={20} />
           {kindLabel}
         </span>
         {costUsdPerMonth !== undefined && <span className="design-node__cost num">{formatUsdPerMonth(costUsdPerMonth)}</span>}
@@ -53,12 +52,3 @@ export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, select
   );
 }
 
-/** The playback freeze-frame's verdict: the root cause circled in red pen, with a note. */
-function RootCauseCircle() {
-  return (
-    <div className="root-cause" aria-hidden>
-      <InkLoop width={240} height={150} delayMs={200} />
-      <span className="root-cause__label">root cause</span>
-    </div>
-  );
-}

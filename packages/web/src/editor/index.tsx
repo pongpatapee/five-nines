@@ -40,7 +40,6 @@ import {
 } from './placement.ts';
 import { RunBar } from './RunBar.tsx';
 import { isDeletable, resolveSelection } from './selection.ts';
-import './editor.css';
 
 export interface EditorProps {
   /** The level being played. `level.components` lists the component kinds the palette may offer. */

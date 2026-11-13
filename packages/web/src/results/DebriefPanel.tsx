@@ -1,9 +1,8 @@
 import { designCostUsdPerMonth, type Level } from '@five-nines/sim';
 import { useMemo } from 'react';
-import './results.css';
 import { DesignCanvas, draftFromDesign } from '../canvas/index.ts';
 import { formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
-import { Cross } from '../notebook/index.ts';
+import { marks } from '../theme/index.ts';
 
 export interface DebriefPanelProps {
   level: Level;
@@ -62,7 +61,7 @@ export function DebriefPanel({ level, spoilers, onClose, closeLabel = 'Close' }:
                 <li key={trap.name} className="trap">
                   <div className="trap__head">
                     <span className="trap__name">
-                      <Cross size={14} />
+                      <marks.NotMet size={14} />
                       {trap.name}
                     </span>
                     <span className="trap__fails">

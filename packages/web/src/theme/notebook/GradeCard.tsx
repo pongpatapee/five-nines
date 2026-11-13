@@ -1,8 +1,6 @@
-import { AVAILABILITY_TIERS, type Level } from '@five-nines/sim';
-import './results.css';
+import { AVAILABILITY_TIERS } from '@five-nines/sim';
 import type { ReactNode } from 'react';
-import { describeCause } from '../describe.ts';
-import type { GradedEvaluation } from '../engine/index.ts';
+import { describeCause } from '../../describe.ts';
 import {
   formatAvailability,
   formatCount,
@@ -11,8 +9,7 @@ import {
   formatSeconds,
   formatUsdPerMonth,
   GRADE_LABELS,
-} from '../format.ts';
-import { bossVerdict, CastLine, Cross, HandArrow, InkLoop, mentorHint, NinesDots, Tick } from '../notebook/index.ts';
+} from '../../format.ts';
 import {
   gradeHeadline,
   nextTier,
@@ -21,23 +18,14 @@ import {
   tierPercent,
   tierRequirementLabel,
   TIER_ORDER,
-} from './grading.ts';
+} from '../../results/grading.ts';
+import type { GradeCardProps } from '../contract.ts';
+import { mentorHint, verdictFor } from '../situations.ts';
+import { NOTEBOOK_SCRIPT } from './cast.ts';
+import { CastLine } from './Characters.tsx';
+import { Cross, HandArrow, InkLoop, NinesDots, Tick } from './ink.tsx';
 
-export interface GradeCardActions {
-  onBackToEditor(): void;
-  onReplay(): void;
-  onShowDebrief(): void;
-  /** Null when there's no next level or this attempt didn't pass. */
-  onNextLevel: (() => void) | null;
-}
-
-export interface GradeCardProps extends GradeCardActions {
-  level: Level;
-  /** 1-based page number, for the heading. */
-  levelNumber: number;
-  evaluation: GradedEvaluation;
-}
-
+/** The graded result as a marked notebook page: the grade circled, the boss's verdict, ticks and crosses. */
 export function GradeCard({
   level,
   levelNumber,
@@ -51,7 +39,7 @@ export function GradeCard({
   const passed = grade !== 'fail';
   const upNext = nextTier(grade);
   const mainCause = simulation.causes[0];
-  const verdict = bossVerdict(evaluation);
+  const verdict = NOTEBOOK_SCRIPT.bossVerdict(verdictFor(evaluation));
 
   return (
     <section className="grade-card" aria-labelledby="grade-card-title" data-grade={grade}>
@@ -72,9 +60,9 @@ export function GradeCard({
       </header>
 
       <CastLine
-        who="boss"
-        tallyMood={passed ? 'pleased' : 'unimpressed'}
-        figureSize={92}
+        role="boss"
+        mood={passed ? 'pleased' : 'concerned'}
+        size={92}
         lead={verdict.exclaim}
         tone={passed ? 'note' : 'alarm'}
         className="grade-card__boss"
@@ -138,8 +126,8 @@ export function GradeCard({
         </p>
       )}
       {!passed && mainCause && (
-        <CastLine who="mentor" erasmusMood="leaning" figureSize={56} className="grade-card__mentor">
-          {mentorHint(mainCause.reason)}
+        <CastLine role="mentor" mood="concerned" size={56} className="grade-card__mentor">
+          {mentorHint(mainCause.reason, NOTEBOOK_SCRIPT)}
         </CastLine>
       )}
       {upNext && passed && <p className="grade-card__note muted">Next: {tierRequirementLabel(upNext)}.</p>}

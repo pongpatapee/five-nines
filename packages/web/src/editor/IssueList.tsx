@@ -1,5 +1,5 @@
 import type { DesignIssue } from '@five-nines/sim';
-import { CastLine, mentorCheckLine } from '../notebook/index.ts';
+import { cast, CastLine, checkSummary } from '../theme/index.ts';
 
 export interface IssueListProps {
   /** Already sorted, errors first. */
@@ -24,8 +24,8 @@ export function IssueList({ issues, onSelectNode }: IssueListProps) {
           )}
         </span>
       </h2>
-      <CastLine who="mentor" figureSize={58} erasmusMood={errors > 0 ? 'leaning' : 'calm'} className="issues__mentor">
-        {mentorCheckLine(issues)}
+      <CastLine role="mentor" size={58} mood={errors > 0 ? 'concerned' : 'neutral'} className="issues__mentor">
+        {cast.mentorChecks(checkSummary(issues))}
       </CastLine>
       {issues.length === 0 ? (
         <p className="issues__ok">
