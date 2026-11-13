@@ -4,7 +4,7 @@
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 316px;
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-width);
 }
 
 .editor__canvas {

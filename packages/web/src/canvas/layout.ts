@@ -6,7 +6,7 @@ export const NODE_WIDTH = 200;
 /** Typical node height (without live stats), used to centre columns. */
 export const NODE_HEIGHT = 84;
 /** Horizontal distance between the left edges of adjacent layers. */
-export const COLUMN_GAP = NODE_WIDTH + 110;
+export const COLUMN_GAP = NODE_WIDTH + 90;
 /** Vertical distance between the top edges of nodes in the same layer. */
 export const ROW_GAP = 170;
 

@@ -164,7 +164,10 @@
   --shadow-bubble: 3px 3px 0 rgb(31 42 68 / 0.15);
 
   /* ---------------------------------------------------------------- layout */
-  --briefing-width: 340px;
+  /* The margin column and the tool sheet narrow on smaller screens, so the drawing in between keeps its room:
+     at 1280px wide they give the canvas about 660px, at 1440px about 760px. */
+  --briefing-width: clamp(276px, 22vw, 340px);
+  --sidebar-width: clamp(284px, 22.5vw, 316px);
   --topbar-height: 60px;
   --spiral-width: 44px;
 

@@ -88,7 +88,7 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
       const viewport = focusViewport(node, zoom, handle.getSize(), coveredFromX);
       void handle.setViewport(viewport, { durationMs: reducedMotion ? 0 : 800 });
     } else if (!frozen && wasFrozen.current && handle) {
-      void handle.fitView({ durationMs: reducedMotion ? 0 : 500, padding: 0.25 });
+      void handle.fitView({ durationMs: reducedMotion ? 0 : 500, padding: 0.15 });
     }
     wasFrozen.current = frozen;
   }, [frozen, rootCauseId, reducedMotion]);
