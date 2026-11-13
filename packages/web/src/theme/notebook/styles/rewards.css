@@ -1,0 +1,354 @@
+/*
+ * Rewards and juice: nines paid out, badges, locks, the sound toggle, ink stamps, the crash shake and the
+ * slow-motion freeze. Every animation here is turned off for reduced motion at the end of the file.
+ */
+
+/* ------------------------------------------------------------------ ink stamp */
+
+/* Lands like a rubber stamp: too big and faint, then pressed flat with a little bounce. */
+.stamp-in {
+  animation: ink-stamp 380ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+@keyframes ink-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.9) rotate(-8deg);
+  }
+
+  60% {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ sound toggle */
+
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text);
+}
+
+.sound-toggle__state {
+  min-width: 2.2em;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.sound-toggle[data-on='true'] .sound-toggle__state {
+  color: var(--healthy);
+}
+
+.speaker-mark {
+  flex: none;
+}
+
+/* ------------------------------------------------------------------ contents: nines target and badges */
+
+.contents__progress-row .contents__sound {
+  margin-left: auto;
+}
+
+.contents__target {
+  font-size: var(--text-md);
+  color: var(--text);
+}
+
+.contents__side {
+  display: grid;
+  gap: var(--space-6);
+  align-content: start;
+}
+
+.badge-shelf {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--paper-edge);
+  background: var(--paper-card);
+  box-shadow: var(--shadow-paper);
+  transform: rotate(-0.4deg);
+}
+
+.badge-shelf__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--text-hand-lg);
+  line-height: 1.1;
+}
+
+.badge-shelf__count {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.badge-shelf__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge-shelf__badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.badge-shelf__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.badge-shelf__name {
+  font-size: var(--text-md);
+}
+
+.badge-shelf__how {
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.badge-shelf__badge[data-earned='true'] .badge-shelf__how {
+  color: var(--text);
+}
+
+/* A seal: blue-pen rings and glyph when earned, dashed pencil when not. */
+.badge-seal {
+  flex: none;
+  overflow: visible;
+}
+
+.badge-seal__ring {
+  fill: none;
+  stroke: var(--pencil);
+  stroke-width: 2;
+}
+
+.badge-seal__ring--inner {
+  stroke-width: 1.2;
+}
+
+.badge-seal__glyph {
+  fill: var(--pencil);
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+
+.badge-seal[data-earned='true'] .badge-seal__ring {
+  fill: var(--paper-card);
+  stroke: var(--blue-pen);
+  stroke-width: 2.6;
+}
+
+.badge-seal[data-earned='true'] .badge-seal__ring--inner {
+  fill: none;
+  stroke-width: 1.4;
+}
+
+.badge-seal[data-earned='true'] .badge-seal__glyph {
+  fill: var(--blue-pen);
+}
+
+/* ------------------------------------------------------------------ campaign map: locked pages */
+
+/* Map text is drawn in map units: 17 is the least that stays 12px when the map is at its narrowest (640 of 880). */
+.map-stop--locked .map-text--title {
+  fill: var(--pencil);
+}
+
+.map-text--lock-note {
+  fill: var(--pencil);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.map-stop--locked:hover .map-locked__page {
+  fill: var(--surface-hover);
+}
+
+/* ------------------------------------------------------------------ a locked page */
+
+.locked-level {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-4);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-6);
+}
+
+.locked-level__title {
+  font-size: var(--text-hand-xl);
+  line-height: 1.1;
+}
+
+.locked-level__concept {
+  margin-top: calc(-1 * var(--space-3));
+  font-size: var(--text-lg);
+}
+
+.locked-level__line {
+  width: 100%;
+}
+
+.locked-level__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ grade card: payout, savings, badges */
+
+.grade-card__payout {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.grade-card__payout-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.grade-card__payout-gain {
+  min-width: 2ch;
+  font-size: var(--text-hand-lg);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--healthy);
+}
+
+.grade-card__payout[data-gained='false'] .grade-card__payout-gain {
+  color: var(--text-muted);
+}
+
+.grade-card__payout-total {
+  padding: 0 6px;
+  border-radius: 6px 12px 4px 10px;
+  background: linear-gradient(transparent 38%, var(--highlighter-green) 38%, var(--highlighter-green) 92%, transparent 92%);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.grade-card__payout-note {
+  font-size: var(--text-sm);
+}
+
+.grade-card__payout-opened {
+  justify-self: start;
+  padding: 2px var(--space-3);
+  border: var(--stroke-pen) solid var(--green-pen);
+  border-radius: 6px 3px 7px 4px;
+  font-weight: 700;
+  color: var(--healthy);
+  transform: rotate(-2deg);
+}
+
+.grade-card__savings {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.grade-card__savings-figure {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--healthy);
+}
+
+.grade-card__savings-line .cast-line__bubble {
+  font-size: var(--text-sm);
+}
+
+.grade-card__badges {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-2) var(--space-6) var(--space-3);
+  list-style: none;
+}
+
+.grade-card__badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.grade-card__badge-seal {
+  display: inline-flex;
+  flex: none;
+}
+
+.grade-card__badge-line {
+  flex: 1;
+  min-width: 0;
+}
+
+.estimate-card__badge {
+  margin-top: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ playback: crash shake and slow motion */
+
+/* A small jolt when the troublemaker breaks a machine. */
+.playback__stage.is-shaking {
+  animation: crash-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes crash-shake {
+  10%,
+  90% {
+    transform: translate(-1px, 0);
+  }
+
+  20%,
+  80% {
+    transform: translate(3px, -1px);
+  }
+
+  30%,
+  50%,
+  70% {
+    transform: translate(-5px, 1px);
+  }
+
+  40%,
+  60% {
+    transform: translate(5px, -1px);
+  }
+}
+
+/* Slowing into the incident: the page around the drawing darkens, like a held breath. */
+.playback__stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, var(--ink-shade) 100%);
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+}
+
+.playback__stage[data-slowmo='true']::after {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------------ motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-in,
+  .playback__stage.is-shaking {
+    animation: none;
+  }
+
+  .playback__stage::after {
+    transition: none;
+  }
+}

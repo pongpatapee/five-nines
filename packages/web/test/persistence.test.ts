@@ -1,6 +1,16 @@
 import { CLIENTS_ID } from '@five-nines/sim';
 import { describe, expect, it } from 'vitest';
-import { loadSave, parseSave, serializeSave, STORAGE_KEY, writeSave, type StorageLike } from '../src/state/persistence.ts';
+import {
+  BACKUP_KEY,
+  loadSave,
+  openSave,
+  parseSave,
+  SAVE_VERSION,
+  serializeSave,
+  STORAGE_KEY,
+  writeSave,
+  type StorageLike,
+} from '../src/state/persistence.ts';
 
 class MemoryStorage implements StorageLike {
   data = new Map<string, string>();
@@ -36,6 +46,7 @@ describe('persistence', () => {
       drafts: { '01-hello-traffic': draft },
       bestGrades: { '01-hello-traffic': 'star' as const },
       estimates: { '01-hello-traffic': { guess: 3.5, close: true }, '02-scale-out': { guess: null, close: false } },
+      badges: { rightSized: { levelId: '02-scale-out' }, napkinWizard: { levelId: null } },
     };
     expect(writeSave(storage, save)).toBe(true);
     expect(storage.data.has(STORAGE_KEY)).toBe(true);
@@ -43,7 +54,7 @@ describe('persistence', () => {
   });
 
   it('starts empty when nothing is stored, storage is missing, or it throws', () => {
-    const empty = { drafts: {}, bestGrades: {}, estimates: {} };
+    const empty = { drafts: {}, bestGrades: {}, estimates: {}, badges: {} };
     expect(loadSave(new MemoryStorage())).toEqual(empty);
     expect(loadSave(null)).toEqual(empty);
     expect(loadSave(throwingStorage)).toEqual(empty);
@@ -51,10 +62,66 @@ describe('persistence', () => {
     expect(writeSave(null, empty)).toBe(false);
   });
 
-  it('ignores malformed JSON and other versions', () => {
-    expect(parseSave('{not json')).toEqual({ drafts: {}, bestGrades: {}, estimates: {} });
-    expect(parseSave(JSON.stringify({ version: 2, drafts: { x: draft } }))).toEqual({ drafts: {}, bestGrades: {}, estimates: {} });
-    expect(parseSave('null')).toEqual({ drafts: {}, bestGrades: {}, estimates: {} });
+  it('ignores malformed JSON and versions it does not know', () => {
+    const empty = { drafts: {}, bestGrades: {}, estimates: {}, badges: {} };
+    expect(parseSave('{not json')).toEqual(empty);
+    expect(parseSave(JSON.stringify({ version: SAVE_VERSION + 1, drafts: { x: draft } }))).toEqual(empty);
+    expect(parseSave(JSON.stringify({ version: 0, drafts: { x: draft } }))).toEqual(empty);
+    expect(parseSave('null')).toEqual(empty);
+  });
+
+  it('migrates a version 1 save: drafts, grades and estimates kept, no badges yet', () => {
+    const v1 = JSON.stringify({
+      version: 1,
+      drafts: { '01-hello-traffic': draft },
+      bestGrades: { '01-hello-traffic': 'mastered', '02-scale-out': 'fail' },
+      estimates: { '01-hello-traffic': { guess: 3.5, close: true } },
+      // A version 1 save never had badges; anything here is ignored rather than trusted.
+      badges: { rightSized: { levelId: 'x' } },
+    });
+    expect(parseSave(v1)).toEqual({
+      drafts: { '01-hello-traffic': draft },
+      bestGrades: { '01-hello-traffic': 'mastered', '02-scale-out': 'fail' },
+      estimates: { '01-hello-traffic': { guess: 3.5, close: true } },
+      badges: {},
+    });
+    // Written back as the current version.
+    expect(JSON.parse(serializeSave(parseSave(v1))).version).toBe(SAVE_VERSION);
+  });
+
+  it('drops unknown or malformed badges', () => {
+    const raw = JSON.stringify({
+      version: 2,
+      badges: { rightSized: { levelId: 'a' }, napkinWizard: { levelId: null }, legendary: { levelId: 'a' }, nPlusOne: 'yes', pennyPincher: { levelId: 3 } },
+    });
+    expect(parseSave(raw).badges).toEqual({ rightSized: { levelId: 'a' }, napkinWizard: { levelId: null } });
+  });
+
+  it('copies an unreadable save aside before anything can overwrite it', () => {
+    const storage = new MemoryStorage();
+    const future = JSON.stringify({ version: SAVE_VERSION + 1, bestGrades: { a: 'mastered' } });
+    storage.setItem(STORAGE_KEY, future);
+    expect(openSave(storage)).toEqual({ save: { drafts: {}, bestGrades: {}, estimates: {}, badges: {} }, writable: true });
+    expect(storage.getItem(BACKUP_KEY)).toBe(future);
+    // The first copy is the one kept.
+    storage.setItem(STORAGE_KEY, '{garbage');
+    openSave(storage);
+    expect(storage.getItem(BACKUP_KEY)).toBe(future);
+    // Readable saves are never copied.
+    const fresh = new MemoryStorage();
+    fresh.setItem(STORAGE_KEY, serializeSave({ drafts: {}, bestGrades: { a: 'pass' }, estimates: {}, badges: {} }));
+    expect(openSave(fresh).save.bestGrades).toEqual({ a: 'pass' });
+    expect(fresh.getItem(BACKUP_KEY)).toBeNull();
+  });
+
+  it('refuses to write over an unreadable save it could not back up', () => {
+    const storage: StorageLike = {
+      getItem: (key) => (key === STORAGE_KEY ? '{garbage' : null),
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+    };
+    expect(openSave(storage).writable).toBe(false);
   });
 
   it('drops invalid entries but keeps valid ones', () => {
@@ -96,6 +163,7 @@ describe('persistence', () => {
       drafts: { l: { design: draft.design, layout: { [CLIENTS_ID]: { x: 5, y: 5 }, app: { x: 'nope', y: 1 } } as never } },
       bestGrades: {},
       estimates: {},
+      badges: {},
     });
     const layout = parseSave(raw).drafts.l!.layout;
     expect(layout[CLIENTS_ID]).toEqual({ x: 5, y: 5 });

@@ -1,12 +1,14 @@
-import { LEVELS, type Design, type Level } from '@five-nines/sim';
+import { CHAPTERS, LEVELS, type Design, type Level } from '@five-nines/sim';
 import { useMemo } from 'react';
+import { playCue } from '../audio/sfx.ts';
 import type { GradedEvaluation } from '../engine/index.ts';
 import { isPassingGrade } from '../format.ts';
+import { useReducedMotion } from '../playback/useReducedMotion.ts';
 import { useBestGrade } from '../state/index.ts';
-import { failoverSituation, failureStory, GradeCard, hintLadder } from '../theme/index.ts';
+import { failoverSituation, failureStory, GradeCard, hintLadder, savingsSituation, type RewardView } from '../theme/index.ts';
 import { DebriefPanel } from './DebriefPanel.tsx';
 import type { ResultView } from '../screens/levelMode.ts';
-import { useRecordBestGrade } from './useRecordBestGrade.ts';
+import { useReveal, useRunReward } from './useRunReward.ts';
 
 export interface ResultsViewProps {
   level: Level;
@@ -21,9 +23,22 @@ export interface ResultsViewProps {
   onNextLevel: (() => void) | null;
 }
 
-/** Result mode: the grade card, or the debrief over the canvas. Records the best grade. */
+/** Result mode: the grade card, or the debrief over the canvas. Records the run and reveals what it paid out. */
 export function ResultsView({ level, design, evaluation, view, onViewChange, onBackToEditor, onReplay, onNextLevel }: ResultsViewProps) {
-  useRecordBestGrade(level.id, evaluation);
+  const reward = useRunReward(level.id, design, evaluation);
+  const shown = useReveal(evaluation, reward, useReducedMotion());
+  const rewardView: RewardView | null =
+    reward && shown
+      ? {
+          reward,
+          shown,
+          openedChapters: reward.openedChapterIds.map((id) => {
+            const index = CHAPTERS.findIndex((chapter) => chapter.id === id);
+            return { number: index + 1, title: CHAPTERS[index]!.title };
+          }),
+        }
+      : null;
+  const savings = useMemo(() => savingsSituation(evaluation), [evaluation]);
   const best = useBestGrade(level.id);
   const passed = evaluation.grade !== 'fail';
   const hints = useMemo(() => {
@@ -45,6 +60,9 @@ export function ResultsView({ level, design, evaluation, view, onViewChange, onB
           onReplay={onReplay}
           onShowDebrief={() => onViewChange('debrief')}
           onNextLevel={passed ? onNextLevel : null}
+          reward={rewardView}
+          savings={savings}
+          onHintRevealed={() => playCue('hint')}
         />
       ) : (
         <DebriefPanel

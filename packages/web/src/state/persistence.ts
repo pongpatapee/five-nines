@@ -1,13 +1,24 @@
 /**
- * Saved progress in one versioned localStorage key. Every access is wrapped: the game must keep working when storage
- * is missing, full, disabled or holds garbage. Invalid entries are dropped one by one rather than discarding the save.
+ * Saved progress in one localStorage key, versioned inside. Every access is wrapped: the game must keep working when
+ * storage is missing, full, disabled or holds garbage. Invalid entries are dropped one by one rather than discarding
+ * the save, and a save this build can't read at all (garbage, or written by a newer build) is copied aside to
+ * `BACKUP_KEY` before anything could overwrite it. A player's progress is never wiped.
+ *
+ * Versions:
+ * - 1: drafts, best grades and napkin-maths estimates.
+ * - 2: adds earned badges. A version 1 save loads with none; the progress store then awards the badges its grades
+ *   and estimates already earn (Five Nines Club, Napkin Wizard).
  */
 import { DesignSchema, GradeSchema, type Grade } from '@five-nines/sim';
 import { completeLayout } from '../canvas/layout.ts';
 import type { Draft, XY } from '../canvas/types.ts';
+import { isBadgeId, type BadgeId, type BadgeRecord, type EarnedBadges } from '../progression/index.ts';
 
-/** Bump the version (and add a migration in `parseSave`) when the stored shape changes incompatibly. */
+/** The key never changes; the version lives in the data. Bump `SAVE_VERSION` and migrate in `parseSave`. */
 export const STORAGE_KEY = 'five-nines:v1';
+/** Where an unreadable save is copied, once, before the game starts afresh. */
+export const BACKUP_KEY = 'five-nines:unreadable-backup';
+export const SAVE_VERSION = 2;
 
 export interface SaveData {
   /** Per-level drafts, keyed by level id. */
@@ -16,6 +27,8 @@ export interface SaveData {
   bestGrades: Record<string, Grade>;
   /** The napkin-maths step per level id. Levels never asked have no entry. */
   estimates: Record<string, EstimateRecord>;
+  /** Badges earned, by id. */
+  badges: EarnedBadges;
 }
 
 /** A level's napkin-maths answer. Kept for the "Napkin Wizard" badge (estimates within 10% on several levels). */
@@ -33,7 +46,7 @@ export interface StorageLike {
 }
 
 export function emptySave(): SaveData {
-  return { drafts: {}, bestGrades: {}, estimates: {} };
+  return { drafts: {}, bestGrades: {}, estimates: {}, badges: {} };
 }
 
 /** `window.localStorage`, or null when it doesn't exist or access throws (e.g. blocked cookies). */
@@ -69,17 +82,29 @@ function parseDraft(value: unknown): Draft | null {
   return completeLayout({ design: design.data, layout });
 }
 
-/** Parses stored JSON into a save, keeping every valid entry. Never throws. */
+/** A save read from storage: `readable` is false when something was stored but this build can't read it. */
+export interface ParsedSave {
+  save: SaveData;
+  readable: boolean;
+}
+
+/** Parses stored JSON into a save, keeping every valid entry and migrating older versions. Never throws. */
 export function parseSave(raw: string | null): SaveData {
+  return readSave(raw).save;
+}
+
+export function readSave(raw: string | null): ParsedSave {
   const save = emptySave();
-  if (raw === null) return save;
+  if (raw === null) return { save, readable: true };
   let data: unknown;
   try {
     data = JSON.parse(raw);
   } catch {
-    return save;
+    return { save, readable: false };
   }
-  if (!isRecord(data) || data.version !== 1) return save;
+  if (!isRecord(data) || typeof data.version !== 'number' || data.version < 1 || data.version > SAVE_VERSION) {
+    return { save, readable: false };
+  }
 
   if (isRecord(data.drafts)) {
     for (const [levelId, value] of Object.entries(data.drafts)) {
@@ -99,7 +124,19 @@ export function parseSave(raw: string | null): SaveData {
       if (record) save.estimates[levelId] = record;
     }
   }
-  return save;
+  // Version 1 had no badges: nothing to read.
+  if (data.version >= 2 && isRecord(data.badges)) save.badges = parseBadges(data.badges);
+  return { save, readable: true };
+}
+
+function parseBadges(value: Record<string, unknown>): EarnedBadges {
+  const badges: Partial<Record<BadgeId, BadgeRecord>> = {};
+  for (const [id, raw] of Object.entries(value)) {
+    if (!isBadgeId(id) || !isRecord(raw)) continue;
+    const { levelId } = raw;
+    if (levelId === null || typeof levelId === 'string') badges[id] = { levelId };
+  }
+  return badges;
 }
 
 function parseEstimate(value: unknown): EstimateRecord | null {
@@ -110,16 +147,41 @@ function parseEstimate(value: unknown): EstimateRecord | null {
 }
 
 export function serializeSave(save: SaveData): string {
-  return JSON.stringify({ version: 1, drafts: save.drafts, bestGrades: save.bestGrades, estimates: save.estimates });
+  return JSON.stringify({
+    version: SAVE_VERSION,
+    drafts: save.drafts,
+    bestGrades: save.bestGrades,
+    estimates: save.estimates,
+    badges: save.badges,
+  });
 }
 
 /** Reads the save. Returns an empty save if storage is unavailable or broken. */
 export function loadSave(storage: StorageLike | null): SaveData {
-  if (!storage) return emptySave();
+  return openSave(storage).save;
+}
+
+/**
+ * Reads the save for a store that will write it back. A stored save that can't be read is copied to `BACKUP_KEY`
+ * first (unless a backup is already there). If that copy fails, `writable` is false: the store must not write, or it
+ * would overwrite the only copy.
+ */
+export function openSave(storage: StorageLike | null): { save: SaveData; writable: boolean } {
+  if (!storage) return { save: emptySave(), writable: false };
+  let raw: string | null;
   try {
-    return parseSave(storage.getItem(STORAGE_KEY));
+    raw = storage.getItem(STORAGE_KEY);
   } catch {
-    return emptySave();
+    // Storage is blocked: writes will fail too, harmlessly.
+    return { save: emptySave(), writable: true };
+  }
+  const { save, readable } = readSave(raw);
+  if (readable || raw === null) return { save, writable: true };
+  try {
+    if (storage.getItem(BACKUP_KEY) === null) storage.setItem(BACKUP_KEY, raw);
+    return { save, writable: true };
+  } catch {
+    return { save, writable: false };
   }
 }
 

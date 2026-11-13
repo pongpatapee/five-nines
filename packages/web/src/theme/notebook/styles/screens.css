@@ -92,16 +92,6 @@
   font-weight: 700;
 }
 
-.contents__trios {
-  display: flex;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0 0 var(--space-1);
-  border-bottom: 1.5px solid var(--ink-faded);
-  list-style: none;
-  flex-wrap: wrap;
-}
-
 .contents__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);

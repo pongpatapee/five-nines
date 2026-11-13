@@ -181,7 +181,7 @@ describe('theme slots', () => {
 
   it('draws the campaign map for every chapter and level', () => {
     const html = renderToStaticMarkup(
-      createElement(theme.CampaignMap, { chapters: CHAPTERS, levels: LEVELS, best: {}, nextUp: 0 }),
+      createElement(theme.CampaignMap, { chapters: CHAPTERS, levels: LEVELS, best: {}, nextUp: 0, access: {}, chapterAccess: {} }),
     );
     for (const chapter of CHAPTERS) expect(html).toContain(chapter.title);
     for (const level of LEVELS) expect(html).toContain(level.title);

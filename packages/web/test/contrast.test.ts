@@ -1,11 +1,16 @@
 /**
- * Measured legibility for the chapter 3 readouts: every audited text is at least 12px as
+ * Measured legibility for the rewards screens and the chapter 3 readouts: every audited text is at least 12px as
  * rendered and has at least 4.5:1 contrast (WCAG AA) against each paper it sits on; graphics that carry meaning get
  * 3:1. Sizes and colours are read from the stylesheets and tokens themselves, so a change to either is re-measured.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { BadgeSeal } from '../src/theme/notebook/ink.tsx';
+import { BADGE_GLYPHS } from '../src/theme/notebook/BadgeShelf.tsx';
+import { MAP_SIZE } from '../src/theme/notebook/mapLayout.ts';
 
 const dir = join(import.meta.dirname, '../src/theme/notebook/styles');
 const strip = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -75,9 +80,29 @@ interface Audit {
   scale?: number;
 }
 
+/** The map is drawn 880 units wide and never shrinks below 640px. */
+const MAP_SCALE = 640 / MAP_SIZE.width;
 const ZONES = ['var(--healthy)', 'var(--busy)', 'var(--failing)'];
 
 const TEXT: Audit[] = [
+  // Rewards and progression.
+  { selector: '.contents__target', on: ['var(--paper)'], colors: ['var(--text)'] },
+  { selector: '.sound-toggle__state', on: ['var(--paper)', 'var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
+  { selector: ".sound-toggle[data-on='true'] .sound-toggle__state", on: ['var(--paper)', 'var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.badge-shelf__count', on: ['var(--paper-card)'] },
+  { selector: '.badge-shelf__name', on: ['var(--paper-card)'], colors: ['var(--text)'] },
+  { selector: '.badge-shelf__how', on: ['var(--paper-card)'] },
+  { selector: ".badge-shelf__badge[data-earned='true'] .badge-shelf__how", on: ['var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.grade-card__payout-gain', on: ['var(--paper-card)'] },
+  { selector: ".grade-card__payout[data-gained='false'] .grade-card__payout-gain", on: ['var(--paper-card)'], inheritsSize: 'var(--text-hand-lg)' },
+  { selector: '.grade-card__payout-total', on: ['var(--highlighter-green)', 'var(--paper-card)'], colors: ['var(--text)'] },
+  { selector: '.grade-card__payout-note', on: ['var(--paper-card)'], colors: ['var(--text-muted)'] },
+  { selector: '.grade-card__payout-opened', on: ['var(--paper-card)'], inheritsSize: 'var(--text-md)' },
+  { selector: '.grade-card__savings-figure', on: ['var(--paper-card)'] },
+  { selector: '.grade-card__savings-line .cast-line__bubble', on: ['var(--paper-card)'], colors: ['var(--text)'] },
+  { selector: '.locked-level__concept', on: ['var(--paper)'], colors: ['var(--text-muted)'] },
+  { selector: '.map-text--lock-note', on: ['var(--paper)'], scale: MAP_SCALE },
+  { selector: '.map-stop--locked .map-text--title', on: ['var(--paper)'], inheritsSize: '17px', scale: MAP_SCALE },
   // Chapter 3: gauges (now with queue wording), the inspector's working and the nodes' live readouts.
   { selector: '.util-gauge__zone-word', on: ['var(--paper)', 'var(--paper-card)'], colors: ZONES },
   { selector: '.util-gauge--mark .util-gauge__value', on: ['var(--paper-card)'], colors: ZONES },
@@ -104,7 +129,7 @@ const EVENT_DOTS = [
 const EVENT_CROSSES = ['.pb-timeline__event--cacheRestarted::before', '.pb-timeline__event--hotKeyStarted::before'];
 const TIMELINE_PAPERS = ['var(--paper)', 'var(--paper-card)'];
 
-describe('legibility of the chapter 3 elements', () => {
+describe('legibility of the rewards and chapter 3 elements', () => {
   it.each(TEXT)('$selector is at least 12px', ({ selector, inheritsSize, scale = 1 }) => {
     const declared = rules.get(selector)?.get('font-size') ?? inheritsSize;
     expect(declared, `${selector} has no font-size`).toBeDefined();
@@ -133,6 +158,20 @@ describe('legibility of the chapter 3 elements', () => {
   it.each(EVENT_CROSSES)('%s stands out from the paper', (selector) => {
     const color = rules.get(selector)!.get('background')!;
     for (const paper of TIMELINE_PAPERS) expect(contrast(color, paper), `${color} on ${paper}`).toBeGreaterThanOrEqual(3);
+  });
+
+  it('inks earned badge seals at least 3:1', () => {
+    const ring = rules.get(".badge-seal[data-earned='true'] .badge-seal__ring")!.get('stroke')!;
+    expect(contrast(ring, 'var(--paper-card)')).toBeGreaterThanOrEqual(3);
+  });
+
+  it('draws badge glyphs at least 12px at the smallest seal', () => {
+    for (const glyph of Object.values(BADGE_GLYPHS)) {
+      const html = renderToStaticMarkup(createElement(BadgeSeal, { glyph, earned: true, size: 48 }));
+      const fontSize = Number(/font-size:(\d+(?:\.\d+)?)/.exec(html)![1]);
+      const viewBox = Number(/viewBox="0 0 (\d+)/.exec(html)![1]);
+      expect(fontSize * (48 / viewBox), glyph).toBeGreaterThanOrEqual(12);
+    }
   });
 
   it('measures contrast the way WCAG does', () => {

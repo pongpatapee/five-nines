@@ -1,7 +1,7 @@
 import { isWritten, type Grade, type Level } from '@five-nines/sim';
 import type { ReactNode } from 'react';
 import { GRADE_LABELS } from '../../format.ts';
-import { NINES_PER_LEVEL, ninesForGrade } from '../../results/grading.ts';
+import { MAX_NINES_PER_LEVEL, ninesForGrade, type ChapterAccess, type LevelAccess } from '../../progression/index.ts';
 import { routeHref } from '../../routing.ts';
 import type { CampaignMapProps } from '../contract.ts';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
@@ -32,7 +32,7 @@ const WASH: Record<ChapterWash, string> = {
  *
  * The map is drawn for 880 units across. Its frame scrolls sideways when the page is narrower than it can shrink to.
  */
-export function CampaignMap({ chapters, levels, best, nextUp }: CampaignMapProps) {
+export function CampaignMap({ chapters, levels, best, nextUp, access, chapterAccess }: CampaignMapProps) {
   const written = chapters.filter(isWritten);
   const planned = chapters.filter((chapter) => !isWritten(chapter));
   return (
@@ -42,10 +42,10 @@ export function CampaignMap({ chapters, levels, best, nextUp }: CampaignMapProps
           className="campaign-map__svg"
           viewBox={`0 0 ${MAP_SIZE.width} ${MAP_SIZE.height}`}
           role="group"
-          aria-label={`Campaign map. ${written.map((chapter, c) => `Chapter ${c + 1}, ${chapter.title}: ${chapter.levelIds.length} pages.`).join(' ')} Later chapters coming soon.`}
+          aria-label={`Campaign map. ${written.map((chapter, c) => `Chapter ${c + 1}, ${chapter.title}: ${chapter.levelIds.length} pages${chapterLockText(chapterAccess[chapter.id])}.`).join(' ')} Later chapters coming soon.`}
         >
           {written.map((chapter, c) => (
-            <ChapterLabel key={chapter.id} layout={CHAPTER_LABELS[c]!} title={chapter.title}>
+            <ChapterLabel key={chapter.id} layout={CHAPTER_LABELS[c]!} title={chapter.title} lock={chapterAccess[chapter.id]}>
               Ch. {c + 1} · {chapter.title}
             </ChapterLabel>
           ))}
@@ -61,7 +61,16 @@ export function CampaignMap({ chapters, levels, best, nextUp }: CampaignMapProps
           <LockedChapters titles={planned.map((chapter) => chapter.title)} firstNumber={written.length + 1} />
 
           {levels.map((level, i) => (
-            <LevelStop key={level.id} level={level} index={i} at={LEVEL_SLOTS[i]!} grade={best[level.id]} current={i === nextUp} />
+            <LevelStop
+              key={level.id}
+              level={level}
+              index={i}
+              at={LEVEL_SLOTS[i]!}
+              grade={best[level.id]}
+              current={i === nextUp}
+              access={access[level.id] ?? { kind: 'open' }}
+              levelNumberOf={(id) => levels.findIndex((l) => l.id === id) + 1}
+            />
           ))}
         </svg>
       </div>
@@ -73,13 +82,20 @@ export function CampaignMap({ chapters, levels, best, nextUp }: CampaignMapProps
   );
 }
 
+/** ", locked: 4 more nines needed" for the map's description, or nothing for an open chapter. */
+function chapterLockText(lock: ChapterAccess | undefined): string {
+  return lock?.kind === 'locked' ? `, locked until you hold ${lock.needed} nines (you have ${lock.have})` : '';
+}
+
 function ChapterLabel({
   layout,
   title,
+  lock,
   children,
 }: {
   layout: (typeof CHAPTER_LABELS)[number];
   title: string;
+  lock?: ChapterAccess;
   children: ReactNode;
 }) {
   const { at, tilt } = layout;
@@ -90,8 +106,28 @@ function ChapterLabel({
       <text x={at.x + 8} y={at.y + 22} className="map-text map-text--chapter">
         {children}
       </text>
+      {lock?.kind === 'locked' && (
+        <g aria-hidden>
+          <Padlock at={{ x: at.x + width + 14, y: at.y + 8 }} />
+          <text x={at.x + width + 26} y={at.y + 19} className="map-text map-text--lock-note">
+            needs {lock.needed} nines
+          </text>
+        </g>
+      )}
     </g>
   );
+}
+
+/** Why a stop is closed, for its label. */
+function lockLabel(access: LevelAccess, levelNumberOf: (levelId: string) => number): string {
+  switch (access.kind) {
+    case 'open':
+      return '';
+    case 'previousLevel':
+      return ` Locked: pass page ${levelNumberOf(access.levelId)} first.`;
+    case 'chapter':
+      return ` Locked: the chapter needs ${access.needed} nines, you have ${access.have}.`;
+  }
 }
 
 function LevelStop({
@@ -100,22 +136,53 @@ function LevelStop({
   at,
   grade,
   current,
+  access,
+  levelNumberOf,
 }: {
   level: Level;
   index: number;
   at: XYPoint;
   grade: Grade | undefined;
   current: boolean;
+  access: LevelAccess;
+  levelNumberOf(levelId: string): number;
 }) {
   const nines = ninesForGrade(grade);
   const status = grade === undefined ? 'not played yet' : grade === 'fail' ? 'not passed yet' : GRADE_LABELS[grade];
   const r = current ? 32 : 30;
+  const locked = access.kind !== 'open';
+  if (locked) {
+    // Still a link: the page explains what opens it. But it reads as closed on the map.
+    return (
+      <a
+        href={routeHref({ name: 'level', levelId: level.id })}
+        className="map-stop map-stop--locked"
+        data-grade="locked"
+        aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}.${lockLabel(access, levelNumberOf)}${current ? ' You are here.' : ''}`}
+      >
+        <circle className="map-stop__focus" cx={at.x} cy={at.y} r={r + 8} />
+        <circle className="map-locked__page" cx={at.x} cy={at.y} r={r} />
+        <text x={at.x} y={at.y + 11} textAnchor="middle" className="map-text map-text--locked-number">
+          {index + 1}
+        </text>
+        <Padlock at={{ x: at.x + r - 6, y: at.y - r - 4 }} />
+        <text x={at.x} y={at.y + r + 22} textAnchor="middle" className="map-text map-text--title map-text--locked">
+          {level.title}
+        </text>
+        {current && (
+          <text x={at.x} y={at.y + r + 42} textAnchor="middle" className="map-text map-text--pen map-text--small">
+            next, once it opens
+          </text>
+        )}
+      </a>
+    );
+  }
   return (
     <a
       href={routeHref({ name: 'level', levelId: level.id })}
       className="map-stop"
       data-grade={grade ?? 'unplayed'}
-      aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}. ${status}, ${nines} of ${NINES_PER_LEVEL} nines.${current ? ' You are here.' : ''}`}
+      aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}. ${status}, ${nines} of ${MAX_NINES_PER_LEVEL} nines.${current ? ' You are here.' : ''}`}
     >
       {current && (
         <path
@@ -142,7 +209,7 @@ function LevelStop({
       <text x={at.x} y={at.y + r + 22} textAnchor="middle" className="map-text map-text--title">
         {level.title}
       </text>
-      <NinesDots filled={nines} total={NINES_PER_LEVEL} size="sm" x={at.x - 29} y={at.y + r + 32} />
+      <NinesDots filled={nines} total={MAX_NINES_PER_LEVEL} size="sm" x={at.x - 47} y={at.y + r + 32} />
       <GradeMark grade={grade} at={at} />
       {current && (
         <g className="map-stop__here">

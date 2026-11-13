@@ -10,21 +10,14 @@ import {
   formatUsdPerMonth,
   GRADE_LABELS,
 } from '../../format.ts';
-import {
-  gradeHeadline,
-  litTiers,
-  nextTier,
-  NINES_PER_LEVEL,
-  ninesForGrade,
-  tierPercent,
-  tierRequirementLabel,
-  TIER_ORDER,
-} from '../../results/grading.ts';
-import type { GradeCardProps } from '../contract.ts';
-import { verdictFor, type HintLadder } from '../situations.ts';
+import { MAX_NINES_PER_LEVEL, ninesForGrade, type BadgeId } from '../../progression/index.ts';
+import { gradeHeadline, litTiers, nextTier, tierPercent, tierRequirementLabel, TIER_ORDER } from '../../results/grading.ts';
+import type { GradeCardProps, RewardView } from '../contract.ts';
+import { verdictFor, type HintLadder, type SavingsSituation } from '../situations.ts';
+import { BADGE_GLYPHS } from './BadgeShelf.tsx';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
-import { Cross, HandArrow, InkLoop, NinesDots, Tick } from './ink.tsx';
+import { BadgeSeal, Cross, HandArrow, InkLoop, NinesDots, Tick } from './ink.tsx';
 
 /** The graded result as a marked notebook page: the grade circled, the boss's verdict, ticks and crosses. */
 export function GradeCard({
@@ -37,6 +30,9 @@ export function GradeCard({
   onReplay,
   onShowDebrief,
   onNextLevel,
+  reward,
+  savings,
+  onHintRevealed,
 }: GradeCardProps) {
   const { grade, checks, simulation } = evaluation;
   const passed = grade !== 'fail';
@@ -53,13 +49,14 @@ export function GradeCard({
           p.{levelNumber} · {level.title} · graded
         </div>
         <div className="grade-card__mark">
-          <h2 id="grade-card-title" className="grade-card__grade hand">
+          <h2 id="grade-card-title" className="grade-card__grade hand stamp-in">
             {!passed && <InkLoop width={150} height={70} delayMs={100} />}
             {GRADE_LABELS[grade]}
           </h2>
-          <NinesDots filled={ninesForGrade(grade)} total={NINES_PER_LEVEL} />
+          <NinesDots filled={reward ? reward.shown.level : ninesForGrade(grade)} total={MAX_NINES_PER_LEVEL} />
         </div>
         <p className="grade-card__headline">{gradeHeadline(grade)}</p>
+        {reward && <Payout view={reward} />}
       </header>
 
       <CastLine
@@ -93,8 +90,12 @@ export function GradeCard({
           ok={checks.budget.ok}
           actual={formatUsdPerMonth(checks.budget.costUsdPerMonth)}
           required={`≤ ${formatUsdPerMonth(checks.budget.budgetUsdPerMonth)}`}
-        />
+        >
+          {savings && <Savings situation={savings} />}
+        </CheckRow>
       </div>
+
+      {reward && reward.shown.badges.length > 0 && <NewBadges badges={reward.shown.badges} />}
 
       <dl className="grade-card__facts">
         <div>
@@ -150,7 +151,7 @@ export function GradeCard({
           <b className="grade-card__note-label">First failure:</b> {describeCause(mainCause)}
         </p>
       )}
-      {hints && <MentorHints key={hints.topic} ladder={hints} />}
+      {hints && <MentorHints key={hints.topic} ladder={hints} onReveal={onHintRevealed} />}
       {upNext && passed && <p className="grade-card__note muted">Next: {tierRequirementLabel(upNext)}.</p>}
       {evaluation.warnings.length > 0 && (
         <ul className="grade-card__warnings">
@@ -227,8 +228,78 @@ function TierLadder({ grade }: { grade: Grade }) {
   );
 }
 
+/** The nines this run paid, ticking onto the running total, and any chapter it opened. */
+function Payout({ view }: { view: RewardView }) {
+  const { reward, shown, openedChapters } = view;
+  const gained = reward.totalNines.after - reward.totalNines.before;
+  const ticking = shown.total - reward.totalNines.before;
+  return (
+    <div className="grade-card__payout" data-gained={gained > 0}>
+      <p className="grade-card__payout-line">
+        <span className="grade-card__payout-gain hand" aria-hidden>
+          {gained > 0 ? `+${ticking}` : '+0'}
+        </span>
+        <span className="grade-card__payout-total num" aria-hidden>
+          {shown.total} / {reward.totalNines.total} nines
+        </span>
+        <span className="visually-hidden">
+          {gained > 0
+            ? `This run earned ${gained} nines: ${reward.totalNines.after} of ${reward.totalNines.total} in all.`
+            : `No new nines this run: ${reward.totalNines.after} of ${reward.totalNines.total} in all.`}
+        </span>
+      </p>
+      {gained === 0 && reward.levelNines.after > 0 && (
+        <p className="grade-card__payout-note muted">
+          This page has paid its {reward.levelNines.after} already: only a better grade pays more.
+        </p>
+      )}
+      {shown.done &&
+        openedChapters.map((chapter) => (
+          <p key={chapter.number} className="grade-card__payout-opened stamp-in" role="status">
+            {NOTEBOOK_SCRIPT.chapterOpened(chapter.number, chapter.title)}
+          </p>
+        ))}
+    </div>
+  );
+}
+
+/** Ms. Tally on the money left over: the second score. */
+function Savings({ situation }: { situation: SavingsSituation }) {
+  return (
+    <div className="grade-card__savings">
+      <span className="grade-card__savings-figure num">
+        {situation.savedUsdPerMonth > 0 ? `${formatUsdPerMonth(situation.savedUsdPerMonth)} under budget` : 'Exactly on budget'}
+      </span>
+      <CastLine role="boss" size={40} mood={situation.share >= 0.05 ? 'pleased' : 'neutral'} className="grade-card__savings-line">
+        {NOTEBOOK_SCRIPT.bossSavings(situation)}
+      </CastLine>
+    </div>
+  );
+}
+
+/** Each badge this run earned, stamped onto the page, handed over by whoever would hand it over. */
+function NewBadges({ badges }: { badges: readonly BadgeId[] }) {
+  return (
+    <ul className="grade-card__badges" aria-label="New badges">
+      {badges.map((id) => {
+        const copy = NOTEBOOK_SCRIPT.badges[id];
+        return (
+          <li key={id} className="grade-card__badge">
+            <span className="stamp-in grade-card__badge-seal">
+              <BadgeSeal glyph={BADGE_GLYPHS[id]} earned size={64} />
+            </span>
+            <CastLine role={copy.role} size={48} lead={`Badge: ${copy.name}`} className="grade-card__badge-line">
+              {copy.line}
+            </CastLine>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** Erasmus's hints, one rung at a time: where it broke, why, the idea, the fix. */
-function MentorHints({ ladder }: { ladder: HintLadder }) {
+function MentorHints({ ladder, onReveal }: { ladder: HintLadder; onReveal?: () => void }) {
   const [shown, setShown] = useState(1);
   const total = ladder.rungs.length;
   const words = NOTEBOOK_SCRIPT.mentorLadder;
@@ -259,7 +330,14 @@ function MentorHints({ ladder }: { ladder: HintLadder }) {
         ))}
       </ol>
       {shown < total && (
-        <button type="button" className="btn btn--sm btn--ghost hint-ladder__more" onClick={() => setShown(shown + 1)}>
+        <button
+          type="button"
+          className="btn btn--sm btn--ghost hint-ladder__more"
+          onClick={() => {
+            setShown(shown + 1);
+            onReveal?.();
+          }}
+        >
           {words.more} ({shown + 1} of {total})
         </button>
       )}

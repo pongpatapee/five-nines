@@ -1,6 +1,8 @@
 import { isCloseEstimate, workEstimate, type Estimate, type Level } from '@five-nines/sim';
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type Ref } from 'react';
+import { playCue } from '../audio/sfx.ts';
 import { formatEstimate } from '../format.ts';
+import type { BadgeId } from '../progression/index.ts';
 import type { EstimateRecord } from '../state/index.ts';
 import { cast, CastLine, marks } from '../theme/index.ts';
 import { parseEstimateInput } from './estimate.ts';
@@ -10,15 +12,15 @@ export interface EstimateStepProps {
   estimate: Estimate;
   /** What the player answered before on this level, if anything. */
   record: EstimateRecord | undefined;
-  /** A guess was checked. `close` earns the bonus mark. */
-  onAnswer(guess: number, close: boolean): void;
+  /** A guess was checked. `close` earns the bonus mark. Returns the badges the answer earned for the first time. */
+  onAnswer(guess: number, close: boolean): readonly BadgeId[];
   /** The player skipped the question. */
   onSkip(): void;
   /** Done: back to building. */
   onClose(): void;
 }
 
-type Phase = { kind: 'ask' } | { kind: 'answered'; guess: number; close: boolean };
+type Phase = { kind: 'ask' } | { kind: 'answered'; guess: number; close: boolean; badges: readonly BadgeId[] };
 
 /**
  * The napkin-maths step before building (docs/design.md, "Estimate step"): the mentor asks one question worked out
@@ -60,8 +62,9 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
       return;
     }
     const close = isCloseEstimate(guess, estimate.answer);
-    onAnswer(guess, close);
-    setPhase({ kind: 'answered', guess, close });
+    const badges = onAnswer(guess, close);
+    if (badges.length > 0) setTimeout(() => playCue('badge'), 400);
+    setPhase({ kind: 'answered', guess, close, badges });
   };
 
   const show = formatEstimate;
@@ -128,6 +131,7 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
             guess={`${show(phase.guess)} ${unit}`}
             answer={`${show(estimate.answer)} ${unit}`}
             working={cast.mentorEstimate.working(working)}
+            badges={phase.badges}
             doneRef={doneRef}
             onDone={onClose}
             onRetry={() => {
@@ -147,6 +151,7 @@ function Answered(props: {
   guess: string;
   answer: string;
   working: string;
+  badges: readonly BadgeId[];
   doneRef: Ref<HTMLButtonElement>;
   onDone(): void;
   onRetry(): void;
@@ -182,6 +187,14 @@ function Answered(props: {
         )}
       </dl>
       <p className="estimate-card__working">{props.working}</p>
+      {props.badges.map((id) => {
+        const badge = cast.badges[id];
+        return (
+          <CastLine key={id} role={badge.role} size={48} lead={`Badge: ${badge.name}`} className="estimate-card__badge stamp-in">
+            {badge.line}
+          </CastLine>
+        );
+      })}
       <div className="estimate-card__actions">
         {!props.close && (
           <button type="button" className="btn btn--ghost" onClick={props.onRetry}>
