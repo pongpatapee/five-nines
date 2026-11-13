@@ -625,3 +625,49 @@
     transition: none;
   }
 }
+
+/* ------------------------------------------------------------------ latency note: Erasmus's pencilled margin note */
+
+.pb-latency-note {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 5;
+  max-width: min(440px, calc(100% - 2 * var(--space-4)));
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-hand);
+  background: var(--sticky);
+  box-shadow: var(--shadow-bubble);
+  font-family: var(--font-note);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--ink);
+  transform: rotate(-0.6deg);
+  pointer-events: none;
+}
+
+.pb-latency-note[data-quiet='true'] {
+  display: none;
+}
+
+.pb-latency-note[data-tone='alarm'] {
+  border-color: var(--red-pen);
+}
+
+.pb-latency-note__who {
+  font-family: var(--font-hand);
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ postmortem: the failover arithmetic */
+
+.pb-postmortem__failover {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+}

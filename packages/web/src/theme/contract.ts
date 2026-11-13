@@ -7,11 +7,30 @@
  * semantic tokens they use (`--text`, `--surface-1`, `--healthy`, `--request`, `--write`, `--failing`, `--edge-color`,
  * `--grid-minor`, `--grid-major`, …).
  */
-import type { Chapter, ComponentKind, FailureCause, FailureReason, Grade, Level, SimEvent } from '@five-nines/sim';
+import type {
+  Chapter,
+  ComponentKind,
+  EstimateWorking,
+  FailureCause,
+  FailureReason,
+  Grade,
+  Level,
+  SimEvent,
+} from '@five-nines/sim';
 import type { ComponentType, ReactNode, Ref } from 'react';
 import type { GradedEvaluation } from '../engine/index.ts';
 import type { BudgetUsage } from '../playback/series.ts';
-import type { CheckSummary, LevelStress, Verdict } from './situations.ts';
+import type {
+  CheckSummary,
+  FailoverSituation,
+  FailureStory,
+  HintLadder,
+  HintStep,
+  HintTopic,
+  LatencySituation,
+  LevelStress,
+  Verdict,
+} from './situations.ts';
 
 // ---------------------------------------------------------------------------- the cast
 
@@ -49,6 +68,47 @@ export interface CastScript {
   mentorPostmortemLead: string;
   /** The mentor's take on the design checks. */
   mentorChecks(summary: CheckSummary): string;
+  /** The mentor's hint ladder for a failed run (docs/design.md, "Hints and iteration"). */
+  mentorLadder: MentorLadderScript;
+  /** The mentor on why p99 is where it is, quoting the numbers. */
+  mentorLatency(situation: LatencySituation): string;
+  /** The failover around a crash as a few short lines: when it died, when the balancer noticed, what it cost. */
+  failoverLines(situation: FailoverSituation): string[];
+  /** The napkin-maths step before building. */
+  mentorEstimate: MentorEstimateScript;
+}
+
+export interface MentorLadderScript {
+  /** Where it broke, from the story's numbers. */
+  where(story: FailureStory): string;
+  /** Why, from the story's numbers. */
+  why(story: FailureStory): string;
+  /** The concept behind this kind of failure, in this level. Every level and topic must have one. */
+  concept(levelId: string, topic: HintTopic): string;
+  /** The change that fixes it, in this level, without handing over a whole design. */
+  fix(levelId: string, topic: HintTopic): string;
+  /** A heading for each rung. */
+  stepLabels: Readonly<Record<HintStep, string>>;
+  /** The button that reveals the next rung. */
+  more: string;
+}
+
+export interface EstimateResult {
+  guess: number;
+  answer: number;
+  /** Within the tolerance: earns the bonus mark. */
+  close: boolean;
+}
+
+export interface MentorEstimateScript {
+  /** The question for this level's estimate, and the unit the answer is typed in ("vCPUs", "%"). */
+  ask(working: EstimateWorking): { question: string; unit: string };
+  /** The arithmetic, shown after answering or skipping. */
+  working(working: EstimateWorking): string;
+  /** The mentor's reaction to an answer. */
+  verdict(result: EstimateResult): { exclaim: string; line: string };
+  /** The name of the bonus mark ("napkin bonus"). */
+  bonus: string;
 }
 
 export interface CastLineProps {
@@ -101,6 +161,8 @@ export interface PostmortemCardProps {
   events: readonly SimEvent[];
   /** Availability of the requests up to the freeze. */
   availability: number;
+  /** The failover around the run's crash, counted up to the freeze. Null when nothing crashed. */
+  failover: FailoverSituation | null;
   onKeepWatching(): void;
   onSeeResults(): void;
   /** The card's element, so playback can keep the root-cause node out from under it. */
@@ -112,6 +174,10 @@ export interface GradeCardProps {
   /** 1-based, for the heading. */
   levelNumber: number;
   evaluation: GradedEvaluation;
+  /** The mentor's hints, when the run failed. */
+  hints: HintLadder | null;
+  /** The failover around the run's crash, over the whole run. Null when nothing crashed. */
+  failover: FailoverSituation | null;
   onBackToEditor(): void;
   onReplay(): void;
   onShowDebrief(): void;
@@ -127,6 +193,13 @@ export interface CampaignMapProps {
   best: Readonly<Record<string, Grade>>;
   /** Index of the level to play next, or null when all are passed. */
   nextUp: number | null;
+}
+
+export interface UtilizationGaugeProps {
+  /** Load ÷ capacity: 0.5 is half busy, above 1 overloaded, Infinity when nothing is left to serve. */
+  utilization: number;
+  /** `full`: the inspector's gauge with its reading. `mark`: a small dial on a canvas node. Both are labelled. */
+  variant: 'full' | 'mark';
 }
 
 export interface NinesProps {
@@ -168,5 +241,7 @@ export interface Theme {
   GradeCard: ComponentType<GradeCardProps>;
   /** The campaign on the level select screen. */
   CampaignMap: ComponentType<CampaignMapProps>;
+  /** Expected peak utilization, in the inspector and on canvas nodes while building. */
+  UtilizationGauge: ComponentType<UtilizationGaugeProps>;
   marks: ThemeMarks;
 }

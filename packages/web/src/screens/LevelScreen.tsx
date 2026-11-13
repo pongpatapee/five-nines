@@ -153,6 +153,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
               <DesignCanvas mode="readOnly" draft={mode.draft} />
               <ResultsView
                 level={level}
+                design={mode.draft.design}
                 evaluation={mode.evaluation}
                 view={mode.view}
                 onViewChange={handleViewChange}

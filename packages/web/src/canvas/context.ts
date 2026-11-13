@@ -10,9 +10,11 @@ import type { LiveFrame, NodeMark } from './types.ts';
 export interface CanvasDecorations {
   live: LiveFrame | null;
   marks: Readonly<Record<string, NodeMark>>;
+  /** Expected peak utilization per node id, shown as a small gauge on each node while building. */
+  forecast: Readonly<Record<string, number>> | null;
 }
 
-export const DecorationsContext = createContext<CanvasDecorations>({ live: null, marks: {} });
+export const DecorationsContext = createContext<CanvasDecorations>({ live: null, marks: {}, forecast: null });
 
 export function useDecorations(): CanvasDecorations {
   return useContext(DecorationsContext);

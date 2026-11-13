@@ -4,7 +4,7 @@
  * The editor owns only UI state (selection). The draft lives in the store; every edit goes through `onDraftChange`
  * using the pure draft operations from `canvas/`.
  */
-import type { ComponentKind, DesignIssue, Edge, Level, NodeSpec } from '@five-nines/sim';
+import { peakLoad, type ComponentKind, type DesignIssue, type Edge, type Level, type NodeSpec } from '@five-nines/sim';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
   addNode,
@@ -80,6 +80,11 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
   const sortedIssues = useMemo(() => sortIssues(issues), [issues]);
   const marks = useMemo(() => issueMarks(issues), [issues]);
   const blocker = runBlocker(issues);
+  const load = useMemo(() => peakLoad(level, draft.design), [level, draft.design]);
+  const forecast = useMemo(
+    () => Object.fromEntries(Object.entries(load.nodes).map(([id, node]) => [id, node.utilization])),
+    [load],
+  );
 
   // Canvas intents.
   const handleReady = useCallback((handle: CanvasHandle) => {
@@ -182,6 +187,7 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
           selection={selection}
           onSelectionChange={setSelection}
           marks={marks}
+          forecast={forecast}
           onNodeMove={handleMove}
           onConnect={handleConnect}
           onDelete={handleDelete}
@@ -192,7 +198,7 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
       <aside className="editor-sidebar" aria-label="Build tools">
         <div className="editor-sidebar__scroll">
           <Palette components={level.components} onAdd={addInFlow} />
-          <Inspector level={level} draft={draft} selection={selection} onNodeChange={updateNode} onDelete={deleteSelection} />
+          <Inspector level={level} draft={draft} load={load} selection={selection} onNodeChange={updateNode} onDelete={deleteSelection} />
           <IssueList issues={sortedIssues} onSelectNode={selectNode} />
         </div>
         <RunBar blocker={blocker} notice={notice} onRun={run} onReset={reset} />

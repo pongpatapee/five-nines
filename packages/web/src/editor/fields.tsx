@@ -2,7 +2,8 @@
  * The inspector's settings for each component kind. `FIELDS` has an entry for every kind in the engine's
  * `ComponentKind`; the inspector picks one by the selected node's kind.
  *
- * The fields show each option's capacity and price, never projected utilization: working that out is the game.
+ * The fields show each option's capacity and price. The inspector shows the expected peak utilization under them
+ * (`ExpectedLoad`), with the arithmetic, never a predicted latency: reading that is the run's job.
  */
 import {
   APP_SERVER_SIZES,

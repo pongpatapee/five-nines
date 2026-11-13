@@ -1,14 +1,17 @@
-import { LEVELS, type Level } from '@five-nines/sim';
+import { LEVELS, type Design, type Level } from '@five-nines/sim';
+import { useMemo } from 'react';
 import type { GradedEvaluation } from '../engine/index.ts';
 import { isPassingGrade } from '../format.ts';
 import { useBestGrade } from '../state/index.ts';
-import { GradeCard } from '../theme/index.ts';
+import { failoverSituation, failureStory, GradeCard, hintLadder } from '../theme/index.ts';
 import { DebriefPanel } from './DebriefPanel.tsx';
 import type { ResultView } from '../screens/levelMode.ts';
 import { useRecordBestGrade } from './useRecordBestGrade.ts';
 
 export interface ResultsViewProps {
   level: Level;
+  /** The design that was run. */
+  design: Design;
   evaluation: GradedEvaluation;
   view: ResultView;
   onViewChange(view: ResultView): void;
@@ -19,10 +22,15 @@ export interface ResultsViewProps {
 }
 
 /** Result mode: the grade card, or the debrief over the canvas. Records the best grade. */
-export function ResultsView({ level, evaluation, view, onViewChange, onBackToEditor, onReplay, onNextLevel }: ResultsViewProps) {
+export function ResultsView({ level, design, evaluation, view, onViewChange, onBackToEditor, onReplay, onNextLevel }: ResultsViewProps) {
   useRecordBestGrade(level.id, evaluation);
   const best = useBestGrade(level.id);
   const passed = evaluation.grade !== 'fail';
+  const hints = useMemo(() => {
+    const story = failureStory(level, design, evaluation);
+    return story ? hintLadder(level, story) : null;
+  }, [level, design, evaluation]);
+  const failover = useMemo(() => failoverSituation(design, evaluation.simulation), [design, evaluation]);
 
   return (
     <div className="results-overlay" data-view={view}>
@@ -31,6 +39,8 @@ export function ResultsView({ level, evaluation, view, onViewChange, onBackToEdi
           level={level}
           levelNumber={LEVELS.findIndex((l) => l.id === level.id) + 1}
           evaluation={evaluation}
+          hints={hints}
+          failover={failover}
           onBackToEditor={onBackToEditor}
           onReplay={onReplay}
           onShowDebrief={() => onViewChange('debrief')}

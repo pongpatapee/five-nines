@@ -9,11 +9,34 @@ import * as situations from './situations.ts';
 
 export const theme: Theme = notebookTheme;
 
-export const { Shell, cast, CastLine, words, ComponentArt, BudgetMeter, PostmortemCard, GradeCard, CampaignMap, marks } =
-  theme;
+export const {
+  Shell,
+  cast,
+  CastLine,
+  words,
+  ComponentArt,
+  BudgetMeter,
+  PostmortemCard,
+  GradeCard,
+  CampaignMap,
+  UtilizationGauge,
+  marks,
+} = theme;
 
 export type * from './contract.ts';
-export { checkSummary, verdictFor } from './situations.ts';
+export {
+  checkSummary,
+  failoverSituation,
+  failureStory,
+  latencyAt,
+  latencyWorthNoting,
+  verdictFor,
+  worstLatency,
+  type FailoverSituation,
+  type FailureStory,
+  type HintLadder,
+  type LatencySituation,
+} from './situations.ts';
 
 /** The mentor's hint for a failure reason, or the sign-off when there's none. */
 export const mentorHint = (reason: FailureReason | null | undefined): string => situations.mentorHint(reason, cast);
@@ -23,3 +46,6 @@ export const troublemakerTease = (level: Level): string | null => situations.tro
 
 /** How an event reads on the timeline and in the postmortem: crashes are credited to the troublemaker. */
 export const eventCaption = (event: SimEvent) => situations.eventCaption(event, cast);
+
+/** The mentor's hint ladder for a failed run. */
+export const hintLadder = (level: Level, story: situations.FailureStory) => situations.hintLadder(level, story, cast);

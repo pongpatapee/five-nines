@@ -13,6 +13,7 @@ import { GradeCard } from './GradeCard.tsx';
 import { Cross, HandArrow, HandBox, NinesDots, RootCauseCircle, Tick } from './ink.tsx';
 import { PostmortemCard } from './PostmortemCard.tsx';
 import { Shell } from './Shell.tsx';
+import { UtilizationGauge } from './UtilizationGauge.tsx';
 // In cascade order: later sheets override earlier ones at equal specificity.
 import './styles/tokens.css';
 import './styles/global.css';
@@ -39,6 +40,7 @@ export const notebookTheme: Theme = {
   PostmortemCard,
   GradeCard,
   CampaignMap,
+  UtilizationGauge,
   marks: {
     Arrow: HandArrow,
     Checkbox: HandBox,

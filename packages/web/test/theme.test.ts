@@ -142,12 +142,30 @@ describe('theme slots', () => {
   });
 
   it('fills every widget slot and mark', () => {
-    for (const slot of ['Shell', 'CastLine', 'ComponentArt', 'BudgetMeter', 'PostmortemCard', 'GradeCard', 'CampaignMap'] as const) {
+    for (const slot of [
+      'Shell',
+      'CastLine',
+      'ComponentArt',
+      'BudgetMeter',
+      'PostmortemCard',
+      'GradeCard',
+      'CampaignMap',
+      'UtilizationGauge',
+    ] as const) {
       expect(typeof theme[slot], slot).toBe('function');
     }
     for (const [name, mark] of Object.entries(theme.marks)) expect(typeof mark, name).toBe('function');
     expect(words.level).toBeTruthy();
     expect(words.levelShort(3)).toContain('3');
+  });
+
+  it('labels the utilization gauge with its reading and zone', () => {
+    const gauge = (utilization: number, variant: 'full' | 'mark') =>
+      renderToStaticMarkup(createElement(theme.UtilizationGauge, { utilization, variant }));
+    expect(gauge(0.44, 'full')).toMatch(/aria-label="Expected peak utilization 44%, comfortable"/);
+    expect(gauge(0.875, 'mark')).toMatch(/aria-label="Expected peak utilization 88%, hot[^"]*"/);
+    expect(gauge(1.75, 'full')).toMatch(/data-zone="overloaded"/);
+    expect(gauge(Infinity, 'full')).toMatch(/no capacity left/);
   });
 
   it('draws the campaign map for every chapter and level', () => {

@@ -45,3 +45,11 @@ export const NINES_PER_LEVEL = TIER_ORDER.length;
 export function ninesForGrade(grade: Grade | undefined): number {
   return grade === undefined || grade === 'fail' ? 0 : TIER_ORDER.indexOf(grade) + 1;
 }
+
+/**
+ * The availability tiers the grade card lights. Nines are only earned when every check passes, so a failed run lights
+ * none, however available it was: a fast-enough-but-too-slow run must not look like it earned three nines.
+ */
+export function litTiers(grade: Grade): Tier[] {
+  return TIER_ORDER.slice(0, ninesForGrade(grade));
+}
