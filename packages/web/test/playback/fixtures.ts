@@ -37,6 +37,7 @@ export function syntheticSimulation(offered: number[], failed: number[]): Simula
     availability: 1 - failedRequests / totalRequests,
     latency: { p50Ms: 10, p99Ms: 20 },
     causes: [],
+    errorBudgetExhaustedAtSec: null,
     events: [],
     timeline,
     dataTier: { cacheHitRate: {}, peakReplicationLagSec: {} },

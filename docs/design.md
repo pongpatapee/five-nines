@@ -12,7 +12,7 @@ Five Nines is a puzzle game that teaches system design. Players build an archite
 
 Simulating every request as a discrete event is a poor fit. At 50k req/s over a 5-minute scenario that's about 15M requests per hop. Scaling the traffic down so each simulated request stands for many real ones would distort the tails, which are exactly what we grade. Instead:
 
-- **Fluid queueing model, ticked every ~100ms of simulated time.** Each node tracks how fast work arrives (λ), how fast it can serve it (μ = instances × per-instance capacity) and its backlog: `backlog += (λ − μ)·dt`, never below 0. Below capacity, waiting time comes from the standard queueing formula for a pool of servers (M/M/c, Erlang C). Above capacity the backlog grows, latency follows from Little's Law, and once the queue is full or the wait passes the timeout, requests become errors.
+- **Fluid queueing model, ticked every ~100ms of simulated time.** Each node tracks how fast work arrives (λ), how fast it can serve it (μ = instances × per-instance capacity) and its backlog: `backlog += (λ − μ)·dt`, never below 0. On top of the backlog, random queueing comes from the standard model of a pool of servers whose requests give up at the timeout (M/M/c+D, which reduces to Erlang C for long timeouts). Unlike plain Erlang C it stays finite at 100% utilization, so latency and timeouts rise continuously up to and through capacity. Above capacity the backlog grows, latency follows from Little's Law, and once the queue is full or the wait passes the timeout, requests become errors.
 - **Success and error counts are exact fractions, not samples.** This matters for grading. Checking 99.999% means detecting about 1 bad request in 100k, and sampling can't resolve that.
 - **A few hundred sampled "probe" requests per tick** walk the graph using each node's current state. They give us p99 across multiple hops, which has no closed form, and they are the dots the player sees moving.
 - **Deterministic.** Use a seeded random generator and failures that the level scripts at fixed times. Compute the whole run up front in a Web Worker, then play it back. That makes scrubbing, instant re-runs and "skip to result" free, and grading reproducible.
@@ -24,6 +24,8 @@ The queueing math supplies the most important lesson for free: latency curves up
 Known shortcuts in the engine as built. Each one should either stay documented in-game or be removed when a level needs it.
 
 - The timeout applies to time spent waiting in a queue, not to end-to-end latency.
+- A request waits the longer of the backlog and its random queueing delay, not their sum: the two are views of the same queue. Above capacity the random part is that of a fully loaded station, since the backlog takes the excess.
+- Random queueing is in steady state at the current load, even right after the load changes. At full load that means about one request in λ·timeout times out at once, where a real queue would take a while to build up that far.
 - Requests that time out don't use any CPU. Real servers often keep working on requests the client gave up on, which makes overload collapse worse.
 - Health checks only detect crashed instances, not overloaded ones. Real health checks that time out under load can remove healthy-but-busy instances and cascade.
 - Load balancers retry only refused connections, once, on another instance.
@@ -161,7 +163,7 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 - Automatically slow down and freeze at the moment the SLO breaks.
 - Move the camera to the root-cause node and play a short cascade, e.g. *DB primary 140% utilized → queue 4k deep → p99 2.3s → LB timeouts*.
-- This needs the engine to **record why each request failed**: queue full, timeout, node down, connection pool exhausted, stale read. The first cause in time wins, so the player sees the cause rather than just the symptom.
+- This needs the engine to **record why each request failed**: queue full, timeout, node down, connection pool exhausted, stale read. The root cause is the one that spent the error budget: the cause with the most failures by the time the budget ran out. Order of onset alone misleads (a trickle of stale reads from replicas nearing full load starts before the overload that actually exhausts the budget).
 - Show it as an incident-postmortem card. Engineers will recognize the format.
 
 ### Hints and iteration
@@ -226,7 +228,7 @@ Lines are always worded from what actually happened: the game derives the situat
 
 - **Levels turn into slider-tuning.** If "increase the count until it's green" works, the puzzle is dead. The fix is that every level's answer should be a topology change, enforced by budgets and workload shape. Playtest specifically for this.
 - **Calibration.** Real-ish magnitudes matter for transfer to interviews (e.g. Redis ~100k ops/s, Postgres ~10k simple reads/s), but they have to make puzzles that work. Expect most of the tuning time here. The CI tests keep it sane.
-- **Unclear root causes in cascading failures.** The "first cause wins" heuristic will sometimes mislead. Hand-check the postmortem text on every level.
+- **Unclear root causes in cascading failures.** Blaming the cause that spent the most of the error budget can still mislead when one failure causes another at a different node. Hand-check the postmortem text on every level.
 - **Model blind spots.** The model ignores GC pauses, network partitions and noisy neighbours. That's acceptable if an in-game "model assumptions" page says so.
 
 ### Decisions
