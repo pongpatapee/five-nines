@@ -47,6 +47,11 @@
   stroke-width: 3;
 }
 
+/* Work a queue's workers take later: a dotted line, as if pencilled in "to do". */
+.design-canvas .flow-edge--async {
+  stroke-dasharray: 2 6;
+}
+
 .design-canvas .react-flow__connectionline path,
 .design-canvas .react-flow__connection-path {
   stroke: var(--blue-pen);
@@ -283,6 +288,12 @@
 .instance-cell[data-level='overloaded'] {
   --cell-ink: var(--red-pen);
   border-color: var(--red-pen);
+}
+
+/* The shard taking far more than its share: circled in pen, like a note in the margin. */
+.instance-cell[data-highlight] {
+  outline: 2px solid var(--red-pen);
+  outline-offset: 1px;
 }
 
 .instance-cell__queue {

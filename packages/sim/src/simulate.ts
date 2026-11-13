@@ -10,7 +10,8 @@
  * sampled "probe" requests through the design using the same per-instance state. Probes only measure the
  * latency of successful requests; they never decide availability.
  *
- * In levels with a data workload, requests that an app server finishes go on to the data tier (`data-tier.ts`).
+ * In levels with a data workload, requests that an app server finishes go on to the data tier (`data-tier.ts`); in
+ * levels with payments, they charge a payment, directly or through a queue (`payments.ts`).
  */
 import {
   APP_SERVER_SIZES,
@@ -24,6 +25,7 @@ import {
   TICK_SEC,
 } from './catalog.ts';
 import { DataTier, type DataTierSummary } from './data-tier.ts';
+import { PaymentTier, type PaymentSummary } from './payments.ts';
 import { buildGraph, edgeKey, type Graph } from './graph.ts';
 import { createRng, interpolate, pick, sampleExponential, WeightedSamples, type Rng } from './math.ts';
 import { DOWN_TICK, newStation, probeWait, stepStation, type StationState, type StationTick } from './queue.ts';
@@ -43,7 +45,13 @@ export type FailureReason =
   /** A load balancer had no instance in rotation. */
   | 'no_healthy_backend'
   /** A read returned data older than the level allows, or missed the reader's own write. */
-  | 'stale_read';
+  | 'stale_read'
+  /** The payment provider refused a call over its rate limit while the customer waited on it. */
+  | 'rate_limited'
+  /** A queue was full and refused the message. */
+  | 'queue_full'
+  /** A queued message waited past the level's processing deadline. */
+  | 'deadline_missed';
 
 export interface FailureCause {
   nodeId: string;
@@ -63,12 +71,24 @@ export interface SimEvent {
     | 'restoredToRotation'
     /** Read replicas fell behind the primary by more than `REPLICATION.alertLagSec`. */
     | 'replicationLagHigh'
-    | 'replicationLagRecovered';
+    | 'replicationLagRecovered'
+    /** A cache node restarted (a scripted event). Empty afterwards unless replicated. */
+    | 'cacheRestarted'
+    /** One value of a shard key started, or stopped, taking a share of all data operations (a scripted event). */
+    | 'hotKeyStarted'
+    | 'hotKeyEnded'
+    /** A queue filled up and started refusing messages. */
+    | 'queueFull';
+  /** The node concerned. Empty for events that concern the whole data set (hot keys). */
   nodeId: string;
   /** The instance concerned, for crashes and rotation changes. */
   instance?: number;
   /** The load balancer that changed its rotation, for rotation events. */
   balancerId?: string;
+  /** The shard key whose value turned hot, for hot key events. */
+  shardKey?: string;
+  /** What turned hot, as the level words it ("a celebrity's post"), for hot key events. */
+  label?: string;
   message: string;
 }
 
@@ -93,8 +113,26 @@ export interface NodeFrame {
   writeRps?: number;
   /** Caches: share of lookups served from memory. */
   hitRate?: number;
+  /** Caches: share of lookups that waited for a fetch already in flight (request coalescing). */
+  coalescedRate?: number;
+  /** Caches and read replicas: reads per second they served that were stale. */
+  staleRps?: number;
   /** Read replicas: how far behind the primary they are, in seconds. */
   replicationLagSec?: number;
+  /** Sharded databases: each shard's share of the reads and writes (instances are the shards, in the same order). */
+  shardShares?: number[];
+  /** Queues: messages waiting, the most they hold, and how long the oldest has waited. */
+  queueDepth?: number;
+  maxQueueDepth?: number;
+  oldestWaitSec?: number;
+  /** Queues: the level's deadline to charge an order (`requirements.processWithinSec`), if it has one. */
+  deadlineSec?: number;
+  /** Queues: messages per second the workers charged, and the most they could if the provider allowed. */
+  drainRps?: number;
+  workerRps?: number;
+  /** Payment providers: calls per second accepted, and the limit. */
+  acceptedRps?: number;
+  rateLimitRps?: number;
 }
 
 /** Traffic along one connection. */
@@ -137,6 +175,8 @@ export interface SimulationResult {
   timeline: TimelineFrame[];
   /** Run-wide numbers for caches and replicas. Empty in levels without a data tier. */
   dataTier: DataTierSummary;
+  /** Run-wide numbers for queues. Empty in levels without payments. */
+  payments: PaymentSummary;
 }
 
 /** Runs a validated design against a level. Deterministic: the same inputs always give the same result. */
@@ -191,6 +231,7 @@ class Simulation {
   private readonly instanceTicks = new Map<string, InstanceTick[]>();
   private readonly balancerTicks = new Map<string, BalancerTick>();
   private readonly data: DataTier | null;
+  private readonly payments: PaymentTier | null;
   /** This tick's traffic on each edge, keyed by `edgeKey`. */
   private readonly edgeFlows = new Map<string, EdgeFrame>();
 
@@ -247,6 +288,13 @@ class Simulation {
           log: (event) => this.log.push(event),
         })
       : null;
+    const payments = level.workload.payments;
+    this.payments = payments
+      ? new PaymentTier(level, payments, this.graph, {
+          fail: (nodeId, reason, requests, atSec) => this.fail(nodeId, reason, requests, atSec),
+          log: (event) => this.log.push(event),
+        })
+      : null;
     for (const edge of design.edges) this.edgeFlows.set(edgeKey(edge), { rps: 0, writeRps: 0 });
   }
 
@@ -258,6 +306,21 @@ class Simulation {
       this.step(tick);
       if ((tick + 1) % ticksPerSecond === 0 || tick === totalTicks - 1) {
         this.recordSecond(Math.floor(tick / ticksPerSecond));
+      }
+    }
+    if (this.payments) {
+      // Whatever is still queued is judged by when it would be charged; it belongs to the run's last second.
+      const before = this.failedRequests;
+      this.payments.finish(this.level.durationSec);
+      const last = this.timeline[this.timeline.length - 1];
+      if (last) {
+        last.failedRps += this.failedRequests - before;
+        for (const [nodeId, failed] of this.secondFailedByNode) {
+          const node = last.nodes[nodeId];
+          if (node) node.failedRps += failed;
+        }
+        this.secondFailedByNode.clear();
+        this.secondFailed = 0;
       }
     }
 
@@ -280,6 +343,7 @@ class Simulation {
       events: this.log,
       timeline: this.timeline,
       dataTier: this.data?.summary() ?? { cacheHitRate: {}, peakReplicationLagSec: {} },
+      payments: this.payments?.summary() ?? { peakQueueDepth: {}, peakQueueWaitSec: {} },
     };
   }
 
@@ -315,6 +379,12 @@ class Simulation {
       switch (event.kind) {
         case 'instanceFailure':
           this.crashBusiestInstance(atSec);
+          break;
+        case 'cacheRestart':
+          this.data?.restartBusiestCache(atSec);
+          break;
+        case 'hotKey':
+          this.data?.startHotKey(event, atSec);
           break;
       }
     }
@@ -413,9 +483,13 @@ class Simulation {
       }
     }
 
-    if (this.data) {
-      this.data.step(finished, atSec);
-      for (const [key, flow] of this.data.edges()) Object.assign(this.edgeFlows.get(key)!, flow);
+    for (const tier of [this.data, this.payments]) {
+      if (!tier) continue;
+      tier.step(finished, atSec);
+      for (const [key, flow] of tier.edges()) {
+        const edge = this.edgeFlows.get(key);
+        if (edge) Object.assign(edge, flow);
+      }
     }
   }
 
@@ -505,9 +579,13 @@ class Simulation {
           if (waitSec === null) return null;
           const serviceSec = sampleExponential(this.rng, 1 / this.serviceMeanSec);
           latencyMs += (waitSec + serviceSec) * 1000;
-          if (!this.data?.serves(nodeId)) return latencyMs;
-          const dataMs = this.data.probe(nodeId, this.rng);
-          return dataMs === null ? null : latencyMs + dataMs;
+          for (const tier of [this.data, this.payments]) {
+            if (!tier?.serves(nodeId)) continue;
+            const tierMs = tier.probe(nodeId, this.rng);
+            if (tierMs === null) return null;
+            latencyMs += tierMs;
+          }
+          return latencyMs;
         }
         default:
           // Data-tier nodes are reached through the app server's data operation above.
@@ -576,7 +654,7 @@ class Simulation {
           break;
         }
         default: {
-          const frame = this.data?.frame(node.id);
+          const frame = this.data?.frame(node.id) ?? this.payments?.frame(node.id);
           if (frame) nodes[node.id] = { ...frame, failedRps: this.secondFailedByNode.get(node.id) ?? 0 };
           break;
         }

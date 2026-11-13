@@ -19,10 +19,14 @@ export function formatCount(n: number, compact = false): string {
   return integer.format(Math.round(n));
 }
 
-/** Short counts for tight spaces: "800", "2.5k", "10k", "120k". */
+/** Short counts for tight spaces: "800", "2.5k", "10k", "120k", "1M", "2.5M". */
 export function formatCompact(n: number): string {
   const abs = Math.abs(n);
   if (abs < 1000) return integer.format(Math.round(n));
+  if (abs >= 999_500) {
+    const m = n / 1_000_000;
+    return `${Math.abs(m) < 10 ? Number(m.toFixed(1)) : Math.round(m)}M`;
+  }
   const k = n / 1000;
   return `${Math.abs(k) < 10 ? Number(k.toFixed(1)) : Math.round(k)}k`;
 }
@@ -103,4 +107,11 @@ export function isPassingGrade(grade: Grade | undefined): boolean {
 /** "page" → "Page". */
 export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** An estimate's answer at the precision a napkin keeps: 3.5, 3.75, 50, 72.7, 19,200. */
+export function formatEstimate(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 100) return formatCount(value);
+  return String(Number(value.toFixed(abs < 10 ? 2 : 1)));
 }

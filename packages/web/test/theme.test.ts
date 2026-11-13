@@ -55,8 +55,9 @@ describe('cast roles', () => {
 
   it('gives the boss a verdict for every grade and every failed check', () => {
     const verdicts: Verdict[] = [
-      { kind: 'availability', availability: 0.99, staleReads: false },
-      { kind: 'availability', availability: 0.99, staleReads: true },
+      { kind: 'availability', availability: 0.99, staleReads: false, lostOrders: false },
+      { kind: 'availability', availability: 0.99, staleReads: true, lostOrders: false },
+      { kind: 'availability', availability: 0.99, staleReads: false, lostOrders: true },
       { kind: 'latency', p99Ms: 120, requiredMs: 75 },
       { kind: 'budget', costUsdPerMonth: 300, budgetUsdPerMonth: 250 },
       { kind: 'praise', grade: 'pass' },
@@ -91,6 +92,10 @@ describe('situations', () => {
       'spike',
       'staleness',
       'readAfterWrite',
+      'hotKey',
+      'cacheRestart',
+      'staleness',
+      'spike',
     ]);
   });
 
@@ -104,7 +109,7 @@ describe('situations', () => {
     const level6 = LEVELS[5]!;
     const stale = evaluateDesign(level6, level6.antiSolutions.find((anti) => anti.name === 'Pinned for 1 second')!.design);
     if (stale.status !== 'graded') throw new Error('anti-solution should grade');
-    expect(verdictFor(stale)).toMatchObject({ kind: 'availability', staleReads: true });
+    expect(verdictFor(stale)).toMatchObject({ kind: 'availability', staleReads: true, lostOrders: false });
     const best = evaluateDesign(level3, level3.solutions[0]!.design);
     if (best.status !== 'graded') throw new Error('solution should grade');
     expect(verdictFor(best)).toEqual({ kind: 'praise', grade: 'mastered' });
@@ -115,11 +120,17 @@ describe('situations', () => {
     expect(checkSummary([issue('error'), issue('warning'), issue('error')])).toEqual({ errors: 2, warnings: 1 });
   });
 
-  it('credits the troublemaker with crashes only', () => {
+  it('credits the troublemaker with the scripted events only', () => {
     const crash: SimEvent = { atSec: 61, kind: 'instanceFailed', nodeId: 'app', instance: 0, message: 'app #1 crashed.' };
     expect(eventCaption(crash)).toEqual({ text: cast.troublemakerCrash('app', 0), byTroublemaker: true });
     const rotation: SimEvent = { ...crash, kind: 'removedFromRotation', balancerId: 'lb', message: 'lb removed app #1.' };
     expect(eventCaption(rotation)).toEqual({ text: 'lb removed app #1.', byTroublemaker: false });
+    const restart: SimEvent = { atSec: 90, kind: 'cacheRestarted', nodeId: 'cache', message: 'cache restarted.' };
+    expect(eventCaption(restart)).toEqual({ text: cast.troublemakerCacheRestart('cache'), byTroublemaker: true });
+    const hot: SimEvent = { atSec: 100, kind: 'hotKeyStarted', nodeId: '', shardKey: 'postId', label: 'a post', message: '' };
+    expect(eventCaption(hot)).toEqual({ text: cast.troublemakerHotKey('a post'), byTroublemaker: true });
+    const full: SimEvent = { atSec: 70, kind: 'queueFull', nodeId: 'queue', message: 'queue is full.' };
+    expect(eventCaption(full)).toEqual({ text: 'queue is full.', byTroublemaker: false });
   });
 
   it("keeps the postmortem to what had happened by the freeze", () => {

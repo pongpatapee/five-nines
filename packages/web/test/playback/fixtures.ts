@@ -41,6 +41,7 @@ export function syntheticSimulation(offered: number[], failed: number[]): Simula
     events: [],
     timeline,
     dataTier: { cacheHitRate: {}, peakReplicationLagSec: {} },
+    payments: { peakQueueDepth: {}, peakQueueWaitSec: {} },
   };
 }
 

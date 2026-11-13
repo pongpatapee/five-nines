@@ -13,14 +13,19 @@ import {
   cacheCapacityKeys,
   DATABASE_SIZES,
   HEALTH_CHECK,
+  QUEUE,
+  QUEUE_SIZES,
   READ_YOUR_WRITES_WINDOWS,
   REPLICATION,
+  SHARDING,
+  workerThroughput,
   type AppServerSize,
   type CacheSize,
   type ComponentKind,
   type DatabaseSize,
   type Level,
   type NodeSpec,
+  type QueueSize,
 } from '@five-nines/sim';
 import type { ComponentType } from 'react';
 import type { SpecOf } from '../components/registry.ts';
@@ -166,6 +171,38 @@ function CacheFields({ spec, onChange, level }: FieldsProps<'cache'>) {
           shorter keeps the data fresher, since a cached value can be up to this old.
         </p>
       </div>
+      <div className="field">
+        <Toggle
+          label="Invalidate on write"
+          checked={spec.invalidateOnWrite ?? false}
+          onChange={(invalidateOnWrite) => onChange({ ...spec, invalidateOnWrite })}
+        />
+        <p className="field__help">
+          Every write deletes its key from the cache, so the next read fetches the new value. Each write costs the cache
+          one more operation.
+        </p>
+      </div>
+      <div className="field">
+        <Toggle
+          label="Coalesce misses"
+          checked={spec.coalesceMisses ?? false}
+          onChange={(coalesceMisses) => onChange({ ...spec, coalesceMisses })}
+        />
+        <p className="field__help">
+          When many reads miss on the same key at once, one goes to the database and the rest wait for its answer.
+        </p>
+      </div>
+      <div className="field">
+        <Toggle
+          label="Replicated"
+          checked={spec.replicated ?? false}
+          onChange={(replicated) => onChange({ ...spec, replicated })}
+        />
+        <p className="field__help">
+          A standby copy takes over, contents intact, if the cache node restarts. Costs {CACHE.replicatedCostFactor}× the
+          memory price.
+        </p>
+      </div>
     </>
   );
 }
@@ -246,10 +283,131 @@ function ReadReplicasFields({ spec, onChange }: FieldsProps<'readReplicas'>) {
   );
 }
 
+function ShardsFields({ spec, onChange, level }: FieldsProps<'shards'>) {
+  const keys = level.workload.data?.shardKeys ?? [];
+  return (
+    <>
+      <div className="field">
+        <div className="field__label">Shard key</div>
+        {keys.length > 0 ? (
+          <SegmentedControl
+            label="Shard key"
+            options={keys.map((key) => ({ value: key.id, label: key.label }))}
+            value={spec.shardKey}
+            onChange={(shardKey) => onChange({ ...spec, shardKey })}
+          />
+        ) : (
+          <p className="field__help">This level's data has no shard keys to choose from.</p>
+        )}
+        <p className="field__help">
+          Which part of each record decides its shard. Every read and write of a record goes to that one shard, so a key
+          that lumps the busy records together loads one shard and idles the rest.
+        </p>
+      </div>
+      <div className="field">
+        <div className="field__label">Size of each shard</div>
+        <SegmentedControl label="Size of each shard" options={DATABASE_SIZE_OPTIONS} value={spec.size} onChange={(size) => onChange({ ...spec, size })} />
+        <p className="field__help">Each shard is a database of its own, with this capacity and price.</p>
+      </div>
+      <div className="field">
+        <div className="field__label">Shards</div>
+        <div className="field__row">
+          <Stepper
+            label="Shards"
+            value={spec.count}
+            min={SHARDING.minCount}
+            max={SHARDING.maxCount}
+            onChange={(count) => onChange({ ...spec, count })}
+          />
+          <span className="field__aside num">{formatUsd(DATABASE_SIZES[spec.size].usdPerMonth * spec.count)}</span>
+        </div>
+        <p className="field__help">
+          {spec.count} × {formatCompact(DATABASE_SIZES[spec.size].writesPerSec)} writes a second, if the key spreads them
+          evenly.
+        </p>
+      </div>
+    </>
+  );
+}
+
+const QUEUE_SIZE_OPTIONS: SegmentedOption<QueueSize>[] = (Object.keys(QUEUE_SIZES) as QueueSize[]).map((size) => ({
+  value: size,
+  label: size,
+  detail: (
+    <>
+      <span>{formatCompact(QUEUE_SIZES[size].maxDepth)}</span>
+      <span>{formatUsd(QUEUE_SIZES[size].usdPerMonth)}</span>
+    </>
+  ),
+}));
+
+function QueueFields({ spec, onChange, level }: FieldsProps<'queue'>) {
+  const payments = level.workload.payments;
+  const perWorker = payments ? workerThroughput(payments) : null;
+  return (
+    <>
+      <div className="field">
+        <div className="field__label">Holds</div>
+        <SegmentedControl label="Holds" options={QUEUE_SIZE_OPTIONS} value={spec.size} onChange={(size) => onChange({ ...spec, size })} />
+        <p className="field__help">
+          The most orders it can hold waiting. App servers answer as soon as an order is on the queue; when it is full,
+          new orders are turned away.
+        </p>
+      </div>
+      <div className="field">
+        <div className="field__label">Workers</div>
+        <div className="field__row">
+          <Stepper
+            label="Workers"
+            value={spec.workers}
+            min={1}
+            max={QUEUE.maxWorkers}
+            onChange={(workers) => onChange({ ...spec, workers })}
+          />
+          <span className="field__aside num">{formatUsd(QUEUE.workerUsdPerMonth * spec.workers)}</span>
+        </div>
+        <p className="field__help">
+          Each worker keeps {QUEUE.workerConcurrency} charges in flight
+          {perWorker !== null && payments && (
+            <>
+              {' '}
+              and, at the provider's {formatCount(payments.latencyMs)} ms a charge, makes {formatCompact(perWorker)} a
+              second; {spec.workers} make {formatCompact(perWorker * spec.workers)} a second
+            </>
+          )}
+          . {formatUsd(QUEUE.workerUsdPerMonth)} a month each.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function PaymentProviderFields({ level }: FieldsProps<'paymentProvider'>) {
+  const payments = level.workload.payments;
+  return (
+    <div className="field">
+      <div className="field__label">Payment provider</div>
+      <p className="field__help">
+        Someone else's service: nothing to configure.
+        {payments && (
+          <>
+            {' '}
+            Each charge takes {formatCount(payments.latencyMs)} ms, and it accepts at most{' '}
+            {formatCount(payments.rateLimitRps)} calls a second. Calls over that are refused.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
 const FIELDS: { [K in ComponentKind]: ComponentType<FieldsProps<K>> } = {
   appServer: AppServerFields,
   loadBalancer: LoadBalancerFields,
   cache: CacheFields,
   database: DatabaseFields,
   readReplicas: ReadReplicasFields,
+  shards: ShardsFields,
+  queue: QueueFields,
+  paymentProvider: PaymentProviderFields,
 };

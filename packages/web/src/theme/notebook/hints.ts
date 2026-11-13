@@ -7,7 +7,7 @@
  * the fallback. CI checks every level has its own line for every failure its known wrong answers produce.
  */
 import { AVAILABILITY_TIERS, COMPONENT_LABELS, type EstimateWorking } from '@five-nines/sim';
-import { formatCount, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
+import { formatCount, formatEstimate, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
 import type { EstimateResult, MentorEstimateScript, MentorLadderScript } from '../contract.ts';
 import type { FailoverSituation, FailureStory, HintTopic, LatencySituation } from '../situations.ts';
 
@@ -96,7 +96,16 @@ const PASS_BUDGET = formatPercent(1 - AVAILABILITY_TIERS.pass, 1);
 function where(story: FailureStory): string {
   switch (story.topic) {
     case 'overload':
+      if (story.hotShard) {
+        return `Look at ${story.nodeId}, shard ${story.hotShard.index + 1} of ${story.hotShard.count}: from ${formatSimTime(story.firstAtSec)} its requests started failing.`;
+      }
       return `Look at ${story.nodeId}, the ${COMPONENT_LABELS[story.kind].toLowerCase()}: from ${formatSimTime(story.firstAtSec)} its requests started failing.`;
+    case 'rateLimit':
+      return `Look at ${story.nodeId}: from ${formatSimTime(story.firstAtSec)} it refused payments.`;
+    case 'queueFull':
+      return `Look at ${story.nodeId}: from ${formatSimTime(story.firstAtSec)} it was full and turned orders away.`;
+    case 'deadline':
+      return `Look at ${story.nodeId}: from ${formatSimTime(story.firstAtSec)} orders in it ran out of time before being charged.`;
     case 'crash':
       return story.noneLeft
         ? `Look at ${story.nodeId}: from ${formatSimTime(story.firstAtSec)} it had no healthy instance left to send requests to.`
@@ -120,9 +129,25 @@ function why(story: FailureStory): string {
       if (story.kind === 'loadBalancer') {
         return `More requests reached ${story.nodeId} than a load balancer can pass on.`;
       }
+      if (story.hotShard) {
+        const even = formatPercent(1 / story.hotShard.count);
+        return `Shard ${story.hotShard.index + 1} was carrying ${formatPercent(story.hotShard.share)} of the data's traffic, where an even split is ${even}. The other shards had room to spare; that one queued requests past the ${formatMs(story.timeoutMs)} timeout.`;
+      }
+      if (story.cacheRestartAtSec !== null && story.kind !== 'cache') {
+        const peak = story.peakUtilization === null ? '' : ` It got as far as ${busy(story.peakUtilization)}.`;
+        return `The cache restarted empty at ${formatSimTime(story.cacheRestartAtSec)}, so every read missed and went to ${story.nodeId} at once.${peak} Refills queued behind the misses, and requests waited past the ${formatMs(story.timeoutMs)} timeout.`;
+      }
       return story.peakUtilization === null
         ? `${story.nodeId} couldn't keep up: requests waited in its queue past the ${formatMs(story.timeoutMs)} timeout.`
         : `${story.nodeId} got as far as ${busy(story.peakUtilization)}. Work arrived faster than it finished, the queue grew, and requests waited past the ${formatMs(story.timeoutMs)} timeout.`;
+    case 'rateLimit':
+      return `${story.nodeId} takes at most ${formatCount(story.rateLimitRps)} calls a second, and it was sent up to ${formatCount(story.peakCallsRps)}. Every call over the limit was refused, and its order failed with it.`;
+    case 'queueFull':
+      return `${story.nodeId} holds ${formatCount(story.maxDepth)} orders. Orders arrived faster than ${story.workers} workers charged them (${formatCount(story.workerRps)} a second at most), so the backlog grew until there was no room left.`;
+    case 'deadline': {
+      const deadline = story.deadlineSec === null ? '' : ` Each order must be charged within ${seconds(story.deadlineSec)}.`;
+      return `${story.workers} workers charge at most ${formatCount(story.workerRps)} orders a second, so the backlog drained too slowly.${deadline} The orders at the back of the line waited longer than that.`;
+    }
     case 'crash': {
       const f = story.failover;
       if (!f) return `${story.nodeId} lost its last instance, and nothing was left to serve the traffic.`;
@@ -170,6 +195,20 @@ const GENERAL: Record<HintTopic, { concept: string; fix: string }> = {
     concept:
       'Replicas copy the primary a little late, and later still when busy. A read that must be fresh has to go somewhere that already has the write.',
     fix: 'Send the reads that must be fresh to the primary, and keep the replicas from running hot.',
+  },
+  rateLimit: {
+    concept:
+      "Someone else's service sets its own limit. Call it in step with your traffic and a spike sends it more than it allows; the calls over the limit are refused.",
+    fix: 'Put the calls on a queue and let workers make them at a rate the provider accepts, answering the customer as soon as the order is queued.',
+  },
+  queueFull: {
+    concept: 'A queue buys time, not capacity: during a spike its backlog grows by arrivals minus what the workers drain. It must hold the biggest backlog.',
+    fix: 'Give the queue room for the whole backlog of the spike, or drain it faster so the backlog stays smaller.',
+  },
+  deadline: {
+    concept:
+      'An order waits for every order ahead of it. The backlog ÷ the drain rate is how long the last one waits, so the workers must clear the backlog within the deadline.',
+    fix: 'Add workers until the drain rate clears the backlog within the deadline, without asking more of the provider than its limit.',
   },
   latency: {
     concept:
@@ -291,6 +330,85 @@ export const LEVEL_HINTS: Readonly<Record<string, LevelHints>> = {
       fix: 'A large primary with two large replicas, rather than more or bigger machines.',
     },
   },
+  '07-the-write-wall': {
+    overload: {
+      concept:
+        "Every write goes to the primary, and 15,000 a second is more than any one database takes. Sharding splits the data, so each shard takes only its share of the writes. But the shard key decides the shares: a key whose busy values sit together (the newest posts, one viral post) piles the writes onto one shard.",
+      fix: 'Shard by a key with many values and no giant among them: user ID spreads the writes evenly, viral post or not. Then size the shards so each is under about 80% busy: 15,000 writes ÷ 4,000 per large shard is 3.75, so five large ones.',
+    },
+    latency: {
+      concept: 'Writes queue on a shard that runs close to full, and p99 shows it.',
+      fix: 'One more shard, or a size up, to bring the busiest shard under about 80% at the peak.',
+    },
+    budget: {
+      concept: 'Each shard is billed as a whole database. More small shards and fewer big ones can do the same work for different money.',
+      fix: 'Compare five large shards with ten medium ones: the same capacity, a similar bill. Drop any shard the gauge says you do not need.',
+    },
+  },
+  '08-thundering-herd': {
+    overload: {
+      concept:
+        "A warm cache hides how many reads there are. At 90 s about 30,000 reads a second all miss at once; refills queue behind the misses, so even the popular items keep missing. The database has to survive that minute, or the cache must not empty.",
+      fix: 'Pick one: coalesce misses so each key goes to the database once, with a database big enough to refill the cache; or replicate the cache so a restart keeps its contents; or a database that can take every read on its own.',
+    },
+    latency: {
+      concept: 'While the cache refills, the database runs hot and its queue shows in p99.',
+      fix: 'More headroom on the database during the refill, or a cache that does not empty (replicated).',
+    },
+    budget: {
+      concept: 'Protecting against the restart is cheaper than buying a database for the worst minute.',
+      fix: 'Coalescing is free; a cache replica costs twice the memory price. Either beats the biggest database.',
+    },
+  },
+  '09-stale-prices': {
+    stale: {
+      concept:
+        "A cached price can be as old as the TTL. Prices change 48 times a second, so with a 60-second TTL lots of reads see a price that changed more than 5 seconds ago. Invalidating on write deletes the cached value as soon as its price changes.",
+      fix: "Turn on 'Invalidate on write' at the cache. Then a long TTL is safe again: values leave the cache when they change, not when they expire.",
+    },
+    overload: {
+      concept:
+        'A short TTL keeps prices fresh by throwing values away, so the hit rate falls and the misses swamp the database. A medium database needs the cache to catch about 80% of reads.',
+      fix: 'Keep a long TTL for a high hit rate, and keep prices fresh with invalidation instead of expiry.',
+    },
+    latency: {
+      concept: 'The database runs hot on the misses, and p99 shows it.',
+      fix: 'Raise the hit rate (a longer TTL with invalidation) so fewer reads reach the database.',
+    },
+    budget: {
+      concept: 'A bigger database pays for the misses a better cache setting would avoid.',
+      fix: 'Keep the medium database and fix the hit rate: a long TTL with invalidation on write.',
+    },
+  },
+  '10-flash-sale': {
+    rateLimit: {
+      concept:
+        'The provider takes 2,500 charges a second, and the sale sends 10,000 orders a second. Charging while the customer waits passes the spike straight to the provider. A queue lets you accept the order now and charge it later, at the provider\'s pace.',
+      fix: 'App servers put each order on a queue and answer at once; workers take orders off the queue and call the provider. Size the workers to drain the sale within the 2-minute deadline.',
+    },
+    queueFull: {
+      concept:
+        "During the sale the backlog grows by 10,000 − the drain rate every second. At 2,200 a second that's 7,800 more each second, about 234,000 after 30 seconds: more than a medium queue holds.",
+      fix: 'A queue big enough for the whole backlog: the large one holds a million.',
+    },
+    deadline: {
+      concept:
+        "The sale brings 300,000 orders in 30 seconds. The last one must be charged within 2 minutes of arriving, so all of them within 150 seconds: 300,000 ÷ 150 = 2,000 a second, and normal traffic keeps coming on top. Each worker charges 30 ÷ 0.3 s = 100 a second.",
+      fix: 'About 22 workers: enough to drain 2,200 a second, under the provider\'s 2,500 limit.',
+    },
+    overload: {
+      concept: 'App servers only put orders on the queue, which takes almost no time, so the spike should not tax them.',
+      fix: 'Check that the app servers send orders to the queue rather than calling the provider themselves.',
+    },
+    latency: {
+      concept: "A customer who waits for the charge waits the provider's 300 ms. A queued order answers in a couple of milliseconds.",
+      fix: 'Answer when the order is queued, and charge it later.',
+    },
+    budget: {
+      concept: "Workers past the provider's limit are paid for and never used: the provider decides how fast you can charge.",
+      fix: 'Size the workers between the 2,000 a second the deadline needs and the 2,500 the provider allows: 20 to 25 of them.',
+    },
+  },
 };
 
 export const MENTOR_LADDER: MentorLadderScript = {
@@ -334,6 +452,21 @@ function ask(w: EstimateWorking): { question: string; unit: string } {
         question: `Napkin first. On payday, how many reads per second are users checking their own fresh transfer? Those are the reads that can't afford a stale copy.`,
         unit: 'reads/s',
       };
+    case 'shardsAtFullLoad':
+      return {
+        question: `Napkin first. A ${w.size} database takes ${formatCount(w.shardWritesPerSec)} writes a second. How many ${w.size} shards' worth of work do ${formatCount(w.writesPerSec)} writes a second make, if they spread evenly?`,
+        unit: 'shards',
+      };
+    case 'coldCacheDatabaseLoad':
+      return {
+        question: `Napkin first. The cache restarts empty at ${formatSimTime(w.atSec)}. If every read missed that moment, how busy would a ${w.databaseSize} database (${formatCount(w.databaseReadsPerSec)} reads a second) be?`,
+        unit: '%',
+      };
+    case 'queueDrainRateNeeded':
+      return {
+        question: `Napkin first. The sale sends ${formatCount(w.peakRps)} orders a second for ${seconds(w.spikeSec)}, and each must be charged within ${seconds(w.deadlineSec)}. How many orders a second must the workers charge?`,
+        unit: 'orders/s',
+      };
   }
 }
 
@@ -349,6 +482,14 @@ function working(w: EstimateWorking): string {
       return `${formatCount(w.peakRps)} req/s × ${formatPercent(w.readShare)} reads = ${formatCount(w.result)} reads a second.`;
     case 'readAfterWriteReadsAtPeak':
       return `${formatCount(w.peakRps)} req/s × ${formatPercent(w.readShare)} reads × ${formatPercent(w.readAfterWriteShare)} checking their own write = ${formatCount(w.result)} reads a second.`;
+    case 'shardsAtFullLoad':
+      return w.readsPerSec > 0
+        ? `${formatCount(w.readsPerSec)} reads + ${formatCount(w.writesPerSec)} writes × ${w.writeCost} = ${formatCount(w.readsPerSec + w.writesPerSec * w.writeCost)} read-equivalents ÷ ${formatCount(w.shardReadsPerSec)} per shard = ${round(w.result)} shards at full load. Round up and add headroom.`
+        : `${formatCount(w.writesPerSec)} writes ÷ ${formatCount(w.shardWritesPerSec)} per shard = ${round(w.result)} shards at full load. Round up and add headroom, and that's only if the shard key spreads them evenly.`;
+    case 'coldCacheDatabaseLoad':
+      return `At ${formatSimTime(w.atSec)} traffic is ${formatCount(w.rps)} req/s: ${formatCount(w.readsPerSec)} reads + ${formatCount(w.writesPerSec)} writes × ${w.writeCost} = ${formatCount(w.readsPerSec + w.writesPerSec * w.writeCost)} read-equivalents ÷ ${formatCount(w.databaseReadsPerSec)} = ${round(w.result)}% busy until the cache refills.`;
+    case 'queueDrainRateNeeded':
+      return `${formatCount(w.peakRps)} a second × ${seconds(w.spikeSec)} = ${formatCount(w.peakRps * w.spikeSec)} orders. The last arrives ${seconds(w.spikeSec)} in and must be charged ${seconds(w.deadlineSec)} later, so all of them within ${seconds(w.spikeSec + w.deadlineSec)}: ${formatCount(w.peakRps * w.spikeSec)} ÷ ${w.spikeSec + w.deadlineSec} = ${formatCount(w.result)} a second, plus normal traffic on top.`;
   }
 }
 
@@ -363,10 +504,7 @@ function verdict({ close, guess, answer }: EstimateResult): { exclaim: string; l
     : { exclaim: 'Too low.', line: "Underestimating costs nines. Here's the working; the numbers are all in the briefing." };
 }
 
-/** Answers keep the precision a napkin would: 3.5, 50, 72.7, 19,200. */
-function round(value: number): string {
-  return Math.abs(value) >= 100 ? formatCount(value) : String(Number(value.toFixed(1)));
-}
+const round = formatEstimate;
 
 export const MENTOR_ESTIMATE: MentorEstimateScript = {
   ask,

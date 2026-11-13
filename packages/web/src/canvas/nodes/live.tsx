@@ -51,18 +51,26 @@ export function LiveBar({ label, fraction, level, value }: { label: string; frac
   );
 }
 
-/** One cell per machine, filled to its utilization; crashed ones crossed out. */
-export function InstanceGrid({ instances, label = 'Instance' }: { instances: readonly InstanceFrame[]; label?: string }) {
+/** One cell per machine, filled to its utilization; crashed ones crossed out. `highlight` singles out one cell. */
+export function InstanceGrid({
+  instances,
+  label = 'Instance',
+  highlight,
+}: {
+  instances: readonly InstanceFrame[];
+  label?: string;
+  highlight?: number | undefined;
+}) {
   return (
     <div className="instance-grid" role="list" aria-label={`${label}s`}>
       {instances.map((instance, i) => (
-        <InstanceCell key={i} name={`${label} ${i + 1}`} instance={instance} />
+        <InstanceCell key={i} name={`${label} ${i + 1}`} instance={instance} highlighted={i === highlight} />
       ))}
     </div>
   );
 }
 
-function InstanceCell({ name, instance }: { name: string; instance: InstanceFrame }) {
+function InstanceCell({ name, instance, highlighted }: { name: string; instance: InstanceFrame; highlighted: boolean }) {
   if (!instance.up) {
     return <span className="instance-cell is-down" role="listitem" title={`${name}: down`} />;
   }
@@ -72,6 +80,7 @@ function InstanceCell({ name, instance }: { name: string; instance: InstanceFram
       className="instance-cell"
       role="listitem"
       data-level={level}
+      data-highlight={highlighted || undefined}
       title={`${name}: ${formatPercent(instance.utilization)} utilized, ${formatCount(instance.queued)} queued`}
     >
       <span className="instance-cell__fill" style={{ height: `${Math.min(1, instance.utilization) * 100}%` }} />

@@ -15,11 +15,15 @@ export {
 } from './simulate.ts';
 export { edgeKey } from './graph.ts';
 export { type DataTierSummary } from './data-tier.ts';
+export { workerThroughput, type PaymentSummary } from './payments.ts';
 export {
   busyLag,
   cacheCapacityKeys,
+  cachedLifetimeSec,
   keyHitProbability,
   readAfterWriteStaleProbability,
+  shardOf,
+  shardShares,
   ZipfKeys,
 } from './data-model.ts';
 export { evaluateDesign, availabilityGrade, type Checks, type Evaluation } from './evaluate.ts';

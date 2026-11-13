@@ -9,6 +9,9 @@ export const FAILURE_REASON_TEXT: Record<FailureReason, string> = {
   instance_down: 'requests sent to a crashed instance',
   no_healthy_backend: 'no healthy instance left in rotation',
   stale_read: 'served stale data: reads missed a write they should have seen',
+  rate_limited: 'refused calls over its rate limit',
+  queue_full: 'turned orders away: the queue was full',
+  deadline_missed: 'orders waited past the deadline before being charged',
 };
 
 /**

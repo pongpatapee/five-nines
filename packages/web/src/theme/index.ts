@@ -28,6 +28,7 @@ export {
   checkSummary,
   failoverSituation,
   failureStory,
+  hottestShard,
   latencyAt,
   latencyWorthNoting,
   verdictFor,

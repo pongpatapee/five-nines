@@ -10,7 +10,10 @@ import {
   type Edge,
   type LoadBalancerSpec,
   type NodeSpec,
+  type PaymentProviderSpec,
+  type QueueSpec,
   type ReadReplicasSpec,
+  type ShardsSpec,
 } from '@five-nines/sim';
 import type { Connection, Edge as RFEdge, Node as RFNode } from '@xyflow/react';
 import { balancerBackendCount, edgeKey } from './draft.ts';
@@ -28,6 +31,9 @@ export type LoadBalancerNodeData = {
 export type CacheNodeData = { kind: 'cache'; spec: CacheSpec };
 export type DatabaseNodeData = { kind: 'database'; spec: DatabaseSpec };
 export type ReadReplicasNodeData = { kind: 'readReplicas'; spec: ReadReplicasSpec };
+export type ShardsNodeData = { kind: 'shards'; spec: ShardsSpec };
+export type QueueNodeData = { kind: 'queue'; spec: QueueSpec };
+export type PaymentProviderNodeData = { kind: 'paymentProvider'; spec: PaymentProviderSpec };
 
 export type ClientsFlowNode = RFNode<ClientsNodeData, 'clients'>;
 export type AppServerFlowNode = RFNode<AppServerNodeData, 'appServer'>;
@@ -35,15 +41,26 @@ export type LoadBalancerFlowNode = RFNode<LoadBalancerNodeData, 'loadBalancer'>;
 export type CacheFlowNode = RFNode<CacheNodeData, 'cache'>;
 export type DatabaseFlowNode = RFNode<DatabaseNodeData, 'database'>;
 export type ReadReplicasFlowNode = RFNode<ReadReplicasNodeData, 'readReplicas'>;
+export type ShardsFlowNode = RFNode<ShardsNodeData, 'shards'>;
+export type QueueFlowNode = RFNode<QueueNodeData, 'queue'>;
+export type PaymentProviderFlowNode = RFNode<PaymentProviderNodeData, 'paymentProvider'>;
 export type DesignFlowNode =
   | ClientsFlowNode
   | AppServerFlowNode
   | LoadBalancerFlowNode
   | CacheFlowNode
   | DatabaseFlowNode
-  | ReadReplicasFlowNode;
+  | ReadReplicasFlowNode
+  | ShardsFlowNode
+  | QueueFlowNode
+  | PaymentProviderFlowNode;
 
-export type FlowEdgeData = { from: string; to: string };
+export type FlowEdgeData = {
+  from: string;
+  to: string;
+  /** Work that leaves a queue: taken off it later by workers, not passed on as each request arrives. */
+  async: boolean;
+};
 export type DesignFlowEdge = RFEdge<FlowEdgeData, 'flow'>;
 
 export interface Dimensions {
@@ -98,15 +115,29 @@ function componentNode(
       return { ...base, type: 'database', data: { kind: 'database', spec } };
     case 'readReplicas':
       return { ...base, type: 'readReplicas', data: { kind: 'readReplicas', spec } };
+    case 'shards':
+      return { ...base, type: 'shards', data: { kind: 'shards', spec } };
+    case 'queue':
+      return { ...base, type: 'queue', data: { kind: 'queue', spec } };
+    case 'paymentProvider':
+      return { ...base, type: 'paymentProvider', data: { kind: 'paymentProvider', spec } };
   }
 }
 
 /** React Flow edges for a draft, keyed by `edgeKey`. */
 export function draftToFlowEdges(draft: Draft, options: Pick<ToFlowOptions, 'selection'> = {}): DesignFlowEdge[] {
   const selected = options.selection?.kind === 'edge' ? edgeKey(options.selection.edge) : null;
+  const queues = new Set(draft.design.nodes.filter((node) => node.kind === 'queue').map((node) => node.id));
   return draft.design.edges.map((edge) => {
     const id = edgeKey(edge);
-    return { id, type: 'flow', source: edge.from, target: edge.to, selected: id === selected, data: { ...edge } };
+    return {
+      id,
+      type: 'flow',
+      source: edge.from,
+      target: edge.to,
+      selected: id === selected,
+      data: { from: edge.from, to: edge.to, async: queues.has(edge.from) },
+    };
   });
 }
 

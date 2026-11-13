@@ -101,7 +101,7 @@ export function Editor({ level, draft, onDraftChange, issues, onRun, onReset, no
   const addAt = (kind: ComponentKind, position: XY) => {
     if (!level.components.includes(kind)) return;
     const id = nextNodeId(draft, kind);
-    onDraftChange(addNode(draft, createNodeSpec(kind, id), position));
+    onDraftChange(addNode(draft, createNodeSpec(kind, id, level), position));
     setSelection({ kind: 'node', id });
   };
 

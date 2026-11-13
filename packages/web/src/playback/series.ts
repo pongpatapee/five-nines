@@ -148,6 +148,11 @@ export function sampleFrame(timeline: readonly TimelineFrame[], t: number): Live
       const value = discrete[key];
       if (value !== undefined) node[key] = lerp(na[key] ?? value, nb[key] ?? value, f);
     }
+    if (discrete.shardShares) {
+      const sa = na.shardShares ?? discrete.shardShares;
+      const sb = nb.shardShares ?? discrete.shardShares;
+      node.shardShares = discrete.shardShares.map((share, k) => lerp(sa[k] ?? share, sb[k] ?? share, f));
+    }
     nodes[id] = node;
   }
 
@@ -168,7 +173,22 @@ export function sampleFrame(timeline: readonly TimelineFrame[], t: number): Live
 }
 
 /** Node stats that only some kinds report, blended like the rest. */
-const OPTIONAL_RATES = ['readRps', 'writeRps', 'hitRate', 'replicationLagSec'] as const satisfies readonly (keyof NodeFrame)[];
+const OPTIONAL_RATES = [
+  'readRps',
+  'writeRps',
+  'hitRate',
+  'coalescedRate',
+  'staleRps',
+  'replicationLagSec',
+  'queueDepth',
+  'maxQueueDepth',
+  'oldestWaitSec',
+  'deadlineSec',
+  'drainRps',
+  'workerRps',
+  'acceptedRps',
+  'rateLimitRps',
+] as const satisfies readonly (keyof NodeFrame)[];
 
 export function lerp(a: number, b: number, f: number): number {
   return a + (b - a) * f;

@@ -14,6 +14,7 @@ import {
   type Grade,
   type Level,
   type LoadBalancerSpec,
+  type QueueSpec,
   type ReadReplicasSpec,
   type SimEvent,
   type SimulationResult,
@@ -23,11 +24,14 @@ import type { GradedEvaluation } from '../engine/index.ts';
 import type { CastScript } from './contract.ts';
 
 /**
- * The level's stress, for the troublemaker's tease. Most specific first: the first scripted crash, then the data the
- * level checks for freshness (read-your-writes, then a staleness limit), then a traffic spike, then a traffic surge.
+ * The level's stress, for the troublemaker's tease. Most specific first: the first scripted event (a crash, a cache
+ * restart, a hot key), then the data the level checks for freshness (read-your-writes, then a staleness limit), then
+ * a traffic spike, then a traffic surge.
  */
 export type LevelStress =
   | { kind: 'crash'; atSec: number }
+  | { kind: 'cacheRestart'; atSec: number }
+  | { kind: 'hotKey'; atSec: number; label: string; share: number }
   | { kind: 'readAfterWrite'; share: number }
   | { kind: 'staleness'; limitSec: number }
   | { kind: 'spike'; atSec: number; peakRps: number }
@@ -35,8 +39,17 @@ export type LevelStress =
 
 /** Null when the level has none of these (flat traffic, no events, no freshness rules). */
 export function levelStress(level: Level): LevelStress | null {
-  const crash = level.events.find((event) => event.kind === 'instanceFailure');
-  if (crash) return { kind: 'crash', atSec: crash.atSec };
+  const event = level.events[0];
+  switch (event?.kind) {
+    case 'instanceFailure':
+      return { kind: 'crash', atSec: event.atSec };
+    case 'cacheRestart':
+      return { kind: 'cacheRestart', atSec: event.atSec };
+    case 'hotKey':
+      return { kind: 'hotKey', atSec: event.atSec, label: event.label, share: event.share };
+    case undefined:
+      break;
+  }
   const readAfterWrite = level.workload.data?.readAfterWrite;
   if (readAfterWrite) return { kind: 'readAfterWrite', share: readAfterWrite.share };
   const staleness = level.requirements.maxStalenessSec;
@@ -57,7 +70,13 @@ export function levelStress(level: Level): LevelStress | null {
  * (availability, latency, budget), so the boss always complains about the thing that actually went wrong.
  */
 export type Verdict =
-  | { kind: 'availability'; availability: number; staleReads: boolean }
+  | {
+      kind: 'availability';
+      availability: number;
+      staleReads: boolean;
+      /** Whether the root cause turned paying customers' orders away (refused, or never charged in time). */
+      lostOrders: boolean;
+    }
   | { kind: 'latency'; p99Ms: number | null; requiredMs: number }
   | { kind: 'budget'; costUsdPerMonth: number; budgetUsdPerMonth: number }
   | { kind: 'praise'; grade: Exclude<Grade, 'fail'> };
@@ -79,9 +98,12 @@ export function verdictFor(evaluation: Pick<GradedEvaluation, 'grade' | 'checks'
         kind: 'availability',
         availability: checks.availability.value,
         staleReads: evaluation.simulation.causes[0]?.reason === 'stale_read',
+        lostOrders: ORDER_LOSSES.has(evaluation.simulation.causes[0]?.reason ?? 'overloaded'),
       };
   }
 }
+
+const ORDER_LOSSES: ReadonlySet<FailureReason> = new Set(['rate_limited', 'queue_full', 'deadline_missed']);
 
 /** The design checks, as the mentor sees them. */
 export interface CheckSummary {
@@ -95,13 +117,21 @@ export function checkSummary(issues: readonly DesignIssue[]): CheckSummary {
 }
 
 /**
- * How an event reads on the timeline and in the postmortem. A crashed instance is the troublemaker's doing; every
- * other event (rotation changes, replica lag) is the system's, in the engine's words.
+ * How an event reads on the timeline and in the postmortem. The scripted events (a crashed instance, a restarted
+ * cache, a hot key) are the troublemaker's doing; every other event (rotation changes, replica lag, a full queue) is
+ * the system's, in the engine's words.
  */
 export function eventCaption(event: SimEvent, script: CastScript): { text: string; byTroublemaker: boolean } {
-  return event.kind === 'instanceFailed' && event.instance !== undefined
-    ? { text: script.troublemakerCrash(event.nodeId, event.instance), byTroublemaker: true }
-    : { text: event.message, byTroublemaker: false };
+  if (event.kind === 'instanceFailed' && event.instance !== undefined) {
+    return { text: script.troublemakerCrash(event.nodeId, event.instance), byTroublemaker: true };
+  }
+  if (event.kind === 'cacheRestarted') {
+    return { text: script.troublemakerCacheRestart(event.nodeId), byTroublemaker: true };
+  }
+  if (event.kind === 'hotKeyStarted' && event.label !== undefined) {
+    return { text: script.troublemakerHotKey(event.label), byTroublemaker: true };
+  }
+  return { text: event.message, byTroublemaker: false };
 }
 
 /** The mentor's hint for a failure reason, or the sign-off when there's none. */
@@ -268,9 +298,26 @@ export function failoverSituation(
 // ---------------------------------------------------------------------------- the hint ladder
 
 /** What kind of failure a run had, for the mentor's hints. */
-export type HintTopic = 'overload' | 'crash' | 'stale' | 'latency' | 'budget';
+export type HintTopic =
+  | 'overload'
+  | 'crash'
+  | 'stale'
+  | 'rateLimit'
+  | 'queueFull'
+  | 'deadline'
+  | 'latency'
+  | 'budget';
 
-export const HINT_TOPICS: readonly HintTopic[] = ['overload', 'crash', 'stale', 'latency', 'budget'];
+export const HINT_TOPICS: readonly HintTopic[] = [
+  'overload',
+  'crash',
+  'stale',
+  'rateLimit',
+  'queueFull',
+  'deadline',
+  'latency',
+  'budget',
+];
 
 /** The rungs of the hint ladder, in the order the mentor offers them (docs/design.md, "Hints and iteration"). */
 export const HINT_STEPS = ['where', 'why', 'concept', 'fix'] as const;
@@ -286,6 +333,10 @@ export type FailureStory =
       /** The node's highest utilization in the run, from the timeline. Null if it reported none. */
       peakUtilization: number | null;
       timeoutMs: number;
+      /** Sharded databases: the shard that carried the most when things started failing, and its share. */
+      hotShard: { index: number; share: number; count: number } | null;
+      /** When the cache restarted, if that happened before things started failing. */
+      cacheRestartAtSec: number | null;
     }
   | {
       topic: 'crash';
@@ -307,6 +358,26 @@ export type FailureStory =
       readAfterWrite: boolean;
       /** The read-your-writes window on the design's replicas, 0 when off. */
       pinnedSec: number;
+    }
+  | {
+      topic: 'rateLimit';
+      nodeId: string;
+      firstAtSec: number;
+      /** The most calls a second the provider was sent, and its limit. */
+      peakCallsRps: number;
+      rateLimitRps: number;
+    }
+  | {
+      topic: 'queueFull' | 'deadline';
+      nodeId: string;
+      firstAtSec: number;
+      maxDepth: number;
+      /** How long the longest-waiting order waited (capped at the deadline), and the deadline (null if none). */
+      peakWaitSec: number;
+      deadlineSec: number | null;
+      /** What the workers could charge a second at most. */
+      workerRps: number;
+      workers: number;
     }
   | { topic: 'latency'; p99Ms: number | null; requiredMs: number; worst: LatencySituation | null }
   | {
@@ -374,7 +445,8 @@ export function failureStory(level: Level, design: Design, evaluation: GradedEva
       };
     }
     case 'timeout':
-    case 'overloaded':
+    case 'overloaded': {
+      const restart = simulation.events.find((event) => event.kind === 'cacheRestarted' && event.atSec <= cause.firstAtSec);
       return {
         topic: 'overload',
         nodeId: cause.nodeId,
@@ -382,8 +454,60 @@ export function failureStory(level: Level, design: Design, evaluation: GradedEva
         firstAtSec: cause.firstAtSec,
         peakUtilization: peakUtilization(simulation.timeline, cause.nodeId, design),
         timeoutMs: level.workload.timeoutMs,
+        hotShard: hotShardAt(simulation.timeline, cause.nodeId, cause.firstAtSec),
+        cacheRestartAtSec: restart?.atSec ?? null,
       };
+    }
+    case 'rate_limited': {
+      let peakCallsRps = 0;
+      for (const frame of simulation.timeline) peakCallsRps = Math.max(peakCallsRps, frame.nodes[cause.nodeId]?.arrivalRps ?? 0);
+      return {
+        topic: 'rateLimit',
+        nodeId: cause.nodeId,
+        firstAtSec: cause.firstAtSec,
+        peakCallsRps,
+        rateLimitRps: level.workload.payments?.rateLimitRps ?? 0,
+      };
+    }
+    case 'queue_full':
+    case 'deadline_missed': {
+      const queue = design.nodes.find((node): node is QueueSpec => node.id === cause.nodeId && node.kind === 'queue');
+      const frame = simulation.timeline.find((f) => f.nodes[cause.nodeId]?.maxQueueDepth !== undefined)?.nodes[cause.nodeId];
+      return {
+        topic: cause.reason === 'queue_full' ? 'queueFull' : 'deadline',
+        nodeId: cause.nodeId,
+        firstAtSec: cause.firstAtSec,
+        maxDepth: frame?.maxQueueDepth ?? 0,
+        peakWaitSec: simulation.payments.peakQueueWaitSec[cause.nodeId] ?? 0,
+        deadlineSec: level.requirements.processWithinSec ?? null,
+        workerRps: frame?.workerRps ?? 0,
+        workers: queue?.workers ?? 0,
+      };
+    }
   }
+}
+
+/** A sharded database's busiest shard in the second things started failing, if it carried clearly more than its share. */
+function hotShardAt(
+  timeline: readonly TimelineFrame[],
+  nodeId: string,
+  atSec: number,
+): { index: number; share: number; count: number } | null {
+  const shares = timeline[Math.min(timeline.length - 1, Math.max(0, Math.floor(atSec)))]?.nodes[nodeId]?.shardShares ?? [];
+  const hottest = hottestShard(shares);
+  return hottest?.hot ? { index: hottest.index, share: hottest.share, count: shares.length } : null;
+}
+
+/** A shard carrying this many times an even split counts as hot. */
+const HOT_SHARD_FACTOR = 1.25;
+
+/** The shard with the largest share, and whether it is hot: carrying clearly more than an even split. */
+export function hottestShard(shares: readonly number[]): { index: number; share: number; hot: boolean } | null {
+  if (shares.length === 0) return null;
+  let index = 0;
+  for (let k = 1; k < shares.length; k++) if (shares[k]! > shares[index]!) index = k;
+  const share = shares[index]!;
+  return { index, share, hot: share >= HOT_SHARD_FACTOR / shares.length };
 }
 
 /** A node's highest utilization over the run: its busiest machine, or a load balancer's share of its limit. */

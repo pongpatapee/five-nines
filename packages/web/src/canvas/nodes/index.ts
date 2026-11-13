@@ -9,7 +9,10 @@ import { CacheNode } from './CacheNode.tsx';
 import { ClientsNode } from './ClientsNode.tsx';
 import { DatabaseNode } from './DatabaseNode.tsx';
 import { LoadBalancerNode } from './LoadBalancerNode.tsx';
+import { PaymentProviderNode } from './PaymentProviderNode.tsx';
+import { QueueNode } from './QueueNode.tsx';
 import { ReadReplicasNode } from './ReadReplicasNode.tsx';
+import { ShardsNode } from './ShardsNode.tsx';
 
 const COMPONENT_NODES = {
   appServer: AppServerNode,
@@ -17,6 +20,9 @@ const COMPONENT_NODES = {
   cache: CacheNode,
   database: DatabaseNode,
   readReplicas: ReadReplicasNode,
+  shards: ShardsNode,
+  queue: QueueNode,
+  paymentProvider: PaymentProviderNode,
 } satisfies Record<ComponentKind, unknown>;
 
 export const NODE_TYPES: NodeTypes = { clients: ClientsNode, ...COMPONENT_NODES };

@@ -1,0 +1,305 @@
+{
+  "id": "10-flash-sale",
+  "title": "Flash Sale",
+  "concept": "Queues and workers",
+  "briefing": [
+    "A store takes 1,000 orders a second. A minute in, a flash sale opens, and for 30 seconds it's 10,000 a second.",
+    "Every order is charged at a payment provider. A charge takes 300 ms, and the provider accepts at most 2,500 charges a second: beyond that it refuses them. Orders must be accepted within 200 ms (p99), and charged within 2 minutes of being accepted.",
+    "A queue lets the app servers accept an order at once and leave the charge to workers. Each worker keeps 30 charges in flight, so it charges 100 orders a second."
+  ],
+  "debrief": [
+    "Charging while the customer waits takes 300 ms, past the 200 ms limit. And at the sale's 10,000 orders a second the provider refuses 7,500 a second: about 230,000 lost orders.",
+    "With a queue, orders are accepted in a few milliseconds and wait their turn. During the sale they arrive at 10,000 a second and leave at the drain rate D, so after 30 seconds the backlog is (10,000 − D) × 30, and the last order in waits backlog ÷ D. Within 2 minutes means D ≥ 10,000 × 30 ÷ 150 = 2,000 a second: 20 workers, plus a little headroom for the minutes either side. The backlog peaks around 240,000 orders, so it needs the million-message queue.",
+    "Ten workers only keep up with normal traffic, so the backlog never shrinks and orders start missing the deadline about three minutes in. A 100,000-message queue fills 12 seconds into the sale and refuses the rest. And workers past 25 are money wasted: the provider won't take more than 2,500 charges a second.",
+    "A queue turns a spike into a backlog, which is fine as long as something bounds how long work waits. Real systems alert on the age of the oldest message, not just the depth, and park what can't be done in a dead-letter queue. In an interview: a queue absorbs bursts, not sustained overload; size the consumers for the drain time, and respect what's downstream."
+  ],
+  "components": [
+    "appServer",
+    "loadBalancer",
+    "queue",
+    "paymentProvider"
+  ],
+  "durationSec": 300,
+  "seed": 1010,
+  "workload": {
+    "cpuMsPerRequest": 1,
+    "timeoutMs": 1000,
+    "traffic": [
+      {
+        "atSec": 0,
+        "rps": 1000
+      },
+      {
+        "atSec": 59,
+        "rps": 1000
+      },
+      {
+        "atSec": 60,
+        "rps": 10000
+      },
+      {
+        "atSec": 90,
+        "rps": 10000
+      },
+      {
+        "atSec": 91,
+        "rps": 1000
+      },
+      {
+        "atSec": 300,
+        "rps": 1000
+      }
+    ],
+    "payments": {
+      "rateLimitRps": 2500,
+      "latencyMs": 300
+    }
+  },
+  "requirements": {
+    "p99Ms": 200,
+    "budgetUsdPerMonth": 2100,
+    "processWithinSec": 120
+  },
+  "estimate": {
+    "quantity": "queueDrainRateNeeded",
+    "answer": 2000
+  },
+  "solutions": [
+    {
+      "name": "A big queue and 22 workers",
+      "explanation": "Orders are accepted in milliseconds. 22 workers charge 2,200 a second, under the provider's limit: the backlog peaks around 240,000, and the last sale order is charged after about 110 seconds.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "queue",
+            "kind": "queue",
+            "size": "large",
+            "workers": 22
+          },
+          {
+            "id": "payments",
+            "kind": "paymentProvider"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "queue"
+          },
+          {
+            "from": "queue",
+            "to": "payments"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "Charge while the customer waits",
+      "explanation": "Every order waits 300 ms for its charge, and during the sale the provider refuses three charges in four.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "payments",
+            "kind": "paymentProvider"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "payments"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "Workers for normal traffic",
+      "explanation": "Ten workers charge 1,000 orders a second: exactly the normal rate. The sale's backlog never shrinks, and from about three minutes in, orders miss the 2-minute deadline.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "queue",
+            "kind": "queue",
+            "size": "large",
+            "workers": 10
+          },
+          {
+            "id": "payments",
+            "kind": "paymentProvider"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "queue"
+          },
+          {
+            "from": "queue",
+            "to": "payments"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability"
+      ]
+    },
+    {
+      "name": "A 100,000-message queue",
+      "explanation": "Enough workers, too little room: the backlog passes 100,000 twelve seconds into the sale, and the queue refuses every order after that until it drains.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "queue",
+            "kind": "queue",
+            "size": "medium",
+            "workers": 22
+          },
+          {
+            "id": "payments",
+            "kind": "paymentProvider"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "queue"
+          },
+          {
+            "from": "queue",
+            "to": "payments"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability"
+      ]
+    },
+    {
+      "name": "Workers past the provider's limit",
+      "explanation": "30 workers could charge 3,000 a second, but the provider takes 2,500. Five of them are paid for and never used, which breaks the budget.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "queue",
+            "kind": "queue",
+            "size": "large",
+            "workers": 30
+          },
+          {
+            "id": "payments",
+            "kind": "paymentProvider"
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "queue"
+          },
+          {
+            "from": "queue",
+            "to": "payments"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "budget"
+      ]
+    }
+  ]
+}

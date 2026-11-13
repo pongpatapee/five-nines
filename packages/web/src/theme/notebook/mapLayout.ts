@@ -33,6 +33,10 @@ export const LEVEL_SLOTS: readonly XYPoint[] = [
   { x: 610, y: 130 },
   { x: 790, y: 180 },
   { x: 760, y: 400 },
+  { x: 600, y: 350 },
+  { x: 440, y: 420 },
+  { x: 280, y: 370 },
+  { x: 110, y: 440 },
 ];
 
 /** `TRAIL_SEGMENTS[i]` runs from level slot i to slot i + 1; the last one continues into the planned chapters. */
@@ -42,13 +46,16 @@ export const TRAIL_SEGMENTS: readonly string[] = [
   'M420,180 C500,190 540,130 610,130',
   'M610,130 C690,130 740,150 790,180',
   'M790,180 C850,230 840,360 760,400',
-  'M760,400 C700,430 650,350 590,350 C520,350 490,420 420,420 C350,420 320,370 250,370 C180,370 120,400 100,450 C80,510 110,570 170,600 C250,640 340,650 420,650 C500,650 560,640 640,640',
+  'M760,400 C700,430 650,350 600,350',
+  'M600,350 C540,350 500,420 440,420',
+  'M440,420 C370,420 340,370 280,370',
+  'M280,370 C200,370 130,390 110,440',
+  'M110,440 C100,530 180,595 260,595 C330,595 350,650 420,650 C470,650 490,610 530,610 C580,610 600,640 640,640',
 ];
 
 /** Placeholder pages for the planned chapters, in order: where the "coming soon" note and the locked pages go. */
 export const PLANNED_CHAPTER_PAGES: readonly { note: XYPoint; pages: readonly XYPoint[] }[] = [
-  { note: { x: 455, y: 336 }, pages: [{ x: 590, y: 350 }, { x: 420, y: 420 }, { x: 250, y: 370 }] },
-  { note: { x: 238, y: 566 }, pages: [{ x: 100, y: 450 }, { x: 170, y: 600 }, { x: 420, y: 650 }] },
+  { note: { x: 298, y: 578 }, pages: [{ x: 260, y: 595 }, { x: 420, y: 650 }, { x: 530, y: 610 }] },
 ];
 
 /** The finale page at the end of the trail (locked). */

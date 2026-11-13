@@ -1,0 +1,266 @@
+{
+  "id": "09-stale-prices",
+  "title": "Stale Prices",
+  "concept": "Cache invalidation",
+  "briefing": [
+    "An online store: 6,000 requests a second, climbing to 24,000 within a minute. Almost all are reads of a million products, and the popular ones get far more than the rest. A cache looks like the obvious move.",
+    "But prices change, 48 times a second across the store, and the most popular products several times a second. A customer shown a price more than 5 seconds out of date counts as a failed request: they'd be charged something else at checkout.",
+    "The budget stretches to a medium database, no further."
+  ],
+  "debrief": [
+    "A medium database does 5,000 reads a second. The 48 price changes cost 120 of them, which leaves about 4,880 for reads. At the peak 23,950 reads arrive, so the cache has to catch 80% of them.",
+    "A 60-second TTL catches 83%, but a hit can be a minute old, and the popular prices change far more often than that: about a third of all requests see a stale price.",
+    "A 5-second TTL can never serve anything older than 5 seconds, but values expire so fast that only 67% of reads hit. That leaves 8,000 reads a second for a 4,880-read database: 162%.",
+    "Invalidating on write deletes a product's cached price the moment it changes, so the next read fetches the new one: hits are never stale, and the TTL can be long again. With 5 minutes the cache catches about 91% and the database runs at 43%. The TTL stays as a safety net, in case an invalidation is ever lost.",
+    "Delete-on-write has a known race in real systems: a read that fetched the old price just before the write can put it back just after the delete. Memcache leases and short safety TTLs close it. In an interview, say how stale each kind of data may be, then choose TTLs and invalidation for each."
+  ],
+  "components": [
+    "appServer",
+    "loadBalancer",
+    "cache",
+    "database",
+    "readReplicas"
+  ],
+  "durationSec": 180,
+  "seed": 909,
+  "workload": {
+    "cpuMsPerRequest": 0.5,
+    "timeoutMs": 1000,
+    "traffic": [
+      {
+        "atSec": 0,
+        "rps": 6000
+      },
+      {
+        "atSec": 60,
+        "rps": 24000
+      },
+      {
+        "atSec": 180,
+        "rps": 24000
+      }
+    ],
+    "data": {
+      "readShare": 0.998,
+      "keys": {
+        "count": 1000000,
+        "zipf": 1,
+        "valueKb": 1
+      }
+    }
+  },
+  "requirements": {
+    "p99Ms": 50,
+    "budgetUsdPerMonth": 900,
+    "maxStalenessSec": 5
+  },
+  "estimate": {
+    "quantity": "cacheHitRateNeeded",
+    "databaseSize": "medium",
+    "answer": 79.6
+  },
+  "solutions": [
+    {
+      "name": "Invalidate on write, with a 5-minute TTL",
+      "explanation": "Every price change deletes the cached price, so no hit is ever stale. The long TTL keeps 91% of reads in the cache, and the medium database runs at 43%.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 300,
+            "invalidateOnWrite": true
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "A 60-second TTL",
+      "explanation": "83% of reads hit, but a cached price can be a minute old: a third of all requests see a stale one.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 60
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability"
+      ]
+    },
+    {
+      "name": "A 5-second TTL",
+      "explanation": "Always fresh enough, but only 67% of reads hit: 162% of the medium database.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "medium"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 5
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "availability",
+        "latency"
+      ]
+    },
+    {
+      "name": "A 5-second TTL on a large database",
+      "explanation": "A large database can take the misses, at $300 a month more than the budget allows.",
+      "design": {
+        "nodes": [
+          {
+            "id": "lb",
+            "kind": "loadBalancer"
+          },
+          {
+            "id": "app",
+            "kind": "appServer",
+            "size": "large",
+            "instances": 2
+          },
+          {
+            "id": "db",
+            "kind": "database",
+            "size": "large"
+          },
+          {
+            "id": "cache",
+            "kind": "cache",
+            "size": "small",
+            "ttlSec": 5
+          }
+        ],
+        "edges": [
+          {
+            "from": "clients",
+            "to": "lb"
+          },
+          {
+            "from": "lb",
+            "to": "app"
+          },
+          {
+            "from": "app",
+            "to": "db"
+          },
+          {
+            "from": "app",
+            "to": "cache"
+          }
+        ]
+      },
+      "expectedFailure": [
+        "budget"
+      ]
+    }
+  ]
+}

@@ -22,6 +22,10 @@ export type IssueCode =
   | 'needs_primary'
   | 'replica_mismatch'
   | 'multiple_databases'
+  | 'unknown_shard_key'
+  | 'needs_payment'
+  | 'needs_provider'
+  | 'multiple_providers'
   | 'unreachable';
 
 export interface DesignIssue {
@@ -99,17 +103,22 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
     report('error', 'cycle', 'The design has a loop: requests would travel in circles forever.');
   }
 
-  const databases = [...byId.values()].filter((node) => node.kind === 'database');
+  const databases = [...byId.values()].filter((node) => node.kind === 'database' || node.kind === 'shards');
   for (const extra of databases.slice(1)) {
     report(
       'error',
       'multiple_databases',
-      `${extra.id} is a second database. One primary holds all the data here; splitting data across databases comes later.`,
+      `${extra.id} is a second database. All the data lives in one place: one database, or one set of shards.`,
       extra.id,
     );
   }
+  const providers = [...byId.values()].filter((node) => node.kind === 'paymentProvider');
+  for (const extra of providers.slice(1)) {
+    report('error', 'multiple_providers', `${extra.id} is a second payment provider. There's only one, and its rate limit is shared.`, extra.id);
+  }
 
   const hasData = level.workload.data !== undefined;
+  const hasPayments = level.workload.payments !== undefined;
   for (const node of byId.values()) {
     const outgoing = internal.filter((edge) => edge.from === node.id);
     const incoming = edges.filter((edge) => edge.to === node.id);
@@ -133,7 +142,7 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
         break;
       }
       case 'appServer': {
-        if (!hasData && outgoing.length > 0) {
+        if (!hasData && !hasPayments && outgoing.length > 0) {
           report(
             'error',
             'unexpected_outgoing',
@@ -142,6 +151,7 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
           );
         }
         if (hasData) checkDataAccess(node.id, targets, byId, internal, report);
+        if (hasPayments) checkPaymentAccess(node.id, targets, report);
         if (node.instances > 1) {
           for (const edge of incoming) {
             const sender = edge.from === CLIENTS_ID ? undefined : byId.get(edge.from);
@@ -179,6 +189,49 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
               node.id,
             );
           }
+        }
+        break;
+      }
+      case 'shards': {
+        if (outgoing.length > 0) {
+          report(
+            'error',
+            'unexpected_outgoing',
+            `${node.id} only answers reads and writes; it can't send traffic on. (Each shard is its own primary.)`,
+            node.id,
+          );
+        }
+        const keys = level.workload.data?.shardKeys ?? [];
+        if (!keys.some((key) => key.id === node.shardKey)) {
+          report(
+            'error',
+            'unknown_shard_key',
+            keys.length > 0
+              ? `${node.id} needs a shard key: ${keys.map((key) => key.label).join(', ')}.`
+              : `${node.id} has no shard key to split the data by in this level.`,
+            node.id,
+          );
+        }
+        break;
+      }
+      case 'queue': {
+        const providerTargets = targets.filter((target) => target.kind === 'paymentProvider');
+        for (const target of targets.filter((target) => target.kind !== 'paymentProvider')) {
+          report(
+            'error',
+            'invalid_target',
+            `${node.id}'s workers can only send orders to the payment provider, not to ${label(target.kind)}.`,
+            node.id,
+          );
+        }
+        if (providerTargets.length === 0) {
+          report('error', 'needs_provider', `${node.id}'s workers have nowhere to charge the orders. Connect it to the payment provider.`, node.id);
+        }
+        break;
+      }
+      case 'paymentProvider': {
+        if (outgoing.length > 0) {
+          report('error', 'unexpected_outgoing', `${node.id} is outside your system; it can't send traffic on.`, node.id);
         }
         break;
       }
@@ -225,18 +278,54 @@ export function validateDesign(design: Design, level: Level): DesignIssue[] {
   return issues;
 }
 
+/**
+ * In levels with payments, every request an app server finishes charges a payment: directly at the provider, or
+ * through a queue.
+ */
+function checkPaymentAccess(appId: string, targets: readonly NodeSpec[], report: Report): void {
+  for (const target of targets) {
+    if (!PAYMENT_KINDS.includes(target.kind)) {
+      report(
+        'error',
+        'invalid_target',
+        `${appId} can only send orders to a queue or to the payment provider, not to ${label(target.kind)}.`,
+        appId,
+      );
+    }
+  }
+  const routes = targets.filter((target) => PAYMENT_KINDS.includes(target.kind));
+  if (routes.length === 0) {
+    report(
+      'error',
+      'needs_payment',
+      `${appId} needs to charge each order: connect it to the payment provider, or to a queue whose workers do.`,
+      appId,
+    );
+  } else if (routes.length > 1) {
+    report(
+      'error',
+      'duplicate_data_target',
+      `${appId} charges orders two ways. Connect it to the payment provider or to a queue, not both.`,
+      appId,
+    );
+  }
+}
+
 type Report = (severity: DesignIssue['severity'], code: IssueCode, message: string, nodeId?: string) => void;
 
 /** "a cache", "a database", "read replicas", "an app server"… for messages. */
 function label(kind: NodeSpec['kind']): string {
   const name = COMPONENT_LABELS[kind].toLowerCase();
-  if (kind === 'readReplicas') return name;
+  if (kind === 'readReplicas' || kind === 'shards') return name;
   return /^[aeiou]/.test(name) ? `an ${name}` : `a ${name}`;
 }
 
+const DATA_KINDS: readonly NodeSpec['kind'][] = ['cache', 'database', 'readReplicas', 'shards'];
+const PAYMENT_KINDS: readonly NodeSpec['kind'][] = ['queue', 'paymentProvider'];
+
 /**
- * In levels with data, every request an app server finishes reads or writes data. It needs a database, may check
- * one cache first, and may read from one group of that database's replicas.
+ * In levels with data, every request an app server finishes reads or writes data. It needs a database (one, or a set
+ * of shards), may check one cache first, and may read from one group of that database's replicas.
  */
 function checkDataAccess(
   appId: string,
@@ -246,22 +335,26 @@ function checkDataAccess(
   report: Report,
 ): void {
   for (const target of targets) {
-    if (target.kind === 'appServer' || target.kind === 'loadBalancer') {
+    if (!DATA_KINDS.includes(target.kind)) {
       report(
         'error',
         'invalid_target',
-        `${appId} can only send its reads and writes to a cache, a database or read replicas, not to ${label(target.kind)}.`,
+        `${appId} can only send its reads and writes to a cache, a database, shards or read replicas, not to ${label(target.kind)}.`,
         appId,
       );
     }
   }
-  for (const kind of ['cache', 'database', 'readReplicas'] as const) {
+  const stores = targets.filter((target) => target.kind === 'database' || target.kind === 'shards');
+  for (const kind of ['cache', 'readReplicas'] as const) {
     if (targets.filter((target) => target.kind === kind).length > 1) {
-      const what = { cache: 'cache', database: 'database', readReplicas: 'group of read replicas' }[kind];
+      const what = { cache: 'cache', readReplicas: 'group of read replicas' }[kind];
       report('error', 'duplicate_data_target', `${appId} is connected to more than one ${what}. Connect it to one.`, appId);
     }
   }
-  const database = targets.find((target) => target.kind === 'database');
+  if (stores.length > 1) {
+    report('error', 'duplicate_data_target', `${appId} is connected to more than one database. Connect it to one.`, appId);
+  }
+  const database = stores[0];
   if (!database) {
     report(
       'error',
@@ -269,6 +362,17 @@ function checkDataAccess(
       `${appId} needs a database: every request reads or writes data, and writes go to the database. Connect ${appId} to one.`,
       appId,
     );
+    return;
+  }
+  if (database.kind === 'shards') {
+    if (targets.some((target) => target.kind === 'readReplicas')) {
+      report(
+        'error',
+        'replica_mismatch',
+        `${appId} reads from read replicas, but its data lives in ${database.id}, which is sharded. Replicas copy a single database.`,
+        appId,
+      );
+    }
     return;
   }
   for (const replicas of targets.filter((target) => target.kind === 'readReplicas')) {

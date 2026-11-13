@@ -24,7 +24,7 @@ describe('utilization zones', () => {
 
 describe('peak load', () => {
   it('uses the highest traffic point as the peak', () => {
-    expect(LEVELS.map(peakRps)).toEqual([350, 5000, 5000, 26000, 20000, 20000]);
+    expect(LEVELS.map(peakRps)).toEqual([350, 5000, 5000, 26000, 20000, 20000, 15000, 30000, 24000, 10000]);
   });
 
   it('counts the requests in a run like the simulation does', () => {
@@ -155,6 +155,10 @@ describe('estimates', () => {
     });
     expect(estimateWorking(level('05-cache-miss'))!.result).toBe(19_200);
     expect(estimateWorking(level('06-bank-balance'))!.result).toBeCloseTo(3_800);
+    expect(estimateWorking(level('07-the-write-wall'))!.result).toBe(3.75);
+    expect(estimateWorking(level('08-thundering-herd'))).toMatchObject({ atSec: 90, rps: 30_000, result: 304.5 });
+    expect(estimateWorking(level('09-stale-prices'))!.result).toBeCloseTo(79.6, 1);
+    expect(estimateWorking(level('10-flash-sale'))).toMatchObject({ spikeSec: 30, deadlineSec: 120, result: 2_000 });
   });
 
   it('checks that the N+1 answer survives the crash in the simulation', () => {

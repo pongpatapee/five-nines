@@ -1,6 +1,6 @@
 import { isCloseEstimate, workEstimate, type Estimate, type Level } from '@five-nines/sim';
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type Ref } from 'react';
-import { formatCount } from '../format.ts';
+import { formatEstimate } from '../format.ts';
 import type { EstimateRecord } from '../state/index.ts';
 import { cast, CastLine, marks } from '../theme/index.ts';
 import { parseEstimateInput } from './estimate.ts';
@@ -64,7 +64,7 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
     setPhase({ kind: 'answered', guess, close });
   };
 
-  const show = (value: number) => (Math.abs(value) >= 100 ? formatCount(value) : String(Number(value.toFixed(1))));
+  const show = formatEstimate;
 
   return (
     <div className="estimate-overlay">

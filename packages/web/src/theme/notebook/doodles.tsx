@@ -77,6 +77,37 @@ const DOODLES: Record<DoodleKind, ReactNode> = {
       <path d="M3.1,17.4 C3.6,19.8 16.5,19.9 17,17.4" style={STROKE} />
     </>
   ),
+
+  // Three short cylinders side by side: one database cut into pieces.
+  shards: (
+    <>
+      <path d="M2,9.5 C2,7.6 9,7.5 9,9.5 C9,11.4 2,11.5 2,9.5 Z" style={STROKE} />
+      <path d="M2,9.5 C1.9,13.5 1.9,17.5 2.1,21.4 C2.4,23.4 8.7,23.5 8.9,21.4 C9.1,17.5 9.1,13.5 9,9.5" style={STROKE} />
+      <path d="M10.5,6.5 C10.5,4.6 17.5,4.5 17.5,6.5 C17.5,8.4 10.5,8.5 10.5,6.5 Z" style={STROKE} />
+      <path d="M10.5,6.5 C10.4,10.5 10.4,14.5 10.6,18.4 C10.9,20.4 17.2,20.5 17.4,18.4 C17.6,14.5 17.6,10.5 17.5,6.5" style={STROKE} />
+      <path d="M19,11.5 C19,9.6 26,9.5 26,11.5 C26,13.4 19,13.5 19,11.5 Z" style={STROKE} />
+      <path d="M19,11.5 C18.9,15.5 18.9,19.5 19.1,23.4 C19.4,25.4 25.7,25.5 25.9,23.4 C26.1,19.5 26.1,15.5 26,11.5" style={STROKE} />
+    </>
+  ),
+
+  // A tray of letters waiting in line, and an arrow out the far end.
+  queue: (
+    <>
+      <path d="M2,9 C8,8.6 15,8.6 21,9 M2,19 C8,19.4 15,19.4 21,19" style={STROKE} />
+      <path d="M3.5,11 L7.5,11 L7.5,17 L3.5,17 Z M9.5,11 L13.5,11 L13.5,17 L9.5,17 Z M15.5,11 L19.5,11 L19.5,17 L15.5,17 Z" style={STROKE_BACK} />
+      <path d="M21.5,14 L26,14 M23.5,11.5 L26,14 L23.5,16.5" style={STROKE} />
+    </>
+  ),
+
+  // A bank card: a magnetic stripe and a chip.
+  paymentProvider: (
+    <>
+      <path d="M2.5,7 C10,6.5 18,6.5 25.5,7 C25.9,11.5 25.9,16.5 25.5,21 C18,21.5 10,21.5 2.5,21 C2.1,16.5 2.1,11.5 2.5,7 Z" style={STROKE} />
+      <path d="M2.4,10.5 L25.6,10.5" style={STROKE} />
+      <path d="M5.5,13.5 L10,13.5 L10,17 L5.5,17 Z" style={STROKE_BACK} />
+      <path d="M15,17.5 L22.5,17.5" style={STROKE} />
+    </>
+  ),
 };
 
 export function ComponentDoodle({ kind, size = 24 }: { kind: DoodleKind; size?: number }) {
