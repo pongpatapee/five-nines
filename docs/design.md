@@ -143,12 +143,13 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 
 - Node-graph canvas, a component palette, and an inspector panel for each node's settings.
 - A live cost meter that's always visible.
-- Show each component's capacity numbers, but **not** projected utilization. Doing that arithmetic is the skill being taught.
+- Show each component's capacity numbers, and its **expected peak utilization** with the arithmetic beside it (built): a gauge in the inspector (green under 70%, amber to 85%, red above, hatched past 100%) and a small dial on each node. It's load ÷ capacity at the level's peak, worked out on paper (`peakLoad` in `sim`): load-balancer fan-out, the best cache hit rate the run allows, the read/write split to the primary and replicas, and what the level's crash leaves. It never predicts p99: utilization is the number to reason with, latency is what the run shows. The napkin-maths step (below) asks for the arithmetic before the gauge gives it away.
 
 ### Estimate step (covers back-of-envelope estimation)
 
-- Before building, the level asks one or two questions, e.g. "how many app servers will you need?" or "what cache hit rate do you need to protect the database?"
-- An estimate within ±25% earns a bonus. The debrief compares the estimate to what actually happened.
+- Before building, the mentor asks one question, e.g. "how many app servers will you need?" or "what cache hit rate do you need to protect the database?" (built). Each level's `estimate` names a quantity worked out from its own numbers (`estimate.ts`); the recorded answer is checked against that working in CI.
+- The player answers or skips, and sees the working. An estimate within ±10% earns a bonus mark, kept in saved progress for the Napkin Wizard badge. The step can be reopened from the top bar.
+- Not yet: the debrief comparing the estimate to what actually happened.
 
 ### Run
 
@@ -168,7 +169,9 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 ### Hints and iteration
 
-- A hint ladder: *where* it broke → *why* → the concept → the full solution.
+- A hint ladder: *where* it broke → *why* → the concept → the fix (built, on the grade card of a failed run, one rung at a time). The game derives the failure story from the first failed check and its numbers (`failureStory` in `theme/situations.ts`); the theme words where and why from those numbers and supplies a concept and fix per level and kind of failure. The full reference solution stays in the debrief, after an attempt.
+- Latency is explained with real numbers (built): while p99 nears or passes the limit, playback notes which machine was busiest and how busy ("p99 hit 120 ms while app was 87% busy"), and the grade card's hints quote the run's worst second.
+- Crashes show the failover arithmetic (built): when the instance died, the health-check interval, when the load balancer took it out of rotation, and the requests lost meanwhile against the 0.1% a pass allows. So shorter health checks visibly shrink the window without closing it.
 - Re-running must take one keystroke and leave the layout untouched. Fast iteration is the whole game.
 
 ### Debrief
