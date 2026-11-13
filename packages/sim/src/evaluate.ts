@@ -55,20 +55,10 @@ export function evaluateDesign(level: Level, design: Design): Evaluation {
     grade: failedChecks.length > 0 ? 'fail' : availabilityGrade(simulation.availability),
     checks,
     failedChecks,
-    errorBudgetExhaustedAtSec: errorBudgetExhaustedAt(simulation),
+    errorBudgetExhaustedAtSec: simulation.errorBudgetExhaustedAtSec,
     warnings: issues,
     simulation,
   };
-}
-
-function errorBudgetExhaustedAt(simulation: SimulationResult): number | null {
-  const budget = (1 - AVAILABILITY_TIERS.pass) * simulation.totalRequests;
-  let failed = 0;
-  for (const frame of simulation.timeline) {
-    failed += frame.failedRps;
-    if (failed > budget) return frame.atSec;
-  }
-  return null;
 }
 
 export function availabilityGrade(availability: number): Grade {

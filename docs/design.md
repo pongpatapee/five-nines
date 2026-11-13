@@ -161,7 +161,7 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 - Automatically slow down and freeze at the moment the SLO breaks.
 - Move the camera to the root-cause node and play a short cascade, e.g. *DB primary 140% utilized → queue 4k deep → p99 2.3s → LB timeouts*.
-- This needs the engine to **record why each request failed**: queue full, timeout, node down, connection pool exhausted, stale read. The first cause in time wins, so the player sees the cause rather than just the symptom.
+- This needs the engine to **record why each request failed**: queue full, timeout, node down, connection pool exhausted, stale read. The root cause is the one that spent the error budget: the cause with the most failures by the time the budget ran out. Order of onset alone misleads (a trickle of stale reads from replicas nearing full load starts before the overload that actually exhausts the budget).
 - Show it as an incident-postmortem card. Engineers will recognize the format.
 
 ### Hints and iteration
@@ -209,7 +209,7 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 - **Levels turn into slider-tuning.** If "increase the count until it's green" works, the puzzle is dead. The fix is that every level's answer should be a topology change, enforced by budgets and workload shape. Playtest specifically for this.
 - **Calibration.** Real-ish magnitudes matter for transfer to interviews (e.g. Redis ~100k ops/s, Postgres ~10k simple reads/s), but they have to make puzzles that work. Expect most of the tuning time here. The CI tests keep it sane.
-- **Unclear root causes in cascading failures.** The "first cause wins" heuristic will sometimes mislead. Hand-check the postmortem text on every level.
+- **Unclear root causes in cascading failures.** Blaming the cause that spent the most of the error budget can still mislead when one failure causes another at a different node. Hand-check the postmortem text on every level.
 - **Model blind spots.** The model ignores GC pauses, network partitions and noisy neighbours. That's acceptable if an in-game "model assumptions" page says so.
 
 ### Decisions
