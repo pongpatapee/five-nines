@@ -33,7 +33,7 @@ export function Palette({ components, onAdd }: PaletteProps) {
               title="Click to add, or drag onto the canvas"
             >
               <span className="palette-item__glyph" data-kind={kind} aria-hidden>
-                <ComponentArt kind={kind} size={30} />
+                <ComponentArt kind={kind} size={34} />
               </span>
               <span className="palette-item__text">
                 <span className="palette-item__name">

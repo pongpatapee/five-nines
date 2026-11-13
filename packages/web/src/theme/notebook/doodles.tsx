@@ -26,16 +26,16 @@ const DOODLES: Record<DoodleKind, ReactNode> = {
     </>
   ),
 
-  // A rack of three servers, each with a status light.
+  // A server chassis in three-quarter view: top, side, and a front with two drive bays and a power light. Drawn as
+  // a box with depth so it reads as a machine, not as a list or a menu icon.
   appServer: (
     <>
-      <path d="M5,3.5 C11,3 17,3 23,3.5 L23,10 C17,10.4 11,10.4 5,10 Z" style={STROKE} />
-      <path d="M5,11 C11,10.6 17,10.6 23,11 L23,17.5 C17,17.9 11,17.9 5,17.5 Z" style={STROKE} />
-      <path d="M5,18.5 C11,18.2 17,18.2 23,18.5 L23,25 C17,25.4 11,25.4 5,25 Z" style={STROKE} />
-      <circle cx="9" cy="6.8" r="1.3" style={FILL} />
-      <circle cx="9" cy="14.2" r="1.3" style={FILL} />
-      <circle cx="9" cy="21.7" r="1.3" style={FILL} />
-      <path d="M14,6.8 L19.5,6.8 M14,14.2 L19.5,14.2 M14,21.7 L19.5,21.7" style={STROKE} />
+      <path d="M3.5,10.5 C9.5,10.1 15.5,10.1 21.5,10.5 L21.5,25 C15.5,25.4 9.5,25.4 3.5,25 Z" style={STROKE} />
+      <path d="M3.5,10.5 L9,5 C15,4.6 20.5,4.6 26.5,5 L21.5,10.5" style={STROKE} />
+      <path d="M21.5,10.5 L26.5,5 L26.5,19.8 L21.5,25" style={STROKE} />
+      <path d="M6.5,13.5 L14.5,13.5 L14.5,16.5 L6.5,16.5 Z M6.5,19 L14.5,19 L14.5,22 L6.5,22 Z" style={STROKE_BACK} />
+      <circle cx="18.2" cy="15" r="1.4" style={FILL} />
+      <path d="M16.8,19.6 L19.6,19.6 M16.8,21.8 L19.6,21.8" style={STROKE_BACK} />
     </>
   ),
 

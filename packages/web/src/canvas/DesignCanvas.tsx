@@ -248,7 +248,7 @@ function DesignCanvasInner({
             minZoom={MIN_ZOOM}
             maxZoom={2}
             fitView
-            fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
+            fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
           >
             {/* Graph paper that pans and zooms with the design: a fine grid, and a heavier line every five squares. */}
             <Background id="minor" variant={BackgroundVariant.Lines} gap={GRID_MINOR} lineWidth={1} color="var(--grid-minor)" />
