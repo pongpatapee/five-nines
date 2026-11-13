@@ -115,7 +115,7 @@ describe('locks and badges in the notebook', () => {
       expect(copy.name && copy.how && copy.line, id).toBeTruthy();
       expect(cast.members[copy.role], id).toBeDefined();
     }
-    expect(cast.badges.rightSized.how).toContain('60%');
+    expect(cast.badges.rightSized.how).toMatch(/cheapest reference design/);
     expect(cast.badges.pennyPincher.how).toContain('80%');
   });
 

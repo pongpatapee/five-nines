@@ -1,4 +1,4 @@
-import { CHAPTERS, evaluateDesign, getLevel, isWritten, type Chapter, type Design, type Evaluation, type Grade } from '@five-nines/sim';
+import { CHAPTERS, designCostUsdPerMonth, evaluateDesign, getLevel, isWritten, LEVELS, type Chapter, type Design, type Evaluation, type Grade } from '@five-nines/sim';
 import { describe, expect, it } from 'vitest';
 import {
   awardBadges,
@@ -8,6 +8,7 @@ import {
   devUnlockAll,
   isPennyPincher,
   isRightSized,
+  rightSizedCost,
   keptSpareThroughCrash,
   levelAccess,
   masteredChapterIds,
@@ -128,28 +129,35 @@ describe('unlocks', () => {
 });
 
 describe('run badges', () => {
-  it('Right-sized: passed with every app server at least 60% busy at its peak', () => {
-    const eightLarge = graded('02-scale-out', 'solution', 'Eight large servers');
-    expect(isRightSized(eightLarge.design, eightLarge.evaluation)).toBe(true);
-    // Level 1's one large server passes at 44% busy: comfortable, but not right-sized.
-    const large = graded('01-hello-traffic', 'solution');
-    expect(isRightSized(large.design, large.evaluation)).toBe(false);
-    // A failed run earns nothing, however busy.
-    const three = graded('02-scale-out', 'anti', 'Three xlarge servers');
-    expect(isRightSized(three.design, three.evaluation)).toBe(false);
+  it('Right-sized: passed for no more than the cheapest reference solution', () => {
+    const level2 = getLevel('02-scale-out')!;
+    expect(rightSizedCost(level2)).toBe(1945);
+    const four = graded('02-scale-out', 'solution', 'Four xlarge servers');
+    expect(isRightSized(level2, four.evaluation)).toBe(true);
+    // A dollar over the cheapest reference is not right-sized, even on a mastered run.
+    const pricier = { ...four.evaluation, checks: { ...four.evaluation.checks, budget: { ...four.evaluation.checks.budget, costUsdPerMonth: 1946 } } };
+    expect(isRightSized(level2, pricier)).toBe(false);
+    // Cheaper but failed earns nothing.
+    expect(isRightSized(level2, graded('02-scale-out', 'anti', 'Three xlarge servers').evaluation)).toBe(false);
+    // Level 3 offers a $1,945 design with exactly enough servers, but it fails; the cheapest passing reference is the bar.
+    expect(rightSizedCost(getLevel('03-pull-the-plug')!)).toBe(2425);
   });
 
-  it('Right-sized judges every instance: one idle machine beside busy ones fails it', () => {
-    const { design, evaluation } = graded('02-scale-out', 'solution', 'Eight large servers');
-    const timeline = evaluation.simulation.timeline.map((frame) => ({
-      ...frame,
-      nodes: {
-        ...frame.nodes,
-        app: { ...frame.nodes.app!, instances: frame.nodes.app!.instances.map((inst, i) => (i === 7 ? { ...inst, utilization: 0.1 } : inst)) },
-      },
-    }));
-    const idle = { ...evaluation, simulation: { ...evaluation.simulation, timeline } };
-    expect(isRightSized(design, idle)).toBe(false);
+  it("is earnable on every built level: each level's cheapest reference solution earns it", () => {
+    for (const level of LEVELS) {
+      const cheapest = [...level.solutions].sort((a, b) => designCostUsdPerMonth(a.design) - designCostUsdPerMonth(b.design))[0]!;
+      const evaluation = evaluateDesign(level, cheapest.design);
+      if (evaluation.status !== 'graded') throw new Error(`${level.id} did not grade`);
+      expect(isRightSized(level, evaluation), `${level.id}: ${cheapest.name}`).toBe(true);
+      expect(runBadges(level, evaluation), level.id).toContain('rightSized');
+    }
+  });
+
+  it('teaches comfort, not heat: level 1 at 44% busy is right-sized, the oversized server is not', () => {
+    const level1 = getLevel('01-hello-traffic')!;
+    expect(isRightSized(level1, graded('01-hello-traffic', 'solution').evaluation)).toBe(true);
+    const xlarge = graded('01-hello-traffic', 'anti', 'One xlarge server').evaluation;
+    expect(isRightSized(level1, xlarge)).toBe(false);
   });
 
   it('N+1: passed through the crash with the survivors out of the hot zone', () => {
@@ -189,10 +197,13 @@ describe('run badges', () => {
   });
 
   it('lists a run\'s badges in a fixed order', () => {
-    const { design, evaluation } = graded('03-pull-the-plug', 'solution');
-    expect(runBadges(design, evaluation)).toEqual(['rightSized', 'nPlusOne']);
+    const { evaluation } = graded('03-pull-the-plug', 'solution');
+    expect(runBadges(getLevel('03-pull-the-plug')!, evaluation)).toEqual(['rightSized', 'nPlusOne']);
     const cheap = graded('08-thundering-herd', 'solution', 'A replicated cache');
-    expect(runBadges(cheap.design, cheap.evaluation)).toEqual(['rightSized', 'pennyPincher']);
+    expect(runBadges(getLevel('08-thundering-herd')!, cheap.evaluation)).toEqual(['rightSized', 'pennyPincher']);
+    // The xlarge database masters level 8 but costs more than the cheapest reference.
+    const big = graded('08-thundering-herd', 'solution', 'A database big enough for the burst');
+    expect(runBadges(getLevel('08-thundering-herd')!, big.evaluation)).toEqual([]);
   });
 });
 

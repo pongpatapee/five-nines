@@ -28,7 +28,7 @@ Open questions:
 - ✅ **Nines as the reward currency.** Each level pays out 3, 4 or 5 nines (pass, star, mastered), and nines unlock chapters. This ties scoring straight to the game's name. Built: see "Progression and rewards" in `docs/design.md`.
 - ✅ **A campaign map with chapters** that follow a story arc (e.g. a company growing from garage to worldwide). Each level is a node showing the nines earned.
 - ✅ **Badges for good engineering habits**, not grinding (built, with exact definitions in `docs/design.md`):
-  - "Right-sized": passed without overprovisioning
+  - "Right-sized": passed without overprovisioning (for no more than the cheapest reference solution)
   - "N+1": kept spare capacity through a failure
   - "Penny Pincher": mastered while well under budget
   - "Five Nines Club": mastered every level in a chapter
