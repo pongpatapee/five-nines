@@ -54,6 +54,7 @@
     "budgetUsdPerMonth": 2800,
     "maxStalenessSec": 1
   },
+  "estimate": { "quantity": "readsAtPeak", "answer": 19200 },
   "solutions": [
     {
       "name": "Three large read replicas",

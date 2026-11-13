@@ -175,6 +175,26 @@ const AntiSolutionSchema = z.strictObject({
   expectedFailure: z.union([z.literal('invalid'), z.array(CheckNameSchema).min(1)]),
 });
 
+/**
+ * The napkin-maths question the mentor asks before the player builds. Each quantity is worked out from the level's
+ * own numbers (`estimate.ts`); `answer` records the result in the unit the player answers in, and CI checks it
+ * against that working, so the two can't drift apart.
+ */
+export const EstimateSchema = z.discriminatedUnion('quantity', [
+  /** vCPUs kept busy at the peak: peak req/s × CPU time per request. */
+  z.strictObject({ quantity: z.literal('busyVcpusAtPeak'), answer: z.number().positive() }),
+  /** App servers of one size needed so that losing any one still leaves enough capacity at the peak (N+1). */
+  z.strictObject({ quantity: z.literal('serversWithSpare'), size: SizeSchema, answer: z.int().positive() }),
+  /** The cache hit rate, in percent, that keeps a database of one size at or under full load at the peak. */
+  z.strictObject({ quantity: z.literal('cacheHitRateNeeded'), databaseSize: SizeSchema, answer: z.number().min(0).max(100) }),
+  /** Reads per second at the peak. */
+  z.strictObject({ quantity: z.literal('readsAtPeak'), answer: z.number().positive() }),
+  /** Read-after-write reads (users reading their own fresh write) per second at the peak. */
+  z.strictObject({ quantity: z.literal('readAfterWriteReadsAtPeak'), answer: z.number().positive() }),
+]);
+export type Estimate = z.output<typeof EstimateSchema>;
+export type EstimateQuantity = Estimate['quantity'];
+
 export const LevelSchema = z.strictObject({
   id: z.string().regex(/^\d{2}-[a-z0-9-]+$/),
   title: z.string().min(1),
@@ -196,6 +216,8 @@ export const LevelSchema = z.strictObject({
      */
     maxStalenessSec: z.number().min(0).optional(),
   }),
+  /** The napkin-maths step before building. Optional: a level without one goes straight to the editor. */
+  estimate: EstimateSchema.optional(),
   /** Reference designs shown to the player after an attempt. Any design that meets the requirements passes. */
   solutions: z.array(SolutionSchema).min(1),
   /** Known wrong answers. CI proves they fail; the debrief can show them as common traps. */

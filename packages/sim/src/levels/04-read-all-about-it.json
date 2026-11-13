@@ -68,6 +68,7 @@
     "p99Ms": 50,
     "budgetUsdPerMonth": 1400
   },
+  "estimate": { "quantity": "cacheHitRateNeeded", "databaseSize": "large", "answer": 72.7 },
   "solutions": [
     {
       "name": "A medium cache in front of a large database",

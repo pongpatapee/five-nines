@@ -25,3 +25,16 @@ export {
 export { evaluateDesign, availabilityGrade, type Checks, type Evaluation } from './evaluate.ts';
 export { LEVELS, getLevel } from './levels/index.ts';
 export { CHAPTERS, isWritten, type Chapter } from './levels/chapters.ts';
+export {
+  COMFORTABLE_UTILIZATION,
+  HOT_UTILIZATION,
+  peakLoad,
+  peakRps,
+  utilizationZone,
+  type LoadUnit,
+  type NodeLoad,
+  type PeakLoad,
+  type UtilizationZone,
+} from './peak-load.ts';
+export { ESTIMATE_TOLERANCE, estimateWorking, isCloseEstimate, workEstimate, type EstimateWorking } from './estimate.ts';
+export { totalRequests } from './peak-load.ts';

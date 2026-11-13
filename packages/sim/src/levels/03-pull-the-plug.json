@@ -28,6 +28,7 @@
   },
   "events": [{ "atSec": 61, "kind": "instanceFailure", "target": { "kind": "appServer", "pick": "busiest" } }],
   "requirements": { "p99Ms": 75, "budgetUsdPerMonth": 2600 },
+  "estimate": { "quantity": "serversWithSpare", "size": "xlarge", "answer": 5 },
   "solutions": [
     {
       "name": "N+1 xlarge servers with retries",

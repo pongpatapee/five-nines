@@ -68,6 +68,7 @@
     "p99Ms": 50,
     "budgetUsdPerMonth": 2400
   },
+  "estimate": { "quantity": "readAfterWriteReadsAtPeak", "answer": 3800 },
   "solutions": [
     {
       "name": "Replicas, with reads pinned for 5 seconds after a write",

@@ -26,6 +26,7 @@
     ]
   },
   "requirements": { "p99Ms": 75, "budgetUsdPerMonth": 250 },
+  "estimate": { "quantity": "busyVcpusAtPeak", "answer": 3.5 },
   "solutions": [
     {
       "name": "One large server",
