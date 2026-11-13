@@ -14,6 +14,7 @@
  */
 import {
   APP_SERVER_SIZES,
+  AVAILABILITY_TIERS,
   CLIENTS_ID,
   CONNECT_FAIL_MS,
   HEALTH_CHECK,
@@ -121,8 +122,17 @@ export interface SimulationResult {
   availability: number;
   /** Latency of successful requests. Null if none succeeded. */
   latency: { p50Ms: number | null; p99Ms: number | null };
-  /** Ordered by when each cause began. Causes that failed less than one request are left out. */
+  /**
+   * The root cause first: the cause that failed the most requests up to the end of the second in which the error
+   * budget ran out (over the whole run if it never did). It's the cause that spent the budget, whatever order the
+   * causes started in. The rest follow in order of onset. Causes that failed less than one request are left out.
+   */
   causes: FailureCause[];
+  /**
+   * The second in which cumulative failures exceeded the error budget for a pass (0.1% of all requests in the run),
+   * or null if they never did.
+   */
+  errorBudgetExhaustedAtSec: number | null;
   events: SimEvent[];
   timeline: TimelineFrame[];
   /** Run-wide numbers for caches and replicas. Empty in levels without a data tier. */
@@ -160,6 +170,8 @@ interface CauseTally {
   requests: number;
   firstAtSec: number | null;
   lastAtSec: number;
+  /** Failures in each second of the run, to find the cause that spent the error budget. */
+  bySecond: number[];
 }
 
 /** A tick's failures below this many requests don't move a cause's lastAtSec. */
@@ -182,6 +194,8 @@ class Simulation {
   /** This tick's traffic on each edge, keyed by `edgeKey`. */
   private readonly edgeFlows = new Map<string, EdgeFrame>();
 
+  /** The second of the run the current tick is in. */
+  private second = 0;
   private totalRequests = 0;
   private failedRequests = 0;
   private readonly tallies = new Map<string, CauseTally>();
@@ -240,22 +254,18 @@ class Simulation {
     const totalTicks = Math.round(this.level.durationSec / TICK_SEC);
     const ticksPerSecond = Math.round(1 / TICK_SEC);
     for (let tick = 0; tick < totalTicks; tick++) {
+      this.second = Math.floor(tick / ticksPerSecond);
       this.step(tick);
       if ((tick + 1) % ticksPerSecond === 0 || tick === totalTicks - 1) {
         this.recordSecond(Math.floor(tick / ticksPerSecond));
       }
     }
 
-    const causes: FailureCause[] = [...this.tallies.values()]
-      .filter((tally): tally is CauseTally & { firstAtSec: number } => tally.firstAtSec !== null)
-      .map(({ nodeId, reason, requests, firstAtSec, lastAtSec }) => ({
-        nodeId,
-        reason,
-        requests,
-        firstAtSec,
-        lastAtSec,
-      }))
-      .sort((a, b) => a.firstAtSec - b.firstAtSec || b.requests - a.requests);
+    const errorBudgetExhaustedAtSec = this.errorBudgetExhaustedAt();
+    const causes = rankCauses(
+      [...this.tallies.values()].filter((tally): tally is CauseTally & { firstAtSec: number } => tally.firstAtSec !== null),
+      errorBudgetExhaustedAtSec,
+    );
 
     const availability =
       this.totalRequests > 0 ? Math.min(1, Math.max(0, 1 - this.failedRequests / this.totalRequests)) : 1;
@@ -266,6 +276,7 @@ class Simulation {
       availability,
       latency: { p50Ms: this.samples.quantile(0.5), p99Ms: this.samples.quantile(0.99) },
       causes,
+      errorBudgetExhaustedAtSec,
       events: this.log,
       timeline: this.timeline,
       dataTier: this.data?.summary() ?? { cacheHitRate: {}, peakReplicationLagSec: {} },
@@ -519,12 +530,23 @@ class Simulation {
     const key = `${nodeId}\u0000${reason}`;
     let tally = this.tallies.get(key);
     if (tally === undefined) {
-      tally = { nodeId, reason, requests: 0, firstAtSec: null, lastAtSec: atSec };
+      tally = { nodeId, reason, requests: 0, firstAtSec: null, lastAtSec: atSec, bySecond: [] };
       this.tallies.set(key, tally);
     }
     tally.requests += requests;
+    tally.bySecond[this.second] = (tally.bySecond[this.second] ?? 0) + requests;
     if (tally.firstAtSec === null && tally.requests >= 1) tally.firstAtSec = atSec;
     if (requests >= NOTICEABLE_FAILURES_PER_TICK) tally.lastAtSec = atSec;
+  }
+
+  private errorBudgetExhaustedAt(): number | null {
+    const budget = (1 - AVAILABILITY_TIERS.pass) * this.totalRequests;
+    let failed = 0;
+    for (const frame of this.timeline) {
+      failed += frame.failedRps;
+      if (failed > budget) return frame.atSec;
+    }
+    return null;
   }
 
   private recordSecond(second: number): void {
@@ -575,6 +597,38 @@ class Simulation {
     this.secondFailedByNode.clear();
     this.secondSamples.clear();
   }
+}
+
+/**
+ * Puts the cause that spent the error budget first, then the rest in order of onset.
+ *
+ * Order of onset alone misleads: a trickle of stale reads from a replica nearing full load starts before the
+ * overload that then exhausts the budget, but the overload is what the player has to fix. So the root cause is the
+ * one that failed the most requests by the end of the second the budget ran out (by the end of the run if it never
+ * did), with the earlier onset winning a tie.
+ */
+function rankCauses(tallies: readonly (CauseTally & { firstAtSec: number })[], exhaustedAtSec: number | null): FailureCause[] {
+  const spent = (tally: CauseTally) => {
+    if (exhaustedAtSec === null) return tally.requests;
+    let total = 0;
+    for (let second = 0; second <= exhaustedAtSec; second++) total += tally.bySecond[second] ?? 0;
+    return total;
+  };
+  const causes = tallies
+    .map((tally) => ({ tally, spent: spent(tally) }))
+    .sort((a, b) => a.tally.firstAtSec - b.tally.firstAtSec || b.tally.requests - a.tally.requests);
+  const root = causes.reduce<(typeof causes)[number] | undefined>(
+    (best, cause) => (best === undefined || cause.spent > best.spent ? cause : best),
+    undefined,
+  );
+  const ordered = root === undefined ? causes : [root, ...causes.filter((cause) => cause !== root)];
+  return ordered.map(({ tally: { nodeId, reason, requests, firstAtSec, lastAtSec } }) => ({
+    nodeId,
+    reason,
+    requests,
+    firstAtSec,
+    lastAtSec,
+  }));
 }
 
 function sum(values: readonly number[]): number {

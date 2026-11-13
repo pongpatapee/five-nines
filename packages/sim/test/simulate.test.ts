@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateDesign } from '../src/evaluate.ts';
+import { getLevel } from '../src/levels/index.ts';
 import { simulate } from '../src/simulate.ts';
 import { balanced, CRASH_AT_30, makeLevel, singleServer } from './fixtures.ts';
 
@@ -152,5 +153,34 @@ describe('determinism and grading', () => {
   it('does not simulate an invalid design', () => {
     const evaluation = evaluateDesign(makeLevel(), { nodes: [], edges: [] });
     expect(evaluation.status).toBe('invalid');
+  });
+});
+
+describe('root cause', () => {
+  it('blames the overload that spent the error budget, not stale reads that started earlier', () => {
+    // Two large replicas on level 5: as they near full load their lag passes the staleness limit and a trickle of
+    // stale reads starts at ~50s. They overload at ~74s, and the timeouts exhaust the budget within seconds.
+    const level = getLevel('05-cache-miss')!;
+    const design = level.antiSolutions.find((anti) => anti.name === 'Two large read replicas')!.design;
+    const result = simulate(level, design);
+    const stale = result.causes.find((cause) => cause.reason === 'stale_read')!;
+    const root = result.causes[0]!;
+    expect(stale.firstAtSec).toBeLessThan(root.firstAtSec);
+    expect(root).toMatchObject({ nodeId: 'replicas', reason: 'timeout' });
+    expect(root.firstAtSec).toBeLessThanOrEqual(result.errorBudgetExhaustedAtSec!);
+  });
+
+  it('still blames stale reads when they are what spent the budget', () => {
+    const level = getLevel('06-bank-balance')!;
+    const design = level.antiSolutions.find((anti) => anti.name === 'Every read from the replicas')!.design;
+    expect(simulate(level, design).causes[0]).toMatchObject({ nodeId: 'replicas', reason: 'stale_read' });
+  });
+
+  it('lists the other causes in order of onset after the root cause', () => {
+    // A crash at 30s; three surviving small servers can't carry 1,000 req/s, so timeouts follow.
+    const level = makeLevel({ events: CRASH_AT_30, workload: { traffic: [{ atSec: 0, rps: 700 }] } });
+    const result = simulate(level, balanced(4, 'small', { healthCheckIntervalSec: 5 }));
+    const rest = result.causes.slice(1).map((cause) => cause.firstAtSec);
+    expect(rest).toEqual([...rest].sort((a, b) => a - b));
   });
 });
