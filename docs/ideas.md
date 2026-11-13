@@ -13,9 +13,9 @@ Give each kind of pressure in a level its own character, so a failure becomes a 
 
 | Role | Purpose in the game | Concept names used so far |
 |---|---|---|
-| **The boss** | Budget pressure and stakes. Delivers the level's "why" ("we got featured, don't fall over, don't spend money"). Reacts to cost on the result screen. | Priya (CEO), Option A |
-| **The mentor** | Hints in steps (where it broke → why → concept → solution), the napkin-math prompt, and the debrief voice. | Mo (senior engineer), Chef Rosa (Option B), AXIOM the flight AI (Option C) |
-| **The troublemaker** | Personifies the level's stress events: crashes, traffic spikes, hot keys, cache restarts. Teases the next chapter on the result screen. | Glitch the chaos gremlin (A), Bandit the raccoon (B), the GREMLIN-9 drone (C) |
+| **The boss** | Budget pressure and stakes. Delivers the level's "why" ("we got featured, don't fall over, don't spend money"). Reacts to cost on the result screen. | **Ms. Tally (notebook, chosen)**; Priya (CEO), Option A |
+| **The mentor** | Hints in steps (where it broke → why → concept → solution), the napkin-math prompt, and the debrief voice. | **Erasmus (notebook, chosen)**; Mo (senior engineer), Chef Rosa (Option B), AXIOM the flight AI (Option C) |
+| **The troublemaker** | Personifies the level's stress events: crashes, traffic spikes, hot keys, cache restarts. Teases the next chapter on the result screen. | **Smudge (notebook, chosen)**; Glitch the chaos gremlin (A), Bandit the raccoon (B), the GREMLIN-9 drone (C) |
 | **The player** | A role with a reason to be there: new on-call engineer, pilot, and so on. | |
 
 Open questions:
@@ -47,21 +47,21 @@ Open questions:
 - 💡 **Per-level leaderboards:** the cheapest design that still hits five nines.
 - 💡 **Explain latency failures during playback** (from the play-through): a high-utilization server shows why p99 rose.
 
-## Visual direction
+## Visual direction ✅
 
-A and C were shortlisted first; F and G are now being prototyped in the real game. Nothing is chosen yet.
+**G · Engineer's Notebook is the art style** (see "Art direction" in `docs/design.md`). The other options weren't chosen; they're kept here for reference.
 
 | Option | Summary | Status |
 |---|---|---|
-| A · On-Call | Workplace comedy, sticker-cartoon style, night-indigo with warm accents | 👍 shortlisted |
-| B · Tiny Kitchen | Cozy diorama; the system as a pizza town (kitchens = servers) | 💡 |
-| C · Mission Control | Neon arcade, CRT sci-fi, alarms and damage reports | 👍 shortlisted |
-| D · Night Shift Arcade | A's cartoon cast and humour with C's arcade drama: after-hours office turned arcade, warm pink/orange/teal neon. A crash shows "GAME OVER?" with a CONTINUE countdown | 💡 |
-| E · Comic Book Postmortem | Chapters are comic issues; incidents told in panels with halftone shading and "KRZZT!" sound effects; the postmortem is the "Lesson" panel | 💡 |
-| F · Pixel Ops | 16-bit pixel-art building with one floor per chapter; packets as envelopes with legs; a retro dialogue box with a portrait for hints | 👍 prototyping (branch `look-pixel-ops`) |
-| G · Engineer's Notebook | Graph paper and ink doodles; root cause circled in red pen; the error budget as crossed-out tally marks | 👍 prototyping (branch `look-notebook`) |
-| H · Toy Data Center | Isometric toy blocks on a game table; requests as marbles; the postmortem as a card you draw from a deck | 💡 |
-| I · Prod Is Down | You're the on-call engineer in a startup's internal ops console. Levels are incident tickets (INC-0001…), nines are SLO badges, the cast talks in an incident channel (VP, staff SRE, a chaos bot), and the crash is a live dashboard with graphs and a postmortem doc | ❌ too cluttered |
+| A · On-Call | Workplace comedy, sticker-cartoon style, night-indigo with warm accents | ❌ not chosen |
+| B · Tiny Kitchen | Cozy diorama; the system as a pizza town (kitchens = servers) | ❌ not chosen |
+| C · Mission Control | Neon arcade, CRT sci-fi, alarms and damage reports | ❌ not chosen |
+| D · Night Shift Arcade | A's cartoon cast and humour with C's arcade drama: after-hours office turned arcade, warm pink/orange/teal neon. A crash shows "GAME OVER?" with a CONTINUE countdown | ❌ not chosen |
+| E · Comic Book Postmortem | Chapters are comic issues; incidents told in panels with halftone shading and "KRZZT!" sound effects; the postmortem is the "Lesson" panel | ❌ not chosen |
+| F · Pixel Ops | 16-bit pixel-art building with one floor per chapter; packets as envelopes with legs; a retro dialogue box with a portrait for hints | ❌ not chosen |
+| G · Engineer's Notebook | Graph paper and ink doodles; root cause circled in red pen; the error budget as crossed-out tally marks | ✅ chosen |
+| H · Toy Data Center | Isometric toy blocks on a game table; requests as marbles; the postmortem as a card you draw from a deck | ❌ not chosen |
+| I · Prod Is Down | You're the on-call engineer in a startup's internal ops console. Levels are incident tickets (INC-0001…), nines are SLO badges, the cast talks in an incident channel (VP, staff SRE, a chaos bot), and the crash is a live dashboard with graphs and a postmortem doc | ❌ not chosen: too cluttered |
 
 Principles so far:
 - Keep real component names visible. The game teaches interview vocabulary, so any metaphor sits *alongside* the real terms, never instead of them.

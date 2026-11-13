@@ -176,6 +176,23 @@ This should feel like Poly Bridge's slow-motion collapse.
 - An "in real life" note (e.g. Memcache leases for the stampede level).
 - An "in the interview, say…" tip.
 
+
+### Art direction
+
+**The engineer's notebook.** Every screen is a page in a spiral-bound notebook: graph paper, ink doodles of real components, hand-lettered headings. The error budget is a row of tally marks crossed out as requests fail, the postmortem is a sticky note with the root cause circled in red pen, the result is a marked page, and the campaign map is a hand-drawn trail through the chapters. Real component names stay visible next to every doodle.
+
+**The cast, by role.** The game only ever asks for a role; the notebook supplies the character:
+
+| Role | What the game asks for | Notebook character |
+|---|---|---|
+| Boss | the budget brief, the verdict on a graded run | Ms. Tally, a pencil with a tally-marked body |
+| Mentor | a hint per failure reason, the take on design checks, the postmortem nudge | Erasmus, an eraser with a moustache |
+| Troublemaker | the tease for a level's stress events, credit for crashes | Smudge, an ink blot |
+
+Lines are always worded from what actually happened: the game derives the situation (the level's first crash or spike, the check that failed), the theme only words it.
+
+**The theme boundary.** Everything style-specific (art, character names and lines, words such as "page" for a level, and all CSS, with raw colours only in its tokens) lives in one folder, `packages/web/src/theme/notebook/`. Screens reach it only through `theme/index.ts`, which selects it statically and exposes the slots of the `Theme` contract (`theme/contract.ts`): the cast script and speech bubble, component art, budget meter, postmortem card, grade card, campaign map and small marks. A new art style is a new folder implementing that contract, plus its favicon and font links in `index.html`. There is no runtime theme switching.
+
 ---
 
 ## 4. Tech stack and MVP scope
