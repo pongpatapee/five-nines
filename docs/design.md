@@ -30,8 +30,14 @@ Known shortcuts in the engine as built. Each one should either stay documented i
 - Health checks only detect crashed instances, not overloaded ones. Real health checks that time out under load can remove healthy-but-busy instances and cascade.
 - Load balancers retry only refused connections, once, on another instance.
 - Every request makes exactly one trip to the data tier (when the level has one): a read or a write, by the level's read share. Each station (app server, cache, database, replica) has its own queue and its own timeout; an app server doesn't hold a vCPU while it waits on the database.
-- Caches are cache-aside with no invalidation: a write leaves any cached copy in place until its TTL expires. Each key's chance of being cached is `min(1 − e^(−p·reads so far), rT ÷ (1 + rT))` for a key with read share p, read r times a second, TTL T; the cache keeps the most popular keys that fit (`memory ÷ value size`). Key popularity is Zipf, summed exactly over the top 64 keys and by Simpson's rule in log space beyond.
-- The age of a cache hit is taken as uniform over the TTL. A cached value is stale under a level's staleness limit if its key was written since it was cached, more than the limit ago.
+- Caches are cache-aside. Each key's chance of being cached is `min(1 − e^(−p·reads so far), rT ÷ (1 + rT))` for a key with read share p, read r times a second, TTL T; the cache keeps the most popular keys that fit (`memory ÷ value size`). Key popularity is Zipf, summed exactly over the top 64 keys and by Simpson's rule in log space beyond.
+- A miss refills its key only when the database answers it, so a key keeps missing for `r × fill delay` reads, where the fill delay is the database's queueing wait in the previous tick. That is the thundering herd: when the database backs up, even popular keys miss again and again. Request coalescing sends only the first of those misses to the database; the rest wait on its fetch (counted like hits for staleness, with the fetch's wait added to their latency).
+- A cache restart (a scripted event) empties the busiest cache at once, with no downtime; a replicated cache keeps its contents.
+- Without invalidation a write leaves any cached copy in place until its TTL expires. With invalidation on write, a value lives `(1 − e^(−wT)) ÷ w` on average (w = its key's write rate) and every write costs the cache one operation. The race between an invalidation and a refill in flight is ignored.
+- The age of a cache hit is taken as uniform over the TTL. A cached value is stale under a level's staleness limit if its key was written since it was cached, more than the limit ago. With invalidation, a hit can only be stale by the lag of the source it was fetched from.
+- Shards split the data tier's reads and writes by the shard key's spread: a sequential key (a timestamp) sends everything to the newest shard; a hashed key places its 64 most popular values on shards by a fixed hash and spreads the rest evenly. A hot key event gives one value a share of all operations, on its shard, for a while. Each shard is a database with its own queue.
+- Payments go to an external provider with a rate limit, synchronously (calls over the limit fail as `rate_limited`) or through a queue. A queue answers the producer in 2 ms and holds messages in arrival order, refusing new ones when full (`queue_full`). Its workers drain `workers × 30 ÷ provider latency` messages a second, sharing the provider's limit with any direct calls. A message that waits past the level's deadline fails as `deadline_missed`; at the end of the run, messages still queued are projected forward at the drain rate and the ones that would miss the deadline fail too.
+- A level has either a data tier or payments, not both.
 - The database is costed in read-equivalents: a write costs `readsPerSec ÷ writesPerSec` reads. A replica serves `reads ÷ count` and replays every write at half what it cost the primary. Its lag is `0.2 s ÷ (1 − utilization)` (utilization capped at 98% for this), plus a backlog that grows by `1 − 1/utilization` seconds per second while it's overloaded and drains by `1/utilization − 1` per second after.
 - A read-after-write read is stale if its gap since the write (exponential, the level's mean) is under the replica lag and outside the read-your-writes window.
 
@@ -51,11 +57,12 @@ The workload model is what keeps "add a cache" from fixing everything. Each leve
 |---|---|---|
 | Load balancer | health-check interval, retry on failure | sends traffic to a dead node until the health check catches it |
 | App server | size (vertical), count (horizontal) | each server holds DB connections, so many servers can exhaust the DB's connection limit |
-| Cache | memory size, TTL, request coalescing | hit rate = share of requests that hit the top-C keys (C = how many keys fit in memory). Starts cold, warms up, and a restart wipes it. Built: memory and TTL; 100k lookups/s at every size |
+| Cache | memory size, TTL, request coalescing, invalidate on write, replicated | hit rate = share of requests that hit the top-C keys (C = how many keys fit in memory). Starts cold, warms up, and a restart wipes it. Built: all knobs; 100k lookups/s at every size; a replica doubles the price |
 | DB primary | size | separate read and write capacity, plus a connection limit. Built: size only, reads and writes share one machine (no connection limit yet) |
 | Read replicas | size, count, read-your-writes window | serve reads only; replication lag grows with load |
-| Shards | count, shard key | a hot key puts all its load on one shard |
-| Queue + workers | worker count, max depth | fast response to the producer, but the backlog has a deadline |
+| Shards | size, count (2–16), shard key | a hot key puts all its load on one shard. Built; each shard priced as a database |
+| Queue + workers | max depth (queue size), worker count | fast response to the producer, but the backlog has a deadline. Built; $60/month per worker, 30 charges in flight each |
+| Payment provider | none (placed so the player draws the call) | refuses calls over its rate limit; free. Built |
 | CDN | cache rules | absorbs the static share at the edge with low latency, which cuts load on the servers (the origin) |
 
 ### Availability and cost
@@ -108,20 +115,25 @@ Grading is by outcome, so any design that meets the requirements passes. The ref
    - The traps: sending all reads to replicas shows users their old balance, which fails as stale reads. Sending all reads to the primary overloads it. Pinning with a window shorter than the lag passes at normal load, then fails when a traffic spike makes the lag grow.
    - Intended solution: replicas for reads, read-your-writes pinning with a window longer than the worst-case lag, and a primary sized for the pinned reads: a large primary and two large replicas pinning for 5 s (peak lag about 1.9 s). A 1-second window passes at normal load and fails on payday; a medium primary can't take the pinned reads.
 7. **The Write Wall** (sharding)
-   - Workload: 15k writes/s. Replicas don't help with writes.
-   - Intended solution: shard by user ID.
-   - Star objective: survive a "celebrity" hot key, which punishes a naive shard key.
+   - Workload: a social app's writes, 12k climbing to 15k writes/s, no reads. Three shard keys to choose from: time posted (sequential), post ID (1B posts, Zipf 0.9) and user ID (50M users, Zipf 0.6). At 100–140 s a celebrity's post takes 25% of all writes. p99 ≤ 50 ms, $3,500/month.
+   - Estimate: 15,000 writes ÷ 4,000 per large shard = 3.75 shards at full load.
+   - The traps: the biggest database (xlarge, 8k writes/s) runs at 188%; replicas don't take writes; sharding by time posted sends every write to the newest shard (375%); sharding by post ID is even until the celebrity posts, then one shard runs at 153% for 40 seconds.
+   - Intended solution: shard by user ID: five large shards ($3,385 with the app tier) or ten medium ones. Deviation: the hot key is part of the main grade rather than a separate star objective, so the naive key is an anti-solution.
 8. **Thundering Herd** (cache stampede)
-   - Scenario: the cache node restarts at t=90s and the burst of misses crushes the database.
-   - Intended solution: request coalescing, a replicated cache, or protective capacity, all within budget.
+   - Workload: 4k climbing to 30k req/s, 99% reads over 1M keys (Zipf 1.1); the busiest cache restarts at t=90s. A small cache with a 5-minute TTL catches nearly every read while warm. $2,000/month.
+   - Estimate: at 90 s every read misses: 30,450 read-equivalents on a large database, about 305% busy.
+   - The traps: a medium database sized for the warm cache (609% at the restart); a large database alone (refills queue behind the misses, so popular keys keep missing and about 12,600 requests time out); coalescing in front of a medium database (times out for about ten seconds); no cache and the biggest database.
+   - Intended solutions, all mastered: coalescing misses in front of a large database; a replicated cache in front of a medium one; an xlarge database that absorbs the burst.
 9. **Stale Prices** (cache invalidation)
-   - Workload: a store catalogue that's cache-friendly, but prices change often. Requirements: a price may be at most 5 seconds old.
-   - The traps: a 60-second TTL gives a great hit rate and serves wrong prices. A 5-second TTL is correct, but the hit rate drops and the database overloads.
-   - Intended solution: invalidate the cache entry on every price write, keeping a long TTL as a safety net.
+   - Workload: a store catalogue, 6k climbing to 24k req/s, 99.8% reads over 1M products (Zipf 1); prices change 48 times a second. A price may be at most 5 seconds old. $900/month.
+   - Estimate: the cache hit rate a medium database needs: 79.6%.
+   - The traps: a 60-second TTL hits 83% and serves stale prices to a third of requests; a 5-second TTL hits 67% and overloads the medium database (162%); a 5-second TTL on a large database breaks the budget.
+   - Intended solution: invalidate on write with a 5-minute TTL, a small cache and a medium database ($835). A 5-second TTL option was added to the TTL choices for this level's trap.
 10. **Flash Sale** (async processing with queues)
-    - Scenario: 10× order spike for 30s. The downstream payment provider has a hard rate limit.
-    - Requirements: accept orders within 200ms, process them within 5 minutes.
-    - Intended solution: a queue plus enough workers to drain the backlog before the deadline.
+    - Scenario: 1k orders/s, then 10k/s for 30 s from t=60s. The payment provider takes 2,500 charges a second at 300 ms each. p99 ≤ 200 ms, every order charged within 2 minutes, $2,100/month.
+    - Estimate: 300,000 sale orders must all be charged within 150 s of the sale starting: 2,000 a second.
+    - The traps: charging synchronously (300 ms per request, and three charges in four refused during the sale); 10 workers (1,000 a second, so orders miss the deadline from about t=190s); a 100,000-message queue (full twelve seconds into the sale); 30 workers (the provider caps them at 2,500, and the unused five break the budget).
+    - Intended solution: a large queue and 22 workers ($1,945). Deviations: the deadline is 2 minutes, not 5 (a 30-second spike never threatens a 5-minute one), and the provider is a component the player places, so the synchronous call is something they draw.
 11. **Double Charge** (at-least-once delivery and idempotency, post-MVP)
     - Scenario: the Flash Sale design, but a payment worker crashes mid-batch and its messages are redelivered. Charging a customer twice counts as a failure.
     - Intended solution: idempotent payment processing with an idempotency key. This pays off level 3's note that retrying requests that may already have been processed is a harder problem.
