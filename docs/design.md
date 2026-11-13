@@ -88,7 +88,7 @@ Grading is by outcome, so any design that meets the requirements passes. The ref
 
 1. **Hello, Traffic** (vertical scaling, utilization)
    - Requirements: traffic climbs to 350 req/s, p99 < 75ms, $250/month.
-   - Intended solution: one large server (44% busy). Each wrong size fails a different check: small overloads, medium is never overloaded but fails latency at 87% utilization, and xlarge blows the budget. Introduces the latency curve.
+   - Intended solution: one large server (44% busy). Each wrong size fails a different check: small overloads, medium is never overloaded but fails latency at about 88% utilization, and xlarge blows the budget. Introduces the latency curve.
 2. **Scale Out** (horizontal scaling, load balancing)
    - Requirements: 5k req/s. The largest single instance can't handle it, or costs more than several smaller ones.
    - Intended solution: a load balancer plus N app servers.

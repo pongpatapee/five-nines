@@ -194,7 +194,7 @@ export const LEVEL_HINTS: Readonly<Record<string, LevelHints>> = {
     },
     latency: {
       concept:
-        "A medium server does 400 req/s, so at 350 it's 87% busy. Never overloaded, but most requests arrive to find every vCPU taken and wait.",
+        "A medium server does 400 req/s, so at 350 it's about 88% busy. Never overloaded, but most requests arrive to find every vCPU taken and wait.",
       fix: 'One size up. Doubling the vCPUs halves the utilization, and the waiting drops by far more than half.',
     },
     budget: {

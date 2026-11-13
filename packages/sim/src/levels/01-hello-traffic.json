@@ -9,7 +9,7 @@
     "Rule of thumb: keep each server under about 70% busy at peak. Above that, requests start waiting in line and p99 climbs fast."
   ],
   "debrief": [
-    "A server with 4 vCPUs and 10ms of CPU per request can handle 400 requests per second. At 350 it isn't overloaded, but it's 87% busy, so most requests arrive while every vCPU is taken and have to wait in line.",
+    "A server with 4 vCPUs and 10ms of CPU per request can handle 400 requests per second. At 350 it isn't overloaded, but it's about 88% busy, so most requests arrive while every vCPU is taken and have to wait in line.",
     "Queueing delay grows roughly with 1 / (1 − utilization). Going from 50% to 90% busy multiplies the wait by about five, and close to 100% it explodes. That's why production systems usually aim for 60–70% utilization at peak, not 100%.",
     "Buying a bigger machine is called scaling up, or vertical scaling. It's the simplest fix, but there's always a largest machine, and bigger machines cost proportionally more. The next level hits that ceiling."
   ],
@@ -50,7 +50,7 @@
     },
     {
       "name": "One medium server",
-      "explanation": "400 req/s of capacity is enough to serve every request, but at 87% utilization requests spend too long waiting for a free vCPU.",
+      "explanation": "400 req/s of capacity is enough to serve every request, but at about 88% utilization requests spend too long waiting for a free vCPU.",
       "design": {
         "nodes": [{ "id": "app", "kind": "appServer", "size": "medium" }],
         "edges": [{ "from": "clients", "to": "app" }]
