@@ -1,0 +1,104 @@
+/**
+ * The notebook's cast and everything they say. The game picks the situation (`theme/situations.ts`); this file only
+ * words it, so the characters never claim something the simulation didn't do.
+ *
+ * - Ms. Tally, the budget boss: sets the bar in the briefing and delivers the verdict.
+ * - Erasmus, the mentor eraser: voices hints, design checks and the postmortem nudge.
+ * - Smudge, the ink-blot troublemaker: owns the level's stress (traffic surges, crashed servers).
+ */
+import { COMPONENT_LABELS, type FailureReason, type Grade } from '@five-nines/sim';
+import { formatAvailability, formatCount, formatMs, formatPercent, formatUsd } from '../../format.ts';
+import { tierPercent } from '../../results/grading.ts';
+import type { CastScript } from '../contract.ts';
+import type { LevelStress, Verdict } from '../situations.ts';
+
+const MEMBERS = {
+  boss: { name: 'Ms. Tally', title: 'budget boss' },
+  mentor: { name: 'Erasmus', title: 'mentor' },
+  troublemaker: { name: 'Smudge', title: 'troublemaker' },
+} as const;
+
+/** "30 seconds", "about a minute", "about 3 minutes": how a character would say when something happens. */
+export function roughly(sec: number): string {
+  if (sec < 60) return `${Math.round(sec)} seconds`;
+  const minutes = Math.round(sec / 60);
+  return minutes === 1 ? 'about a minute' : `about ${minutes} minutes`;
+}
+
+function troublemakerTease(stress: LevelStress): string {
+  switch (stress.kind) {
+    case 'crash':
+      return `heh. ${roughly(stress.atSec)} in, I unplug your busiest ${COMPONENT_LABELS.appServer.toLowerCase()}.`;
+    case 'readAfterWrite':
+      return `heh. ${formatPercent(stress.share)} of reads check something the reader just wrote. I'd love to show them the old version.`;
+    case 'staleness':
+      return `heh. I'm timing every read. more than ${stress.limitSec === 1 ? '1 second' : `${stress.limitSec} seconds`} out of date and it counts as a failure.`;
+    case 'spike':
+      return `heh. ${roughly(stress.atSec)} in, I send ${formatCount(stress.peakRps)} req/s your way. all at once.`;
+    case 'surge':
+      return `heh. traffic climbs from ${formatCount(stress.fromRps)} to ${formatCount(stress.toRps)} req/s. hope you sized up.`;
+  }
+}
+
+const BOSS_PRAISE: Record<Exclude<Grade, 'fail'>, { exclaim: string; line: string }> = {
+  pass: { exclaim: 'Three nines.', line: 'Acceptable. There are more nines to be had.' },
+  star: { exclaim: 'Four nines!', line: "I'm almost impressed. Almost." },
+  mastered: { exclaim: 'Five nines.', line: 'Under budget, too. Frame this page.' },
+};
+
+function bossVerdict(verdict: Verdict): { exclaim: string; line: string } {
+  switch (verdict.kind) {
+    case 'latency':
+      return {
+        exclaim: `p99 of ${formatMs(verdict.p99Ms)}?!`,
+        line: `The limit was ${formatMs(verdict.requiredMs)}. Customers noticed.`,
+      };
+    case 'budget':
+      return {
+        exclaim: `${formatUsd(verdict.costUsdPerMonth)} a month?!`,
+        line: `I said ${formatUsd(verdict.budgetUsdPerMonth)}. Not a cent over.`,
+      };
+    case 'availability':
+      return {
+        exclaim: `${formatAvailability(verdict.availability)}?!`,
+        line: verdict.staleReads
+          ? `Customers saw out-of-date data. We promised ${tierPercent('pass')}. See me after.`
+          : `We promised ${tierPercent('pass')}. See me after.`,
+      };
+    case 'praise':
+      return BOSS_PRAISE[verdict.grade];
+  }
+}
+
+const MENTOR_HINTS: Record<FailureReason, string> = {
+  instance_down:
+    'Ahem. A crashed server refuses connections instantly, no waiting around. So what could cover the gap until the health checks notice?',
+  no_healthy_backend:
+    'Nothing was left in rotation to take the traffic. How many instances could you lose and still serve everyone?',
+  timeout:
+    'Requests waited in line until they gave up. That box ran out of capacity. Make it bigger, add more of it, or send fewer requests its way?',
+  overloaded: 'More requests arrived than that box can handle. Could the load be spread out instead?',
+  stale_read:
+    'Someone read an old copy. Replicas run a little behind the primary, so which reads can afford to wait, and which must see the latest write?',
+};
+
+export const NOTEBOOK_SCRIPT: CastScript = {
+  members: MEMBERS,
+  bossBrief: (level) => `${formatUsd(level.requirements.budgetUsdPerMonth)} a month. Not a cent over.`,
+  bossVerdict,
+  troublemakerTease,
+  troublemakerCrash: (nodeId, instance) => `${MEMBERS.troublemaker.name} pulls the plug on ${nodeId} instance ${instance + 1}`,
+  mentorHints: MENTOR_HINTS,
+  mentorSignOff: "Mistakes rub out. That's what I'm for.",
+  mentorWelcome: 'Rule one, kid: every box you draw can break. Plan for it.',
+  mentorPostmortemLead: `${MEMBERS.mentor.name} leans in:`,
+  mentorChecks: ({ errors, warnings }) => {
+    if (errors > 0) {
+      return errors === 1
+        ? "One thing stops this from running. Fix the red one and we'll see what breaks."
+        : `${errors} things stop this from running. Start from the clients and work along the flow.`;
+    }
+    if (warnings > 0) return `Only warnings. It'll run, but read them before ${MEMBERS.boss.name} does.`;
+    return "Looks runnable to me. Press Run and let's see what breaks.";
+  },
+};

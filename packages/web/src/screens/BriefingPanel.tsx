@@ -1,8 +1,8 @@
 import { designCostUsdPerMonth, type Design, type Level } from '@five-nines/sim';
 import { Fragment } from 'react';
 import { COMPONENTS } from '../components/registry.ts';
-import { formatDuration, formatMs, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
-import { bossBriefingLine, CastLine, troublemakerTease } from '../notebook/index.ts';
+import { capitalize, formatDuration, formatMs, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
+import { cast, CastLine, troublemakerTease, words } from '../theme/index.ts';
 import { tierPercent } from '../results/grading.ts';
 import { CostMeter } from './CostMeter.tsx';
 
@@ -34,7 +34,7 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
       <div className="briefing__head">
         <div>
           <div className="eyebrow">
-            Page {levelNumber} · {level.concept}
+            {capitalize(words.level)} {levelNumber} · {level.concept}
           </div>
           <h1 className="briefing__title hand">{level.title}</h1>
         </div>
@@ -44,8 +44,8 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
       </div>
 
       <div className="briefing__scroll">
-        <CastLine who="boss" figureSize={84} className="briefing__boss">
-          "{bossBriefingLine(level)}"
+        <CastLine role="boss" size={84} className="briefing__boss">
+          "{cast.bossBrief(level)}"
         </CastLine>
 
         <CostMeter costUsdPerMonth={cost} budgetUsdPerMonth={level.requirements.budgetUsdPerMonth} />
@@ -60,7 +60,7 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
         </section>
 
         {tease && (
-          <CastLine who="troublemaker" figureSize={56} tone="alarm" className="briefing__smudge">
+          <CastLine role="troublemaker" size={56} tone="alarm" className="briefing__troublemaker">
             {tease}
           </CastLine>
         )}

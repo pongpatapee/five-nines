@@ -1,8 +1,8 @@
 /**
- * Pen-and-ink primitives drawn as inline SVG: loops, scribbles, ticks, crosses, arrows and the nines dots.
+ * Pen-and-ink primitives drawn as inline SVG: loops, ticks, crosses, arrows and the nines dots.
  *
  * Colours come from tokens (via `currentColor` or a `style`), never from SVG presentation attributes, so the theme
- * stays in tokens.css. Strokes marked `ink-draw` draw themselves in (see notebook.css); reduced motion shows them
+ * stays in the tokens. Strokes marked `ink-draw` draw themselves in (see notebook.css); reduced motion shows them
  * finished.
  */
 import type { CSSProperties } from 'react';
@@ -58,22 +58,6 @@ export function InkLoop({ width, height, delayMs = 0, className }: InkLoopProps)
         d={loopPath(width, height)}
         pathLength={1}
         style={{ ...paint(null, 'var(--red-pen)', 2.6), animationDelay: `${delayMs}ms` }}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-/** A zig-zag scribble across a box, as when something is crossed out in anger. Decorative. */
-export function Scribble({ className }: { className?: string }) {
-  return (
-    <svg className={`ink-scribble${className ? ` ${className}` : ''}`} viewBox="0 0 160 60" preserveAspectRatio="none" aria-hidden>
-      <path
-        className="ink-draw"
-        pathLength={1}
-        d="M6,14 L26,50 L38,10 L58,52 L70,8 L92,54 L104,10 L126,50 L138,12 L156,40"
-        style={paint(null, 'var(--red-pen)', 2.6)}
-        strokeLinejoin="round"
         strokeLinecap="round"
       />
     </svg>
@@ -185,5 +169,15 @@ export function NotebookDefs() {
         </filter>
       </defs>
     </svg>
+  );
+}
+
+/** The playback freeze-frame's verdict over the root-cause node: circled in red pen, with a note. Decorative. */
+export function RootCauseCircle() {
+  return (
+    <div className="root-cause" aria-hidden>
+      <InkLoop width={240} height={150} delayMs={200} />
+      <span className="root-cause__label">root cause</span>
+    </div>
   );
 }

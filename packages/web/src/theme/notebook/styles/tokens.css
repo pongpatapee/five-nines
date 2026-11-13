@@ -1,11 +1,11 @@
 /*
- * Design tokens for the "engineer's notebook" theme.
+ * Design tokens for the "engineer's notebook" theme. The only file in the app that names raw colours.
  *
  * Two layers:
  *   1. Palette: the physical materials on the desk (paper, inks, highlighters, sticky notes). Only this file
  *      names raw colours.
  *   2. Semantic tokens: what the UI means (text, surfaces, healthy/busy/failing, accent). Module CSS uses these, so
- *      re-skinning the game means editing this file only.
+ *      recolouring the notebook means editing this file only.
  *
  * Text colours are checked against every paper they sit on (≥ 4.5:1): ink, pencil, red-pen text, green-pen text,
  * amber text and blue-pen text all pass on paper, card, sticky note and highlighter.
@@ -19,6 +19,10 @@
   --sticky: #ffe98a;
   --tape: rgb(238 214 140 / 0.75);
   --tape-blue: rgb(214 226 240 / 0.85);
+  --tape-edge: rgb(255 255 255 / 0.6);
+  /* Paper laid over the canvas, letting the drawing show through. */
+  --paper-veil: rgb(251 248 239 / 0.72);
+  --paper-card-veil: rgb(255 254 250 / 0.85);
 
   /* Graph paper: a fine grid every 24px and a heavier one every 5 squares. */
   --grid-minor: #e3ebf4;
@@ -33,6 +37,9 @@
   /* ---------------------------------------------------------------- palette: inks */
   --ink: #1f2a44;
   --ink-soft: #4a5160;
+  /* Ink at lower strength: a ruled line, and the shade under things lifted off the page. */
+  --ink-faded: rgb(31 42 68 / 0.55);
+  --ink-shade: rgb(31 42 68 / 0.14);
   --pencil: #5f6672;
   /* Pencil for lines only: too light for text. */
   --pencil-line: #7a808c;
@@ -49,6 +56,7 @@
 
   /* ---------------------------------------------------------------- palette: highlighters and stickers */
   --highlighter: #ffe45c;
+  --highlighter-wash: rgb(255 228 92 / 0.28);
   --highlighter-green: #b9e6a6;
   --wash-green: #cdefc0;
   --wash-yellow: #fff3b0;
@@ -152,6 +160,8 @@
   --shadow-panel: var(--shadow-paper);
   --shadow-ink: 4px 4px 0 var(--ink);
   --shadow-ink-sm: 2px 2px 0 var(--ink);
+  --shadow-node: 3px 3px 0 rgb(31 42 68 / 0.16);
+  --shadow-bubble: 3px 3px 0 rgb(31 42 68 / 0.15);
 
   /* ---------------------------------------------------------------- layout */
   --briefing-width: 340px;

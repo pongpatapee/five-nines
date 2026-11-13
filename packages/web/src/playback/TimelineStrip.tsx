@@ -7,7 +7,7 @@ import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent
 import { formatCount, formatMs, formatSimTime } from '../format.ts';
 import { areaPath, linePath, niceCeil, timeAtPointer } from './charts.ts';
 import { isFailingRate, type LiveFrame } from '../canvas/types.ts';
-import { eventCaption } from '../notebook/index.ts';
+import { eventCaption } from '../theme/index.ts';
 
 export interface TimelineStripProps {
   timeline: readonly TimelineFrame[];

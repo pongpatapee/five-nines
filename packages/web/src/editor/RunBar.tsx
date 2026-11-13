@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { HandArrow } from '../notebook/index.ts';
+import { marks } from '../theme/index.ts';
 
 export interface RunBarProps {
   /** Why the design can't run, or null when it can. */
@@ -47,7 +47,7 @@ export function RunBar({ blocker, notice, onRun, onReset }: RunBarProps) {
         onClick={onRun}
       >
         Run simulation <span className="kbd run-bar__kbd">R</span>
-        <HandArrow width={34} />
+        <marks.Arrow width={34} />
       </button>
 
       {confirming ? (

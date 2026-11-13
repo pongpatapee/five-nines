@@ -1,6 +1,5 @@
 import { useId, type ReactNode } from 'react';
 import { NotebookDefs } from './ink.tsx';
-import './notebook.css';
 
 /** The spiral binding down the left edge of every page. Decorative. */
 export function SpiralBinding() {
@@ -23,7 +22,7 @@ export function SpiralBinding() {
 }
 
 /** Every screen is a page in the notebook: spiral binding on the left, graph paper behind. */
-export function NotebookShell({ children }: { children: ReactNode }) {
+export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="notebook graph-paper">
       <NotebookDefs />

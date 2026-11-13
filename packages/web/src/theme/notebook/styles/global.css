@@ -1,6 +1,7 @@
 /*
- * Global reset and shared UI primitives. Module-specific styles live next to their components
- * (canvas/canvas.css, screens/screens.css, results/results.css, editor/…, playback/…, notebook/notebook.css).
+ * Global reset and shared UI primitives. The other sheets in this folder style one part of the app each (canvas,
+ * editor, playback, results, screens) by the class names its components render; notebook.css styles the theme's own
+ * art (ink strokes, the cast). `../index.ts` loads them in cascade order.
  *
  * Primitives available everywhere:
  *   .btn, .btn--primary, .btn--ghost, .btn--danger, .btn--sm   hand-drawn buttons (primary = highlighter yellow)

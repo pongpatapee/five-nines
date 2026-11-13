@@ -84,12 +84,13 @@ interface Colors {
   mark: string;
 }
 
+/** The particle colours, from the theme's semantic tokens (every theme defines them). */
 function readColors(element: Element): Colors {
   const style = getComputedStyle(element);
   return {
-    dot: style.getPropertyValue('--request').trim() || '#7cc4ff',
-    write: style.getPropertyValue('--write').trim() || '#ff8ad8',
-    mark: style.getPropertyValue('--failing').trim() || '#ff5c5c',
+    dot: style.getPropertyValue('--request').trim(),
+    write: style.getPropertyValue('--write').trim(),
+    mark: style.getPropertyValue('--failing').trim(),
   };
 }
 

@@ -13,7 +13,6 @@ import {
   type OnDelete,
 } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import './canvas.css';
 import { CanvasHandleContext, DecorationsContext, EdgeRegistryContext, type EdgeGeometryRegistry } from './context.ts';
 import { FlowEdge } from './FlowEdge.tsx';
 import {

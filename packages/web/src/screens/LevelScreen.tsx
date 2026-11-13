@@ -9,10 +9,10 @@ import { DebriefPanel, ResultsView } from '../results/index.ts';
 import { navigate, routeHref } from '../routing.ts';
 import { formatDuration, isPassingGrade } from '../format.ts';
 import { progressStore, useBestGrade, useDraft } from '../state/index.ts';
+import { words } from '../theme/index.ts';
 import { CostMeter } from './CostMeter.tsx';
 import { BriefingPanel } from './BriefingPanel.tsx';
 import { INITIAL_MODE, levelModeReducer, type LevelMode, type ResultView } from './levelMode.ts';
-import './screens.css';
 
 export interface LevelScreenProps {
   level: Level;
@@ -192,13 +192,13 @@ function TopBar({
   return (
     <header className="topbar">
       <div className="topbar__title">
-        <a className="topbar__back" href={routeHref({ name: 'levels' })} title="Back to the table of contents">
+        <a className="topbar__back" href={routeHref({ name: 'levels' })} title={`Back to the ${words.homeLong}`}>
           <span className="hand topbar__wordmark">Five Nines</span>
-          <span className="topbar__back-hint">contents</span>
+          <span className="topbar__back-hint">{words.home}</span>
         </a>
         <span className="topbar__divider" aria-hidden />
         <span className="topbar__level hand">
-          p.{levelNumber} · {level.title}
+          {words.levelShort(levelNumber)} · {level.title}
         </span>
       </div>
       <ol className="mode-steps" aria-label="Mode">

@@ -1,14 +1,14 @@
-import { LEVELS, type Level } from '@five-nines/sim';
-import { formatMs, formatUsd } from '../format.ts';
-import { bossBriefingLine, CastLine, HandArrow, HandBox, NinesDots, troublemakerTease } from '../notebook/index.ts';
+import { CHAPTERS, LEVELS, type Level } from '@five-nines/sim';
+import { capitalize, formatMs, formatUsd } from '../format.ts';
 import { tierPercent } from '../results/grading.ts';
 import { routeHref } from '../routing.ts';
 import { useBestGrades } from '../state/index.ts';
-import { CampaignMap } from './CampaignMap.tsx';
+import { CampaignMap, cast, CastLine, marks, troublemakerTease, words } from '../theme/index.ts';
 import { campaignProgress, NINES_PER_LEVEL, nextUpIndex, ninesForGrade } from './campaign.ts';
-import './screens.css';
 
-/** `#/`: the notebook's contents page. Every real level is playable; future chapters show as locked pages. */
+const { Arrow, Checkbox, Nines } = marks;
+
+/** `#/`: the level select screen. Every real level is playable; planned chapters show as locked. */
 export function LevelSelect() {
   const best = useBestGrades();
   const ids = LEVELS.map((level) => level.id);
@@ -24,10 +24,10 @@ export function LevelSelect() {
             <span className="hand">Five Nines</span>
           </h1>
           <p className="contents__tagline">
-            an engineer's field notebook · <span className="contents__underline">table of contents</span>
+            {words.tagline} · <span className="contents__underline">{words.homeLong}</span>
           </p>
           <p className="contents__lede muted">
-            Every page is a system to design. Earn a "9" for each tier: {tierPercent('pass')} pass · {tierPercent('star')}{' '}
+            Every {words.level} is a system to design. Earn a "9" for each tier: {tierPercent('pass')} pass · {tierPercent('star')}{' '}
             star · {tierPercent('mastered')} mastered.
           </p>
         </div>
@@ -38,10 +38,10 @@ export function LevelSelect() {
               {progress.earned} / {progress.total} nines
             </span>
           </div>
-          <ol className="contents__trios" aria-label="Nines per page">
+          <ol className="contents__trios" aria-label={`Nines per ${words.level}`}>
             {LEVELS.map((level, i) => (
-              <li key={level.id} title={`Page ${i + 1}: ${level.title}`}>
-                <NinesDots filled={ninesForGrade(best[level.id])} total={NINES_PER_LEVEL} size="sm" />
+              <li key={level.id} title={`${capitalize(words.level)} ${i + 1}: ${level.title}`}>
+                <Nines filled={ninesForGrade(best[level.id])} total={NINES_PER_LEVEL} size="sm" />
               </li>
             ))}
           </ol>
@@ -49,7 +49,7 @@ export function LevelSelect() {
       </header>
 
       <div className="contents__body">
-        <CampaignMap levels={LEVELS} best={best} nextUp={nextUp} />
+        <CampaignMap chapters={CHAPTERS} levels={LEVELS} best={best} nextUp={nextUp} />
         <aside className="contents__side" aria-label="Next up">
           <NextUpCard level={LEVELS[nextUp ?? 0]!} index={nextUp ?? 0} allPassed={nextUp === null} />
         </aside>
@@ -66,7 +66,9 @@ function NextUpCard({ level, index, allPassed }: { level: Level; index: number; 
       <span className="tape tape--right" aria-hidden />
       <div className="index-card__body">
         <div className="eyebrow">
-          {allPassed ? 'Every page passed · chase more nines' : `Next up · page ${index + 1} of ${LEVELS.length}`}
+          {allPassed
+            ? `Every ${words.level} passed · chase more nines`
+            : `Next up · ${words.level} ${index + 1} of ${LEVELS.length}`}
         </div>
         <h2 id="next-up-title" className="hand index-card__title">
           {index + 1}. {level.title}
@@ -80,19 +82,19 @@ function NextUpCard({ level, index, allPassed }: { level: Level; index: number; 
           <h3 className="hand index-card__reqs-title">the requirements:</h3>
           <ul className="hand-list">
             <li>
-              <HandBox />
+              <Checkbox />
               <span>
                 availability <b className="num">≥ {tierPercent('pass')}</b>
               </span>
             </li>
             <li>
-              <HandBox />
+              <Checkbox />
               <span>
                 p99 latency <b className="num">≤ {formatMs(level.requirements.p99Ms)}</b>
               </span>
             </li>
             <li>
-              <HandBox />
+              <Checkbox />
               <span>
                 cost <b className="num">≤ {formatUsd(level.requirements.budgetUsdPerMonth)}</b> / month
               </span>
@@ -100,19 +102,19 @@ function NextUpCard({ level, index, allPassed }: { level: Level; index: number; 
           </ul>
         </div>
 
-        <CastLine who="boss" figureSize={96} className="index-card__boss">
-          "{bossBriefingLine(level)}"
+        <CastLine role="boss" size={96} className="index-card__boss">
+          "{cast.bossBrief(level)}"
         </CastLine>
         {tease && (
-          <CastLine who="troublemaker" figureSize={60} className="index-card__smudge" tone="alarm">
+          <CastLine role="troublemaker" size={60} className="index-card__troublemaker" tone="alarm">
             {tease}
           </CastLine>
         )}
       </div>
 
       <a className="btn btn--primary index-card__start" href={routeHref({ name: 'level', levelId: level.id })}>
-        {allPassed ? `Replay page ${index + 1}` : `Start page ${index + 1}`}
-        <HandArrow />
+        {allPassed ? `Replay ${words.level} ${index + 1}` : `Start ${words.level} ${index + 1}`}
+        <Arrow />
       </a>
     </article>
   );

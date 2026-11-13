@@ -73,7 +73,7 @@
   background: var(--paper-card);
   color: var(--ink);
   font-size: var(--text-sm);
-  box-shadow: 3px 3px 0 rgb(31 42 68 / 0.16);
+  box-shadow: var(--shadow-node);
   transition:
     border-color var(--duration) var(--ease),
     background var(--duration) var(--ease),

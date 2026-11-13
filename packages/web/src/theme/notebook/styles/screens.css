@@ -97,7 +97,7 @@
   gap: var(--space-3);
   margin: 0;
   padding: 0 0 var(--space-1);
-  border-bottom: 1.5px solid rgb(31 42 68 / 0.55);
+  border-bottom: 1.5px solid var(--ink-faded);
   list-style: none;
 }
 
@@ -279,7 +279,7 @@
   top: -12px;
   width: 86px;
   height: 26px;
-  border-inline: 2px dotted rgb(255 255 255 / 0.6);
+  border-inline: 2px dotted var(--tape-edge);
   background: var(--tape);
 }
 
@@ -561,11 +561,11 @@
 }
 
 .briefing__boss .cast-line__bubble,
-.briefing__smudge .cast-line__bubble {
+.briefing__troublemaker .cast-line__bubble {
   font-size: var(--text-md);
 }
 
-.briefing__smudge .cast-line__text {
+.briefing__troublemaker .cast-line__text {
   color: var(--red-pen-text);
 }
 
