@@ -13,7 +13,6 @@ import {
   NAPKIN_WIZARD_LEVELS,
   N_PLUS_ONE_MAX_AFTER_CRASH,
   PENNY_PINCHER_MAX_SPEND,
-  RIGHT_SIZED_MIN_PEAK,
   type BadgeId,
 } from '../../progression/index.ts';
 import { tierPercent } from '../../results/grading.ts';
@@ -119,9 +118,9 @@ function bossSavings({ savedUsdPerMonth, share, grade }: SavingsSituation): stri
 const BADGES: Record<BadgeId, BadgeCopy> = {
   rightSized: {
     name: 'Right-sized',
-    how: `Pass a page with every app server at least ${formatPercent(RIGHT_SIZED_MIN_PEAK)} busy at its peak.`,
+    how: 'Pass a page for no more than its cheapest reference design costs.',
     role: 'boss',
-    line: 'Not one idle server on my bill. Lovely.',
+    line: 'Exactly what it needed and not a cent more. Lovely.',
   },
   nPlusOne: {
     name: 'N+1',

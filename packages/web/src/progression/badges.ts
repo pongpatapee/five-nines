@@ -2,8 +2,11 @@
  * Badges for good engineering habits, not grinding (docs/ideas.md, "Rewards and progression"). Pure functions: run
  * badges judge one graded run, progress badges judge the saved progress. Once earned, a badge stays earned.
  *
- * - Right-sized: passed, with every app-server instance at least `RIGHT_SIZED_MIN_PEAK` busy at its own peak in the
- *   run. Nothing bought just in case: a pass already means the design was within budget.
+ * - Right-sized: passed for no more than the level's cheapest reference solution costs (`rightSizedCost`). Nothing
+ *   bought just in case. Judged by cost, not by how busy the machines are: sizes come in fixed steps, so the right
+ *   answer can sit well under the 70% the game teaches (level 1's one large server is 44% busy), and a busyness floor
+ *   would reward running hot. No tolerance: costs are exact sums of catalogue prices, and the reference designs are
+ *   real designs a player can build.
  * - N+1: passed a level with a scripted crash, and the crashed node's surviving instances stayed at or under
  *   `N_PLUS_ONE_MAX_AFTER_CRASH` (the "hot" line) for the rest of the run: there was spare capacity to lose a machine.
  * - Penny Pincher: mastered while spending at most `PENNY_PINCHER_MAX_SPEND` of the budget.
@@ -11,12 +14,13 @@
  * - Napkin Wizard: a napkin-maths estimate within 10% (the bonus mark) on `NAPKIN_WIZARD_LEVELS` levels.
  */
 import {
+  designCostUsdPerMonth,
   HOT_UTILIZATION,
   isWritten,
   type Chapter,
-  type Design,
   type Evaluation,
   type Grade,
+  type Level,
   type TimelineFrame,
 } from '@five-nines/sim';
 
@@ -27,8 +31,6 @@ export function isBadgeId(value: string): value is BadgeId {
   return (BADGE_IDS as readonly string[]).includes(value);
 }
 
-/** Right-sized: every app-server instance must reach at least this utilization at its peak. */
-export const RIGHT_SIZED_MIN_PEAK = 0.6;
 /** N+1: the crashed node's surviving instances must stay at or under this after the crash. */
 export const N_PLUS_ONE_MAX_AFTER_CRASH = HOT_UTILIZATION;
 /** Penny Pincher: the most of the budget a mastered design may cost. */
@@ -50,23 +52,14 @@ function peakUtilization(timeline: readonly TimelineFrame[], nodeId: string, fro
   return peak;
 }
 
-/** Passed with every app server pulling its weight at peak. */
-export function isRightSized(design: Design, evaluation: GradedEvaluation): boolean {
-  if (evaluation.grade === 'fail') return false;
-  const apps = design.nodes.filter((node) => node.kind === 'appServer');
-  if (apps.length === 0) return false;
-  // Each instance individually: one idle instance next to a busy one is still overprovisioned.
-  return apps.every((node) => {
-    for (let index = 0; index < node.instances; index++) {
-      let peak = 0;
-      for (const frame of evaluation.simulation.timeline) {
-        const instance = frame.nodes[node.id]?.instances[index];
-        if (instance?.up && instance.utilization > peak) peak = instance.utilization;
-      }
-      if (peak < RIGHT_SIZED_MIN_PEAK) return false;
-    }
-    return true;
-  });
+/** The most a design may cost to be right-sized: the level's cheapest reference solution. */
+export function rightSizedCost(level: Pick<Level, 'solutions'>): number {
+  return Math.min(...level.solutions.map((solution) => designCostUsdPerMonth(solution.design)));
+}
+
+/** Passed for no more than the cheapest reference solution. */
+export function isRightSized(level: Pick<Level, 'solutions'>, evaluation: GradedEvaluation): boolean {
+  return evaluation.grade !== 'fail' && evaluation.checks.budget.costUsdPerMonth <= rightSizedCost(level);
 }
 
 /** Passed through a crash with the survivors out of the hot zone. False when nothing crashed. */
@@ -86,9 +79,9 @@ export function isPennyPincher(evaluation: GradedEvaluation): boolean {
 }
 
 /** The badges one graded run earns, in `BADGE_IDS` order. */
-export function runBadges(design: Design, evaluation: GradedEvaluation): BadgeId[] {
+export function runBadges(level: Pick<Level, 'solutions'>, evaluation: GradedEvaluation): BadgeId[] {
   const earned = new Set<BadgeId>();
-  if (isRightSized(design, evaluation)) earned.add('rightSized');
+  if (isRightSized(level, evaluation)) earned.add('rightSized');
   if (keptSpareThroughCrash(evaluation)) earned.add('nPlusOne');
   if (isPennyPincher(evaluation)) earned.add('pennyPincher');
   return BADGE_IDS.filter((id) => earned.has(id));

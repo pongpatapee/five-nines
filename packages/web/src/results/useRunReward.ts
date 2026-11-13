@@ -1,4 +1,4 @@
-import type { Design } from '@five-nines/sim';
+import type { Level } from '@five-nines/sim';
 import { useEffect, useMemo, useState } from 'react';
 import { playCue } from '../audio/sfx.ts';
 import type { GradedEvaluation } from '../engine/index.ts';
@@ -16,16 +16,16 @@ const rewards = new WeakMap<GradedEvaluation, RunReward>();
 const revealed = new WeakSet<GradedEvaluation>();
 
 /** Records the run (grade and badges) the first time its result shows, and returns what it paid out. */
-export function useRunReward(levelId: string, design: Design, evaluation: GradedEvaluation): RunReward | null {
+export function useRunReward(level: Level, evaluation: GradedEvaluation): RunReward | null {
   const [reward, setReward] = useState(() => rewards.get(evaluation) ?? null);
   useEffect(() => {
     let paid = rewards.get(evaluation);
     if (!paid) {
-      paid = progressStore.getState().recordRun(levelId, evaluation.grade, runBadges(design, evaluation));
+      paid = progressStore.getState().recordRun(level.id, evaluation.grade, runBadges(level, evaluation));
       rewards.set(evaluation, paid);
     }
     setReward(paid);
-  }, [levelId, design, evaluation]);
+  }, [level, evaluation]);
   return reward;
 }
 

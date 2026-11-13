@@ -170,7 +170,7 @@ Pure functions in `packages/web/src/progression/`, over saved progress and run r
 - **Nines are the currency.** A level pays the nines of its best grade: 3 for a pass, 4 for a star, 5 for mastered (50 across the ten built levels; each new level adds 5). Replaying never pays twice, only a better grade pays the difference. The contents page shows the running total; the grade card ticks it up one nine at a time.
 - **Unlocks.** A level opens when the one before it is passed. A chapter also needs enough nines in total: Growing Pains 10, Hypergrowth 22, Worldwide 36 (every earlier page passed plus one, four and six tiers above a pass). A level the player already has a grade on always stays open, so older saves (from builds where everything was open) lose nothing. Locked pages show on the map with a padlock and say what opens them. `?unlock=all` before the `#` opens everything for testing, without touching the save.
 - **Badges** (once earned, kept):
-  - *Right-sized*: passed with every app-server instance at least 60% busy at its own peak (a pass already means within budget).
+  - *Right-sized*: passed for no more than the level's cheapest reference solution costs. Judged by cost rather than by how busy the machines are: sizes come in fixed steps, so a right answer can sit well under the 70% the game teaches (level 1's large server is 44% busy), and a busyness floor would reward running hot. No tolerance: costs are exact catalogue sums. A test checks every level's cheapest reference earns it.
   - *N+1*: passed a level with a scripted crash, the crashed node's survivors never above 85% (the hot line) afterwards.
   - *Penny Pincher*: mastered for at most 80% of the budget.
   - *Five Nines Club*: mastered every level of a chapter.

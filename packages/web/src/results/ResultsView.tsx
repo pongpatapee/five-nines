@@ -25,7 +25,7 @@ export interface ResultsViewProps {
 
 /** Result mode: the grade card, or the debrief over the canvas. Records the run and reveals what it paid out. */
 export function ResultsView({ level, design, evaluation, view, onViewChange, onBackToEditor, onReplay, onNextLevel }: ResultsViewProps) {
-  const reward = useRunReward(level.id, design, evaluation);
+  const reward = useRunReward(level, evaluation);
   const shown = useReveal(evaluation, reward, useReducedMotion());
   const rewardView: RewardView | null =
     reward && shown
