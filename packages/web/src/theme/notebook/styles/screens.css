@@ -775,3 +775,162 @@
   font-size: var(--text-xl);
   text-decoration: none;
 }
+
+/* ================================================================== napkin maths: a napkin taped over the page */
+
+.estimate-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: var(--space-8) var(--space-6);
+  background: var(--paper-veil);
+  backdrop-filter: blur(1.5px);
+}
+
+.estimate-card {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  width: min(560px, 100%);
+  margin: auto 0;
+  padding: var(--space-6) var(--space-6) var(--space-5);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  /* A paper napkin: soft quilted squares. */
+  background-color: var(--paper-card);
+  background-image:
+    linear-gradient(var(--paper-shade) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper-shade) 1px, transparent 1px);
+  background-size: 18px 18px;
+  box-shadow: var(--shadow-paper);
+  transform: rotate(-0.6deg);
+  animation: grade-card-in 420ms var(--ease);
+}
+
+.estimate-card__title {
+  font-size: var(--text-hand-xl);
+  line-height: 1;
+}
+
+.estimate-card__mentor .cast-line__bubble {
+  font-size: var(--text-md);
+}
+
+.estimate-form {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.estimate-form__label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.estimate-form__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.estimate-form__input {
+  width: 140px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--stroke-pen) solid var(--ink);
+  border-radius: var(--radius-hand);
+  background: var(--paper-card);
+  color: var(--ink);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.estimate-form__input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.estimate-form__input[aria-invalid='true'] {
+  border-color: var(--red-pen);
+}
+
+.estimate-form__unit {
+  font-family: var(--font-note);
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+
+.estimate-form__row .btn--primary {
+  margin-left: auto;
+}
+
+.estimate-form__error {
+  font-size: var(--text-sm);
+  color: var(--failing);
+}
+
+.estimate-form__earned {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--healthy);
+}
+
+.estimate-card__compare {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  gap: var(--space-6);
+  margin: 0;
+}
+
+.estimate-card__compare dt {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.estimate-card__compare dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.estimate-card__bonus dd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-note);
+  font-size: var(--text-md);
+  color: var(--healthy);
+}
+
+.estimate-card__working {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--blue-pen);
+  background: var(--paper-card-veil);
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+
+.estimate-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.topbar__estimate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .estimate-card {
+    animation: none;
+  }
+}

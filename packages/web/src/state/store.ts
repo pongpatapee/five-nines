@@ -10,13 +10,15 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import { emptyDraft } from '../canvas/draft.ts';
 import type { Draft } from '../canvas/types.ts';
 import { gradeRank } from '../format.ts';
-import { browserStorage, loadSave, writeSave, type StorageLike } from './persistence.ts';
+import { browserStorage, loadSave, writeSave, type EstimateRecord, type StorageLike } from './persistence.ts';
 
 export interface ProgressState {
   /** Saved drafts by level id. Levels without an entry use `STARTING_DRAFT`. */
   drafts: Readonly<Record<string, Draft>>;
   /** Best grade per level id. Levels never graded have no entry. */
   bestGrades: Readonly<Record<string, Grade>>;
+  /** The napkin-maths step per level id. Levels never asked have no entry. */
+  estimates: Readonly<Record<string, EstimateRecord>>;
 
   /** Replaces a level's draft (design and layout). Autosaved. */
   updateDraft(levelId: string, draft: Draft): void;
@@ -24,6 +26,11 @@ export interface ProgressState {
   resetDraft(levelId: string): void;
   /** Records a grade for a level, keeping it only if it beats the best so far. */
   recordGrade(levelId: string, grade: Grade): void;
+  /**
+   * Records a napkin-maths answer (`guess` null for a skip). A skip never forgets an earlier guess, and a bonus once
+   * earned stays earned.
+   */
+  recordEstimate(levelId: string, guess: number | null, close: boolean): void;
 }
 
 /** Every level starts with just the clients node. Shared and frozen so selectors return a stable reference. */
@@ -50,6 +57,7 @@ export function createProgressStore({ storage, writeDelayMs = 300 }: ProgressSto
   const store = createStore<ProgressState>()((set) => ({
     drafts: initial.drafts,
     bestGrades: initial.bestGrades,
+    estimates: initial.estimates,
     updateDraft: (levelId, draft) =>
       set((state) => (state.drafts[levelId] === draft ? state : { drafts: { ...state.drafts, [levelId]: draft } })),
     resetDraft: (levelId) =>
@@ -64,13 +72,23 @@ export function createProgressStore({ storage, writeDelayMs = 300 }: ProgressSto
         if (best !== undefined && gradeRank(best) >= gradeRank(grade)) return state;
         return { bestGrades: { ...state.bestGrades, [levelId]: grade } };
       }),
+    recordEstimate: (levelId, guess, close) =>
+      set((state) => {
+        const previous = state.estimates[levelId];
+        const next: EstimateRecord = {
+          guess: guess ?? previous?.guess ?? null,
+          close: (previous?.close ?? false) || (guess !== null && close),
+        };
+        if (previous && previous.guess === next.guess && previous.close === next.close) return state;
+        return { estimates: { ...state.estimates, [levelId]: next } };
+      }),
   }));
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   const write = () => {
     timer = null;
-    const { drafts, bestGrades } = store.getState();
-    writeSave(storage, { drafts, bestGrades });
+    const { drafts, bestGrades, estimates } = store.getState();
+    writeSave(storage, { drafts, bestGrades, estimates });
   };
   const flush = () => {
     if (timer === null) return;
@@ -79,7 +97,7 @@ export function createProgressStore({ storage, writeDelayMs = 300 }: ProgressSto
   };
 
   store.subscribe((state, prev) => {
-    if (state.drafts === prev.drafts && state.bestGrades === prev.bestGrades) return;
+    if (state.drafts === prev.drafts && state.bestGrades === prev.bestGrades && state.estimates === prev.estimates) return;
     if (writeDelayMs <= 0) {
       write();
       return;
@@ -116,4 +134,8 @@ export function useBestGrade(levelId: string): Grade | undefined {
 
 export function useBestGrades(): Readonly<Record<string, Grade>> {
   return useProgress((state) => state.bestGrades);
+}
+
+export function useEstimate(levelId: string): EstimateRecord | undefined {
+  return useProgress((state) => state.estimates[levelId]);
 }

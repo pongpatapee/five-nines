@@ -41,6 +41,22 @@ describe('progress store', () => {
     expect(store.getState().bestGrades[LEVEL]).toBe('mastered');
   });
 
+  it('remembers napkin-maths answers: a bonus stays earned, a skip keeps the last guess', () => {
+    const store = createProgressStore({ storage: null });
+    const { recordEstimate } = store.getState();
+    recordEstimate(LEVEL, null, false);
+    expect(store.getState().estimates[LEVEL]).toEqual({ guess: null, close: false });
+    recordEstimate(LEVEL, 3.5, true);
+    expect(store.getState().estimates[LEVEL]).toEqual({ guess: 3.5, close: true });
+    recordEstimate(LEVEL, 9, false);
+    expect(store.getState().estimates[LEVEL]).toEqual({ guess: 9, close: true });
+    recordEstimate(LEVEL, null, false);
+    expect(store.getState().estimates[LEVEL]).toEqual({ guess: 9, close: true });
+    // A skip can't claim the bonus.
+    store.getState().recordEstimate('other', null, true);
+    expect(store.getState().estimates.other).toEqual({ guess: null, close: false });
+  });
+
   it('persists changes and restores them in a new store', () => {
     const storage = memoryStorage();
     const store = createProgressStore({ storage, writeDelayMs: 0 });
