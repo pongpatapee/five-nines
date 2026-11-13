@@ -119,6 +119,14 @@ describe('replication lag', () => {
     expect(recovering.backlogSec).toBeCloseTo(2, 6);
     expect(lagAfter(0.5, 10, behind).backlogSec).toBe(0);
   });
+
+  it('is continuous through full load: exactly at capacity it neither falls behind nor catches up', () => {
+    const behind = lagAfter(1.25, 20);
+    expect(lagAfter(1, 30, behind).lagSec).toBeCloseTo(behind.lagSec, 9);
+    expect(lagAfter(1 + 1e-9, 30).lagSec).toBeCloseTo(lagAfter(1 - 1e-9, 30).lagSec, 6);
+    // An idle replica catches up at once.
+    expect(lagAfter(0, 0.1, behind).lagSec).toBeCloseTo(REPLICATION.baseLagSec, 12);
+  });
 });
 
 describe('staleness', () => {
