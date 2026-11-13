@@ -32,20 +32,20 @@ Open questions:
   - "N+1": kept spare capacity through a failure
   - "Penny Pincher": mastered while well under budget
   - "Five Nines Club": mastered every level in a chapter
-  - 💡 "Napkin Wizard": estimate within 10% on several levels
+  - 💡 "Napkin Wizard": estimate within 10% on several levels. The estimates are recorded per level in saved progress already; the badge itself isn't built.
 - 💡 **A boss level per chapter:** capstone scenarios (URL shortener, region outage) framed as a big event.
 - 💡 **Cost as a second score:** money saved under budget shown as a figure the boss reacts to.
 
 ## Gameplay and feel 💡
 
-- 💡 **The napkin-math step as a mini-game:** the mentor asks "how many servers will you need?" before you build, with a bonus for being close. It covers back-of-envelope estimation.
-- 💡 **Incident chat during the freeze-frame:** the troublemaker admits fault, the boss panics, and the mentor gives hint 1 of 4.
+- ✅ **The napkin-math step as a mini-game:** the mentor asks "how many servers will you need?" before you build, with a bonus for being close. It covers back-of-envelope estimation. Built: see "Estimate step" in `docs/design.md`.
+- 💡 **Incident chat during the freeze-frame:** the troublemaker admits fault, the boss panics, and the mentor gives hint 1 of 4. (Today the freeze-frame has the mentor's nudge and, after a crash, the failover arithmetic; the full four-step ladder is on the grade card.)
 - 💡 **An in-world postmortem:** the incident card styled as a document, a receipt or a damage report, depending on the look.
 - 💡 **Juice:** sound effects, a small screen shake on a crash, the slow-motion freeze, a "nines counter" that ticks up on a win, and a buzzing pager.
 - 💡 **The error budget as a health bar,** or something themed (Option B's pizza losing slices).
 - 💡 **Daily challenge:** one scenario per day, shareable result.
 - 💡 **Per-level leaderboards:** the cheapest design that still hits five nines.
-- 💡 **Explain latency failures during playback** (from the play-through): a high-utilization server shows why p99 rose.
+- ✅ **Explain latency failures during playback** (from the play-through): a high-utilization server shows why p99 rose. Built: see "Hints and iteration" in `docs/design.md`.
 
 ## Visual direction ✅
 
