@@ -26,6 +26,7 @@
     ]
   },
   "requirements": { "p99Ms": 75, "budgetUsdPerMonth": 2000 },
+  "estimate": { "quantity": "busyVcpusAtPeak", "answer": 50 },
   "solutions": [
     {
       "name": "Four xlarge servers",
