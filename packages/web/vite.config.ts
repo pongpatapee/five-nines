@@ -4,11 +4,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    // This worktree runs alongside others; fail loudly rather than drift to another port.
-    port: 5174,
-    strictPort: true,
-  },
+  // The public path the site is served from. GitHub Pages serves this repo under /five-nines/; locally it's /.
+  base: process.env.BASE_PATH ?? '/',
   build: {
     rolldownOptions: {
       output: {
