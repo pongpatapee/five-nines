@@ -4,11 +4,16 @@
  * work takes.
  *
  * Each tick, the arrivals join the backlog and the station clears what its capacity allows. Work that couldn't be
- * cleared before the timeout fails now, attributed to this tick's arrivals. Below capacity, random queueing comes
- * from the M/M/c model (Erlang C).
+ * cleared before the timeout fails now, attributed to this tick's arrivals. On top of that backlog, random queueing
+ * comes from the M/M/c model with timeouts (`queueDelay`), which stays finite at full load.
+ *
+ * The backlog and the random wait are two views of one queue: the backlog is the part a sustained overload or a spike
+ * builds up, the random wait what the queue holds in steady state. A request waits whichever is longer. Above capacity
+ * the random part is that of a fully loaded station, because the backlog takes the excess: so delay and failures are
+ * continuous through 100% utilization, and a station overflowing at its timeout fails only the excess.
  */
 import { TICK_SEC } from './catalog.ts';
-import { erlangC, sampleExponential, type Rng } from './math.ts';
+import { queueDelay, sampleTruncatedExponential, type Rng } from './math.ts';
 
 export interface StationState {
   up: boolean;
@@ -29,10 +34,12 @@ export interface StationTick {
   overflowFraction: number;
   /** Wait behind the backlog left over from earlier ticks. */
   backlogWaitSec: number;
-  /** Erlang C: chance of waiting for a free worker at all. */
+  /** Chance of waiting for a free worker at all, from random queueing. */
   waitProbability: number;
-  /** μ − λ: the rate of the exponential queueing delay for those who wait. */
-  drainRate: number;
+  /** Chance that random queueing alone keeps the request waiting past the timeout. */
+  lateProbability: number;
+  /** cμ − λ (0 at or above capacity): random waits that end in time are exponential at this rate, truncated. */
+  decayRate: number;
 }
 
 export const DOWN_TICK: StationTick = {
@@ -40,7 +47,8 @@ export const DOWN_TICK: StationTick = {
   overflowFraction: 1,
   backlogWaitSec: 0,
   waitProbability: 0,
-  drainRate: 0,
+  lateProbability: 0,
+  decayRate: 0,
 };
 
 export const IDLE_TICK: StationTick = {
@@ -48,7 +56,8 @@ export const IDLE_TICK: StationTick = {
   overflowFraction: 0,
   backlogWaitSec: 0,
   waitProbability: 0,
-  drainRate: 0,
+  lateProbability: 0,
+  decayRate: 0,
 };
 
 export function newStation(): StationState {
@@ -79,25 +88,17 @@ export function stepStation(
   backlog -= overflow;
   state.backlog = backlog;
 
-  // Random queueing on top of the backlog, from the M/M/c model. Only defined below capacity.
-  const backlogWaitSec = backlog / capacityRps;
-  let waitProbability = 0;
-  let drainRate = 0;
-  if (arrivalRps > 0 && arrivalRps < capacityRps) {
-    waitProbability = erlangC(servers, arrivalRps * meanServiceSec);
-    drainRate = capacityRps - arrivalRps;
-  }
-  const lateProbability = waitProbability * Math.exp(-drainRate * Math.max(0, timeoutSec - backlogWaitSec));
+  // Random queueing, at no more than full load: above it, the backlog carries the excess.
+  const delay = queueDelay(servers, Math.min(arrivalRps, capacityRps), 1 / meanServiceSec, timeoutSec);
 
   return {
     tick: {
       up: true,
       overflowFraction: arriving > 0 ? overflow / arriving : 0,
-      backlogWaitSec,
-      waitProbability,
-      drainRate,
+      backlogWaitSec: backlog / capacityRps,
+      ...delay,
     },
-    failed: overflow + (arriving - overflow) * lateProbability,
+    failed: overflow + (arriving - overflow) * delay.lateProbability,
   };
 }
 
@@ -107,7 +108,8 @@ export function stepStation(
  */
 export function probeWait(tick: StationTick, rng: Rng, timeoutSec: number): number | null {
   if (!tick.up || rng() < tick.overflowFraction) return null;
-  let waitSec = tick.backlogWaitSec;
-  if (rng() < tick.waitProbability) waitSec += sampleExponential(rng, tick.drainRate);
-  return waitSec > timeoutSec ? null : waitSec;
+  const u = rng();
+  if (u < tick.lateProbability) return null;
+  const randomWaitSec = u < tick.waitProbability ? sampleTruncatedExponential(rng, tick.decayRate, timeoutSec) : 0;
+  return Math.max(tick.backlogWaitSec, randomWaitSec);
 }

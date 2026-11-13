@@ -18,9 +18,12 @@ describe('capacity and queueing', () => {
     const result = simulate(makeLevel(), singleServer('small'));
     expect(result.availability).toBeCloseTo(2 / 3, 1);
     expect(result.causes).toEqual([expect.objectContaining({ nodeId: 'app', reason: 'timeout' })]);
-    // The queue absorbs the first second of excess (capacity × timeout) before anything fails.
-    expect(result.causes[0]!.firstAtSec).toBeGreaterThan(1);
-    expect(result.causes[0]!.firstAtSec).toBeLessThan(3);
+    // The queue absorbs the first second of excess (capacity × timeout) before the excess fails. Until then only
+    // random queueing at full load times requests out, well under 1% of them.
+    const failedShare = (second: number) => result.timeline[second]!.failedRps / result.timeline[second]!.offeredRps;
+    expect(failedShare(0)).toBeLessThan(0.01);
+    expect(failedShare(1)).toBeLessThan(0.01);
+    expect(failedShare(4)).toBeCloseTo(1 / 3, 2);
   });
 
   it('makes latency climb with utilization even below capacity', () => {
@@ -53,7 +56,8 @@ describe('capacity and queueing', () => {
     const last = result.timeline.at(-1)!;
     expect(Math.max(...result.timeline.map((frame) => frame.nodes['app']!.instances[0]!.queued))).toBeGreaterThan(0);
     expect(last.nodes['app']!.instances[0]!.queued).toBe(0);
-    expect(result.availability).toBeGreaterThan(0.99999);
+    // Under a second at 125% only times out what random queueing at full load does: about one request.
+    expect(result.failedRequests).toBeLessThan(3);
   });
 });
 
