@@ -147,3 +147,47 @@ describe('data tier: determinism', () => {
     expect(simulate(level, design)).toEqual(simulate(level, design));
   });
 });
+
+describe('data tier: boundary conditions', () => {
+  // Zero-traffic phases, a single key, all-read and all-write mixes, a zero staleness limit, an over-full cache and
+  // an overloaded single replica: every number stays finite, nothing goes negative, and no more fails than arrives.
+  const traffic = [
+    { atSec: 0, rps: 0 },
+    { atSec: 5, rps: 0 },
+    { atSec: 6, rps: 30_000 },
+    { atSec: 15, rps: 30_000 },
+    { atSec: 16, rps: 0 },
+  ];
+  const cases = [0, 1].flatMap((readShare) =>
+    [1, 1_000_000].map((count) => ({ readShare, count })),
+  );
+  it.each(cases)('stays well defined with readShare $readShare over $count keys', ({ readShare, count }) => {
+    const level = dataLevel({
+      durationSec: 25,
+      requirements: { maxStalenessSec: 0 },
+      workload: { traffic },
+      data: { readShare, keys: { count, zipf: 1, valueKb: 1 }, readAfterWrite: { share: 1, meanGapSec: 0.001 } },
+    });
+    const design = dataDesign({
+      database: 'small',
+      cache: { size: 'xlarge', ttlSec: 86_400 },
+      replicas: { size: 'small', count: 1, readYourWritesSec: 0 },
+    });
+    const result = simulate(level, design);
+    expect(result.availability).toBeGreaterThanOrEqual(0);
+    expect(result.availability).toBeLessThanOrEqual(1);
+    expect(result.failedRequests).toBeLessThanOrEqual(result.totalRequests * (1 + 1e-9));
+    for (const frame of result.timeline) {
+      expect(frame.failedRps).toBeLessThanOrEqual(frame.offeredRps * (1 + 1e-9) + 1e-9);
+      for (const node of Object.values(frame.nodes)) {
+        const values = [node.arrivalRps, node.failedRps, node.hitRate ?? 0, node.replicationLagSec ?? 0];
+        for (const instance of node.instances) values.push(instance.utilization, instance.queued);
+        for (const value of values) {
+          expect(Number.isFinite(value)).toBe(true);
+          expect(value).toBeGreaterThanOrEqual(-1e-9);
+        }
+        expect(node.hitRate ?? 0).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+});
