@@ -101,7 +101,8 @@ describe('failover', () => {
     expect(slow.lostShare).toBeGreaterThan(fast.lostShare * 3);
     const lines = cast.failoverLines(fast);
     expect(lines.join(' ')).toMatch(/lb checks every 5 s and needs 2 failed checks/);
-    expect(lines.join(' ')).toMatch(/1 in 5 requests went to a dead server/);
+    expect(lines.join(' ')).toMatch(/1 in 5 requests went to a dead server and failed: [\d,]+ requests \(1\.0% of the run\)/);
+    expect(lines.join(' ')).toMatch(/took it out of rotation at t=70s, 9 seconds after the crash/);
     expect(cast.failoverLines(slow).join(' ')).toMatch(/checks every 30 s/);
   });
 
@@ -184,11 +185,13 @@ describe('the hint ladder', () => {
     });
     const crash = story(level3, 'N+1 with fast health checks, no retries');
     expect(crash).toMatchObject({ topic: 'crash', nodeId: 'app', noneLeft: false });
-    expect(hintLadder(level3, crash).rungs[1]!.text).toMatch(/1 in 5 requests went to a dead server/);
+    expect(hintLadder(level3, crash).rungs[1]!.text).toMatch(
+      /^lb took 9 seconds to take it out of rotation \(2 failed checks, 5 s apart\)\. Until then 1 in 5 requests hit a dead server: [\d,]+ requests, 1\.0% of the run\. A pass allows 0\.1%\.$/,
+    );
     expect(story(level6, 'Pinned for 1 second')).toMatchObject({ topic: 'stale', readAfterWrite: true, pinnedSec: 1 });
     expect(story(level5, 'Two large read replicas').topic).toMatch(/stale|overload/);
     const overload = story(level1, 'One small server');
-    expect(hintLadder(level1, overload).rungs[1]!.text).toMatch(/app got as far as 1\d\d% busy, more than it can serve/);
+    expect(hintLadder(level1, overload).rungs[1]!.text).toMatch(/app got as far as 1\d\d% busy, over capacity/);
   });
 
   it('has nothing to say about a run that passed', () => {

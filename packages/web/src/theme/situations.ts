@@ -194,6 +194,8 @@ export interface FailoverSituation {
   lostShare: number;
   /** The moment this describes: the freeze-frame, or the end of the run. */
   asOfSec: number;
+  /** Whether this describes the whole run (the grade card) rather than a moment in it (the freeze-frame). */
+  wholeRun: boolean;
 }
 
 /**
@@ -259,6 +261,7 @@ export function failoverSituation(
     lostRequests,
     lostShare: offered > 0 ? lostRequests / offered : 0,
     asOfSec: asOfSec === undefined ? end : until,
+    wholeRun: asOfSec === undefined,
   };
 }
 

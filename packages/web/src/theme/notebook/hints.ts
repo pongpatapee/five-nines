@@ -6,24 +6,24 @@
  * The concept and fix rungs are written per level and per kind of failure, with a general line for each kind as
  * the fallback. CI checks every level has its own line for every failure its known wrong answers produce.
  */
-import { COMPONENT_LABELS, type EstimateWorking } from '@five-nines/sim';
+import { AVAILABILITY_TIERS, COMPONENT_LABELS, type EstimateWorking } from '@five-nines/sim';
 import { formatCount, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
 import type { EstimateResult, MentorEstimateScript, MentorLadderScript } from '../contract.ts';
 import type { FailoverSituation, FailureStory, HintTopic, LatencySituation } from '../situations.ts';
 
 // ---------------------------------------------------------------------------- numbers, said aloud
 
-/** "87% busy", "130% busy, more than it can serve", "with nothing left to serve it". */
+/** "87% busy", "130% busy, over capacity", "with nothing left to serve it". */
 export function busy(utilization: number): string {
   if (!Number.isFinite(utilization)) return 'with nothing left to serve it';
   const pct = formatPercent(utilization);
-  return utilization > 1 ? `${pct} busy, more than it can serve` : `${pct} busy`;
+  return utilization > 1 ? `${pct} busy, over capacity` : `${pct} busy`;
 }
 
-/** "about 1 second", "1.9 seconds", "12 seconds". */
+/** "1 second", "0.43 seconds", "1.9 seconds", "9 seconds", "59 seconds". */
 function seconds(sec: number): string {
-  const text = formatSeconds(sec).replace(/ s$/, '');
-  return `${text} ${text === '1.0' || text === '1' ? 'second' : 'seconds'}`;
+  const text = Number.isInteger(Math.round(sec * 10) / 10) ? String(Math.round(sec)) : formatSeconds(sec).replace(/ s$/, '');
+  return `${text} ${text === '1' ? 'second' : 'seconds'}`;
 }
 
 /** "app instance 2", or just "app" for a single-instance server. */
@@ -68,7 +68,7 @@ export function failoverLines(s: FailoverSituation): string[] {
     }
   }
 
-  const lost = `${formatCount(s.lostRequests)} requests (${formatPercent(s.lostShare, s.lostShare < 0.01 ? 2 : 1)} of all so far)`;
+  const lost = `${formatCount(s.lostRequests)} requests (${share(s.lostShare)} of ${s.wholeRun ? 'the run' : 'all so far'})`;
   if (s.retries) {
     lines.push(
       s.lostRequests >= 1
@@ -82,6 +82,14 @@ export function failoverLines(s: FailoverSituation): string[] {
   }
   return lines;
 }
+
+/** "1.0%", "0.34%": enough digits to compare with the 0.1% a pass allows. */
+function share(fraction: number): string {
+  return formatPercent(fraction, fraction < 0.01 ? 2 : 1);
+}
+
+/** What a pass allows to fail: "0.1%". */
+const PASS_BUDGET = formatPercent(1 - AVAILABILITY_TIERS.pass, 1);
 
 // ---------------------------------------------------------------------------- the hint ladder
 
@@ -115,8 +123,16 @@ function why(story: FailureStory): string {
       return story.peakUtilization === null
         ? `${story.nodeId} couldn't keep up: requests waited in its queue past the ${formatMs(story.timeoutMs)} timeout.`
         : `${story.nodeId} got as far as ${busy(story.peakUtilization)}. Work arrived faster than it finished, the queue grew, and requests waited past the ${formatMs(story.timeoutMs)} timeout.`;
-    case 'crash':
-      return story.failover ? failoverLines(story.failover).join(' ') : `${story.nodeId} lost its last instance.`;
+    case 'crash': {
+      const f = story.failover;
+      if (!f) return `${story.nodeId} lost its last instance, and nothing was left to serve the traffic.`;
+      const noticed =
+        f.removedAtSec === null
+          ? `${f.balancerId ?? 'Nothing'} never took it out of rotation`
+          : `${f.balancerId} took ${seconds(f.removedAtSec - f.crashedAtSec)} to take it out of rotation (${f.checksToRemove} failed checks, ${f.healthCheckIntervalSec} s apart)`;
+      const traffic = f.rotationSize > 1 ? `1 in ${f.rotationSize} requests` : 'every request';
+      return `${noticed}. Until then ${traffic} hit a dead server: ${formatCount(f.lostRequests)} requests, ${share(f.lostShare)} of the run. A pass allows ${PASS_BUDGET}.`;
+    }
     case 'stale': {
       const lag = story.peakLagSec === null ? '' : ` It fell as far as ${seconds(story.peakLagSec)} behind the primary.`;
       if (story.readAfterWrite) {
