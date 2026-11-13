@@ -155,13 +155,37 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 
 - Node-graph canvas, a component palette, and an inspector panel for each node's settings.
 - A live cost meter that's always visible.
-- Show each component's capacity numbers, and its **expected peak utilization** with the arithmetic beside it (built): a gauge in the inspector (green under 70%, amber to 85%, red above, hatched past 100%) and a small dial on each node. It's load ÷ capacity at the level's peak, worked out on paper (`peakLoad` in `sim`): load-balancer fan-out, the best cache hit rate the run allows, the read/write split to the primary and replicas, and what the level's crash leaves. It never predicts p99: utilization is the number to reason with, latency is what the run shows. The napkin-maths step (below) asks for the arithmetic before the gauge gives it away.
+- Show each component's capacity numbers, and its **expected peak utilization** with the arithmetic beside it (built): a gauge in the inspector (green under 70%, amber to 85%, red above, hatched past 100%) and a small dial on each node. It's load ÷ capacity at the level's peak, worked out on paper (`peakLoad` in `sim`): load-balancer fan-out, the best cache hit rate the run allows, the read/write split to the primary and replicas, and what the level's crash leaves. It never predicts p99: utilization is the number to reason with, latency is what the run shows. A queue's gauge reads its backlog against the deadline or its room, whichever is closer, worded as such rather than as p99. In a level whose cache restarts, a database also shows its load the moment the cache comes back empty. The napkin-maths step (below) asks for the arithmetic before the gauge gives it away.
 
 ### Estimate step (covers back-of-envelope estimation)
 
 - Before building, the mentor asks one question, e.g. "how many app servers will you need?" or "what cache hit rate do you need to protect the database?" (built). Each level's `estimate` names a quantity worked out from its own numbers (`estimate.ts`); the recorded answer is checked against that working in CI.
 - The player answers or skips, and sees the working. An estimate within ±10% earns a bonus mark, kept in saved progress for the Napkin Wizard badge. The step can be reopened from the top bar.
 - Not yet: the debrief comparing the estimate to what actually happened.
+
+### Progression and rewards (built)
+
+Pure functions in `packages/web/src/progression/`, over saved progress and run results; the theme only words and draws them.
+
+- **Nines are the currency.** A level pays the nines of its best grade: 3 for a pass, 4 for a star, 5 for mastered (50 across the ten built levels; each new level adds 5). Replaying never pays twice, only a better grade pays the difference. The contents page shows the running total; the grade card ticks it up one nine at a time.
+- **Unlocks.** A level opens when the one before it is passed. A chapter also needs enough nines in total: Growing Pains 10, Hypergrowth 22, Worldwide 36 (every earlier page passed plus one, four and six tiers above a pass). A level the player already has a grade on always stays open, so older saves (from builds where everything was open) lose nothing. Locked pages show on the map with a padlock and say what opens them. `?unlock=all` before the `#` opens everything for testing, without touching the save.
+- **Badges** (once earned, kept):
+  - *Right-sized*: passed with every app-server instance at least 60% busy at its own peak (a pass already means within budget).
+  - *N+1*: passed a level with a scripted crash, the crashed node's survivors never above 85% (the hot line) afterwards.
+  - *Penny Pincher*: mastered for at most 80% of the budget.
+  - *Five Nines Club*: mastered every level of a chapter.
+  - *Napkin Wizard*: the estimate bonus (within 10%) on 3 levels.
+  The contents page shows earned and unearned badges with how to earn each; the grade card stamps new ones, handed over by a cast member.
+- **Cost as a second score.** The grade card shows the money left under budget, and the boss reacts to it.
+- **Saved progress** is versioned inside its key (`five-nines:v1`, version 2 adds badges). A version 1 save loads intact and is awarded the badges its grades and estimates already earn. A save the build can't read is copied to `five-nines:unreadable-backup` before anything could overwrite it, and if that copy fails the game doesn't write at all.
+
+### Juice (built)
+
+Everything respects `prefers-reduced-motion`; sound is off until the player turns it on (a toggle on every screen, kept in its own `five-nines:settings` key).
+
+- The page shakes when the troublemaker breaks a machine during playback (a crash or a cache restart; playing through it, not scrubbing), and the pager buzzes for every strike.
+- Easing into the freeze-frame darkens the page around the drawing; the incident, the grade and new badges land as ink stamps.
+- Sounds are synthesised with the Web Audio API, no files: a page turn between screens, a pen scratch for hints and estimates, a pencil tick per nine, a stamp for grades, badges and the incident, a pager buzz, and a win chime. The game names the moment (`SoundCue`); the theme supplies the sound.
 
 ### Run
 
@@ -198,6 +222,8 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 **The engineer's notebook.** Every screen is a page in a spiral-bound notebook: graph paper, ink doodles of real components, hand-lettered headings. The error budget is a row of tally marks crossed out as requests fail, the postmortem is a sticky note with the root cause circled in red pen, the result is a marked page, and the campaign map is a hand-drawn trail through the chapters. Real component names stay visible next to every doodle.
 
+Text in the notebook is at least 12px as rendered and 4.5:1 against its paper; `test/contrast.test.ts` measures the rewards screens and the chapter 3 readouts from the stylesheets and tokens.
+
 **The cast, by role.** The game only ever asks for a role; the notebook supplies the character:
 
 | Role | What the game asks for | Notebook character |
@@ -208,7 +234,7 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 Lines are always worded from what actually happened: the game derives the situation (the level's first crash or spike, the check that failed), the theme only words it.
 
-**The theme boundary.** Everything style-specific (art, character names and lines, words such as "page" for a level, and all CSS, with raw colours only in its tokens) lives in one folder, `packages/web/src/theme/notebook/`. Screens reach it only through `theme/index.ts`, which selects it statically and exposes the slots of the `Theme` contract (`theme/contract.ts`): the cast script and speech bubble, component art, budget meter, postmortem card, grade card, campaign map and small marks. A new art style is a new folder implementing that contract, plus its favicon and font links in `index.html`. There is no runtime theme switching.
+**The theme boundary.** Everything style-specific (art, character names and lines, words such as "page" for a level, and all CSS, with raw colours only in its tokens) lives in one folder, `packages/web/src/theme/notebook/`. Screens reach it only through `theme/index.ts`, which selects it statically and exposes the slots of the `Theme` contract (`theme/contract.ts`): the cast script and speech bubble, component art, budget meter, postmortem card, grade card, campaign map, badge shelf, small marks and sounds. A new art style is a new folder implementing that contract, plus its favicon and font links in `index.html`. There is no runtime theme switching.
 
 ---
 

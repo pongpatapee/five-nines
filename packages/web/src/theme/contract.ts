@@ -20,8 +20,12 @@ import type {
 import type { ComponentType, ReactNode, Ref } from 'react';
 import type { GradedEvaluation } from '../engine/index.ts';
 import type { BudgetUsage } from '../playback/series.ts';
+import type { BadgeId, ChapterAccess, EarnedBadges, LevelAccess, RunReward } from '../progression/index.ts';
+import type { RevealState } from '../results/reveal.ts';
 import type {
   CheckSummary,
+  LockSituation,
+  SavingsSituation,
   FailoverSituation,
   FailureStory,
   HintLadder,
@@ -80,6 +84,23 @@ export interface CastScript {
   failoverLines(situation: FailoverSituation): string[];
   /** The napkin-maths step before building. */
   mentorEstimate: MentorEstimateScript;
+  /** The boss on the money a design left under the budget: the second score. */
+  bossSavings(situation: SavingsSituation): string;
+  /** Every badge: its name, what earns it, and who hands it over with what line. */
+  badges: Readonly<Record<BadgeId, BadgeCopy>>;
+  /** Why a level is still closed, said by whoever would say it. */
+  lockedLevel(situation: LockSituation): { role: CastRole; line: string };
+  /** The line under the nines counter when a run opens a chapter. */
+  chapterOpened(chapterNumber: number, title: string): string;
+}
+
+export interface BadgeCopy {
+  name: string;
+  /** What earns it, precisely enough to aim for. */
+  how: string;
+  /** Who hands it over, and what they say. */
+  role: CastRole;
+  line: string;
 }
 
 export interface MentorLadderScript {
@@ -187,6 +208,12 @@ export interface GradeCardProps {
   onShowDebrief(): void;
   /** Null when there's no next level or this attempt didn't pass. */
   onNextLevel: (() => void) | null;
+  /** The run's payout, once recorded. */
+  reward: RewardView | null;
+  /** Money left under the budget, or null when over it. */
+  savings: SavingsSituation | null;
+  /** The player revealed another hint. */
+  onHintRevealed?(): void;
 }
 
 export interface CampaignMapProps {
@@ -197,6 +224,24 @@ export interface CampaignMapProps {
   best: Readonly<Record<string, Grade>>;
   /** Index of the level to play next, or null when all are passed. */
   nextUp: number | null;
+  /** Whether each level (by id) is open, and if not, why. */
+  access: Readonly<Record<string, LevelAccess>>;
+  /** Whether each chapter (by id) has enough nines to open. */
+  chapterAccess: Readonly<Record<string, ChapterAccess>>;
+}
+
+export interface BadgeShelfProps {
+  earned: EarnedBadges;
+  /** "p.3 · Pull the Plug", for where a badge was earned. */
+  levelLabel(levelId: string): string;
+}
+
+/** What the grade card shows of a run's payout, as the reveal has got to so far. */
+export interface RewardView {
+  reward: RunReward;
+  shown: RevealState;
+  /** Chapters the run opened. */
+  openedChapters: readonly { number: number; title: string }[];
 }
 
 /**
@@ -235,7 +280,34 @@ export interface ThemeMarks {
   Nines: ComponentType<NinesProps>;
   /** Over the root-cause node on the freeze-frame. Decorative. */
   RootCause: ComponentType;
+  /** The sound toggle's icon: a speaker, struck through when off. Decorative (the button carries the label). */
+  Sound: ComponentType<{ on: boolean }>;
 }
+
+/** Moments the game makes a sound for. Sound is off unless the player turns it on. */
+export type SoundCue =
+  /** Moving between screens. */
+  | 'navigate'
+  /** A hint revealed, an estimate checked. */
+  | 'hint'
+  /** One nine ticking onto the counter. */
+  | 'nine'
+  /** The grade stamped on the result. */
+  | 'grade'
+  /** A badge stamped. */
+  | 'badge'
+  /** A passing grade. */
+  | 'win'
+  /** The troublemaker strikes during playback: a crash, a restart, a hot key. */
+  | 'crash'
+  /** Playback freezes on the incident. */
+  | 'incident';
+
+/**
+ * A short synthesised sound: schedules nodes on `context` starting at `at` (its clock, seconds) into `out`, and
+ * stops every source it starts. No audio files.
+ */
+export type SoundSynth = (context: BaseAudioContext, out: AudioNode, at: number) => void;
 
 export interface Theme {
   /** Wraps every screen. */
@@ -256,5 +328,8 @@ export interface Theme {
   CampaignMap: ComponentType<CampaignMapProps>;
   /** Expected peak utilization, in the inspector and on canvas nodes while building. */
   UtilizationGauge: ComponentType<UtilizationGaugeProps>;
+  /** Badges earned and still to earn, beside the campaign map. */
+  BadgeShelf: ComponentType<BadgeShelfProps>;
   marks: ThemeMarks;
+  sounds: Readonly<Record<SoundCue, SoundSynth>>;
 }

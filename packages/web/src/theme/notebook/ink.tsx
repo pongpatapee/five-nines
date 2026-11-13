@@ -181,3 +181,33 @@ export function RootCauseCircle() {
     </div>
   );
 }
+
+/** A hand-drawn speaker: sound waves when on, crossed out when off. Decorative. */
+export function SpeakerMark({ on }: { on: boolean }) {
+  return (
+    <svg width={22} height={18} viewBox="0 0 22 18" aria-hidden className="speaker-mark">
+      <path d="M2,6.5 L6,6.5 L11,2 L11,16 L6,11.5 L2,11.5 Z" style={paint('currentColor', 'currentColor', 1.4)} strokeLinejoin="round" />
+      {on ? (
+        <path d="M14,6 C15.5,7.5 15.5,10.5 14,12 M16.5,3.5 C19.5,6.5 19.5,11.5 16.5,14.5" style={paint(null, 'currentColor', 1.8)} strokeLinecap="round" />
+      ) : (
+        <path d="M14.5,6 L20,12 M20,6 L14.5,12" style={paint(null, 'var(--red-pen)', 2)} strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
+/**
+ * A badge as a rubber-stamp seal: a double ring with the badge's glyph. Earned seals are inked; ones still to earn
+ * are a dashed pencil outline. Decorative: the badge's name is always written beside it.
+ */
+export function BadgeSeal({ glyph, earned, size = 56 }: { glyph: string; earned: boolean; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 56 56" aria-hidden className="badge-seal" data-earned={earned}>
+      <circle cx={28} cy={28} r={25} className="badge-seal__ring" strokeDasharray={earned ? undefined : '4 3'} />
+      <circle cx={28} cy={28} r={20} className="badge-seal__ring badge-seal__ring--inner" strokeDasharray={earned ? undefined : '3 3'} />
+      <text x={28} y={28} dy="0.35em" textAnchor="middle" className="badge-seal__glyph" style={{ fontSize: 16 }}>
+        {earned ? glyph : '?'}
+      </text>
+    </svg>
+  );
+}

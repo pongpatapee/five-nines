@@ -7,6 +7,7 @@ import {
   HEALTH_CHECK,
   LOAD_BALANCER,
   nodeCostUsdPerMonth,
+  type Chapter,
   type ComponentKind,
   type Design,
   type DesignIssue,
@@ -21,6 +22,7 @@ import {
   type TimelineFrame,
 } from '@five-nines/sim';
 import type { GradedEvaluation } from '../engine/index.ts';
+import type { LevelAccess } from '../progression/index.ts';
 import type { CastScript } from './contract.ts';
 
 /**
@@ -548,4 +550,55 @@ export function hintLadder(level: Level, story: FailureStory, script: CastScript
       { step: 'fix', text: words.fix(level.id, story.topic) },
     ],
   };
+}
+
+/**
+ * Money left under the budget: the second score (docs/ideas.md, "Cost as a second score"). Null when the design went
+ * over budget (the boss's verdict already covers that).
+ */
+export interface SavingsSituation {
+  savedUsdPerMonth: number;
+  costUsdPerMonth: number;
+  budgetUsdPerMonth: number;
+  /** Saved ÷ budget, 0…1. */
+  share: number;
+  grade: Grade;
+}
+
+export function savingsSituation(evaluation: Pick<GradedEvaluation, 'grade' | 'checks'>): SavingsSituation | null {
+  const { costUsdPerMonth, budgetUsdPerMonth, ok } = evaluation.checks.budget;
+  if (!ok || budgetUsdPerMonth <= 0) return null;
+  const savedUsdPerMonth = budgetUsdPerMonth - costUsdPerMonth;
+  return { savedUsdPerMonth, costUsdPerMonth, budgetUsdPerMonth, share: savedUsdPerMonth / budgetUsdPerMonth, grade: evaluation.grade };
+}
+
+/** Why a level is closed, with what the cast needs to say it. */
+export type LockSituation =
+  | { kind: 'previousLevel'; levelNumber: number; title: string }
+  | { kind: 'chapter'; chapterNumber: number; chapterTitle: string; needed: number; have: number };
+
+/** Null for an open level. */
+export function lockSituation(
+  access: LevelAccess,
+  levels: readonly Pick<Level, 'id' | 'title'>[],
+  chapters: readonly Chapter[],
+): LockSituation | null {
+  switch (access.kind) {
+    case 'open':
+      return null;
+    case 'previousLevel': {
+      const index = levels.findIndex((level) => level.id === access.levelId);
+      return { kind: 'previousLevel', levelNumber: index + 1, title: levels[index]?.title ?? access.levelId };
+    }
+    case 'chapter': {
+      const index = chapters.findIndex((chapter) => chapter.id === access.chapterId);
+      return {
+        kind: 'chapter',
+        chapterNumber: index + 1,
+        chapterTitle: chapters[index]?.title ?? access.chapterId,
+        needed: access.needed,
+        have: access.have,
+      };
+    }
+  }
 }

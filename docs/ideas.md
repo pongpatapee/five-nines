@@ -23,25 +23,25 @@ Open questions:
 - 💡 Should the troublemaker announce events in the briefing ("I might trip over something around minute one")? That's fair warning, and it adds personality.
 - 💡 Voiced lines are out of scope for now. Text only.
 
-## Rewards and progression 👍
+## Rewards and progression ✅
 
-- 👍 **Nines as the reward currency.** Each level pays out 3, 4 or 5 nines (pass, star, mastered), and nines unlock chapters. This ties scoring straight to the game's name.
-- 👍 **A campaign map with chapters** that follow a story arc (e.g. a company growing from garage to worldwide). Each level is a node showing the nines earned.
-- 👍 **Badges for good engineering habits**, not grinding:
+- ✅ **Nines as the reward currency.** Each level pays out 3, 4 or 5 nines (pass, star, mastered), and nines unlock chapters. This ties scoring straight to the game's name. Built: see "Progression and rewards" in `docs/design.md`.
+- ✅ **A campaign map with chapters** that follow a story arc (e.g. a company growing from garage to worldwide). Each level is a node showing the nines earned.
+- ✅ **Badges for good engineering habits**, not grinding (built, with exact definitions in `docs/design.md`):
   - "Right-sized": passed without overprovisioning
   - "N+1": kept spare capacity through a failure
   - "Penny Pincher": mastered while well under budget
   - "Five Nines Club": mastered every level in a chapter
-  - 💡 "Napkin Wizard": estimate within 10% on several levels. The estimates are recorded per level in saved progress already; the badge itself isn't built.
+  - "Napkin Wizard": estimate within 10% on three levels
 - 💡 **A boss level per chapter:** capstone scenarios (URL shortener, region outage) framed as a big event.
-- 💡 **Cost as a second score:** money saved under budget shown as a figure the boss reacts to.
+- ✅ **Cost as a second score:** money saved under budget shown as a figure the boss reacts to. Built on the grade card.
 
 ## Gameplay and feel 💡
 
 - ✅ **The napkin-math step as a mini-game:** the mentor asks "how many servers will you need?" before you build, with a bonus for being close. It covers back-of-envelope estimation. Built: see "Estimate step" in `docs/design.md`.
 - 💡 **Incident chat during the freeze-frame:** the troublemaker admits fault, the boss panics, and the mentor gives hint 1 of 4. (Today the freeze-frame has the mentor's nudge and, after a crash, the failover arithmetic; the full four-step ladder is on the grade card.)
 - 💡 **An in-world postmortem:** the incident card styled as a document, a receipt or a damage report, depending on the look.
-- 💡 **Juice:** sound effects, a small screen shake on a crash, the slow-motion freeze, a "nines counter" that ticks up on a win, and a buzzing pager.
+- ✅ **Juice:** sound effects, a small screen shake on a crash, the slow-motion freeze, a "nines counter" that ticks up on a win, and a buzzing pager. Built: see "Juice" in `docs/design.md`.
 - 💡 **The error budget as a health bar,** or something themed (Option B's pizza losing slices).
 - 💡 **Daily challenge:** one scenario per day, shareable result.
 - 💡 **Per-level leaderboards:** the cheapest design that still hits five nines.

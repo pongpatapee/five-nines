@@ -1,5 +1,7 @@
 import { designCostUsdPerMonth, LEVELS, validateDesign, type Evaluation, type Level } from '@five-nines/sim';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { playCue } from '../audio/sfx.ts';
+import { SoundToggle } from '../audio/SoundToggle.tsx';
 import { DesignCanvas } from '../canvas/index.ts';
 import type { Draft } from '../canvas/types.ts';
 import { Editor } from '../editor/index.tsx';
@@ -13,6 +15,7 @@ import { cast, marks, words } from '../theme/index.ts';
 import { EstimateStep } from './EstimateStep.tsx';
 import { CostMeter } from './CostMeter.tsx';
 import { BriefingPanel } from './BriefingPanel.tsx';
+import { useCampaign } from './campaign.ts';
 import { INITIAL_MODE, levelModeReducer, type LevelMode, type ResultView } from './levelMode.ts';
 
 export interface LevelScreenProps {
@@ -36,7 +39,10 @@ export function LevelScreen({ level }: LevelScreenProps) {
   const inflight = useRef<{ runId: number; promise: Promise<Evaluation> } | null>(null);
 
   const levelIndex = LEVELS.findIndex((l) => l.id === level.id);
-  const nextLevel = LEVELS[levelIndex + 1] ?? null;
+  const campaign = useCampaign();
+  const following = LEVELS[levelIndex + 1] ?? null;
+  // "Next page" only leads somewhere open: passing this page opens the next, unless its chapter needs more nines.
+  const nextLevel = following && campaign.access[following.id]?.kind === 'open' ? following : null;
   const issues = useMemo(() => validateDesign(draft.design, level), [draft.design, level]);
   const hasErrors = issues.some((issue) => issue.severity === 'error');
 
@@ -59,7 +65,10 @@ export function LevelScreen({ level }: LevelScreenProps) {
   }, [level.id]);
 
   const handleEstimateAnswer = useCallback(
-    (guess: number, close: boolean) => progressStore.getState().recordEstimate(level.id, guess, close),
+    (guess: number, close: boolean) => {
+      playCue('hint');
+      return progressStore.getState().recordEstimate(level.id, guess, close);
+    },
     [level.id],
   );
   const handleEstimateSkip = useCallback(() => {
@@ -258,6 +267,7 @@ function TopBar({
             Debrief &amp; solutions
           </button>
         )}
+        <SoundToggle />
       </div>
     </header>
   );

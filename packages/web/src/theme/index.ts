@@ -20,6 +20,7 @@ export const {
   GradeCard,
   CampaignMap,
   UtilizationGauge,
+  BadgeShelf,
   marks,
 } = theme;
 
@@ -31,12 +32,16 @@ export {
   hottestShard,
   latencyAt,
   latencyWorthNoting,
+  lockSituation,
+  savingsSituation,
   verdictFor,
   worstLatency,
   type FailoverSituation,
   type FailureStory,
   type HintLadder,
   type LatencySituation,
+  type LockSituation,
+  type SavingsSituation,
 } from './situations.ts';
 
 /** The mentor's hint for a failure reason, or the sign-off when there's none. */

@@ -9,9 +9,16 @@
  */
 import { COMPONENT_LABELS, type FailureReason, type Grade } from '@five-nines/sim';
 import { formatAvailability, formatCount, formatMs, formatPercent, formatUsd } from '../../format.ts';
+import {
+  NAPKIN_WIZARD_LEVELS,
+  N_PLUS_ONE_MAX_AFTER_CRASH,
+  PENNY_PINCHER_MAX_SPEND,
+  RIGHT_SIZED_MIN_PEAK,
+  type BadgeId,
+} from '../../progression/index.ts';
 import { tierPercent } from '../../results/grading.ts';
-import type { CastScript } from '../contract.ts';
-import type { LevelStress, Verdict } from '../situations.ts';
+import type { BadgeCopy, CastRole, CastScript } from '../contract.ts';
+import type { LevelStress, LockSituation, SavingsSituation, Verdict } from '../situations.ts';
 import { failoverLines, MENTOR_ESTIMATE, MENTOR_LADDER, mentorLatency } from './hints.ts';
 
 const MEMBERS = {
@@ -97,6 +104,65 @@ const MENTOR_HINTS: Record<FailureReason, string> = {
     'Orders sat in the queue past the deadline. How fast must the workers drain it to clear the spike in time?',
 };
 
+/** Ms. Tally on the money left over. Fails get a grudging "at least". */
+function bossSavings({ savedUsdPerMonth, share, grade }: SavingsSituation): string {
+  const saved = formatUsd(savedUsdPerMonth);
+  if (grade === 'fail') {
+    return savedUsdPerMonth > 0 ? `At least it was cheap: ${saved} a month under budget.` : 'At least it was on budget.';
+  }
+  if (savedUsdPerMonth <= 0) return 'Every last cent of the budget. Bold. Do not make it a habit.';
+  if (share >= 1 - PENNY_PINCHER_MAX_SPEND) return `${saved} a month to spare. Now that's engineering.`;
+  if (share >= 0.05) return `${saved} a month under budget. I'll take it.`;
+  return `${saved} under. Cutting it fine, but under.`;
+}
+
+const BADGES: Record<BadgeId, BadgeCopy> = {
+  rightSized: {
+    name: 'Right-sized',
+    how: `Pass a page with every app server at least ${formatPercent(RIGHT_SIZED_MIN_PEAK)} busy at its peak.`,
+    role: 'boss',
+    line: 'Not one idle server on my bill. Lovely.',
+  },
+  nPlusOne: {
+    name: 'N+1',
+    how: `Pass a page through a crash, with the surviving servers never over ${formatPercent(N_PLUS_ONE_MAX_AFTER_CRASH)} busy.`,
+    role: 'troublemaker',
+    line: 'hmph. I pulled the plug and nobody even broke a sweat.',
+  },
+  pennyPincher: {
+    name: 'Penny Pincher',
+    how: `Master a page spending at most ${formatPercent(PENNY_PINCHER_MAX_SPEND)} of its budget.`,
+    role: 'boss',
+    line: 'Five nines and change left over? Frame this receipt.',
+  },
+  fiveNinesClub: {
+    name: 'Five Nines Club',
+    how: 'Master every page in a chapter.',
+    role: 'mentor',
+    line: 'A whole chapter at 99.999%. Welcome to the club, kid.',
+  },
+  napkinWizard: {
+    name: 'Napkin Wizard',
+    how: `Get the napkin maths within 10% on ${NAPKIN_WIZARD_LEVELS} pages.`,
+    role: 'mentor',
+    line: `${NAPKIN_WIZARD_LEVELS} napkins, ${NAPKIN_WIZARD_LEVELS} bullseyes. No calculator? I'm impressed.`,
+  },
+};
+
+function lockedLevel(situation: LockSituation): { role: CastRole; line: string } {
+  switch (situation.kind) {
+    case 'previousLevel':
+      return { role: 'mentor', line: `One page at a time, kid. Pass p.${situation.levelNumber}, ${situation.title}, first.` };
+    case 'chapter': {
+      const more = situation.needed - situation.have;
+      return {
+        role: 'boss',
+        line: `Chapter ${situation.chapterNumber} costs ${situation.needed} nines. You have ${situation.have}: earn ${more} more. Stars on earlier pages count.`,
+      };
+    }
+  }
+}
+
 export const NOTEBOOK_SCRIPT: CastScript = {
   members: MEMBERS,
   bossBrief: (level) => `${formatUsd(level.requirements.budgetUsdPerMonth)} a month. Not a cent over.`,
@@ -122,4 +188,8 @@ export const NOTEBOOK_SCRIPT: CastScript = {
   mentorLatency,
   failoverLines,
   mentorEstimate: MENTOR_ESTIMATE,
+  bossSavings,
+  badges: BADGES,
+  lockedLevel,
+  chapterOpened: (chapterNumber, title) => `Chapter ${chapterNumber}, ${title}, is open.`,
 };

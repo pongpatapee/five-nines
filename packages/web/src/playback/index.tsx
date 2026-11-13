@@ -21,6 +21,8 @@ import { prepareSeries } from './series.ts';
 import { TimelineStrip } from './TimelineStrip.tsx';
 import { useReducedMotion } from './useReducedMotion.ts';
 import { BudgetMeter, failoverSituation, PostmortemCard } from '../theme/index.ts';
+import { playCue } from '../audio/sfx.ts';
+import { strikesPlayed } from './juice.ts';
 import { LatencyNote } from './LatencyNote.tsx';
 
 export interface PlaybackProps {
@@ -93,6 +95,34 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
     wasFrozen.current = frozen;
   }, [frozen, rootCauseId, reducedMotion]);
 
+  // ---- juice: the pager buzzes when the troublemaker strikes, the page shakes when a machine breaks ----
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let previous = controller.getSnapshot().clock.timeSec;
+    return controller.onFrame(({ clock: now }) => {
+      const strikes = strikesPlayed(simulation.events, previous, now.timeSec);
+      previous = now.timeSec;
+      if (strikes.length === 0) return;
+      playCue('crash');
+      const stage = stageRef.current;
+      if (stage && !reducedMotion && strikes.some((strike) => strike.shake)) {
+        // Restart the shake even if one is still running.
+        stage.classList.remove('is-shaking');
+        void stage.offsetWidth;
+        stage.classList.add('is-shaking');
+      }
+    });
+  }, [controller, simulation.events, reducedMotion]);
+
+  // Once per freeze (a ref, so StrictMode's replayed effect stays quiet).
+  const incidentSounded = useRef(false);
+  useEffect(() => {
+    if (!frozen || incidentSounded.current) return;
+    incidentSounded.current = true;
+    playCue('incident');
+  }, [frozen]);
+
   // ---- finishing: after a short beat at the end, go to the results ----
 
   useEffect(() => {
@@ -144,7 +174,14 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
 
   return (
     <div className="playback">
-      <div className="playback__stage">
+      <div
+        ref={stageRef}
+        className="playback__stage"
+        data-slowmo={clock.freeze.kind === 'easing' || frozen}
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget) event.currentTarget.classList.remove('is-shaking');
+        }}
+      >
         <DesignCanvas
           mode="readOnly"
           draft={draft}
