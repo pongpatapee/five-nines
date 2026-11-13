@@ -4,14 +4,32 @@
  */
 import { COMFORTABLE_UTILIZATION, HOT_UTILIZATION, utilizationZone, type UtilizationZone } from '@five-nines/sim';
 import { formatPercent } from '../../format.ts';
-import type { UtilizationGaugeProps } from '../contract.ts';
+import type { GaugeMeasure, UtilizationGaugeProps } from '../contract.ts';
 
-/** What each zone is called next to the reading. */
-export const ZONE_WORDS: Record<UtilizationZone, string> = {
-  comfortable: 'comfortable',
-  busy: 'busy',
-  hot: 'hot: p99 climbs',
-  overloaded: 'overloaded',
+/** What each zone is called next to the reading, by what the gauge measures. */
+export const ZONE_WORDS: Record<GaugeMeasure, Record<UtilizationZone, string>> = {
+  busy: { comfortable: 'comfortable', busy: 'busy', hot: 'hot: p99 climbs', overloaded: 'overloaded' },
+  deadline: {
+    comfortable: 'well inside the deadline',
+    busy: 'most of the deadline',
+    hot: 'close to the deadline',
+    overloaded: 'misses the deadline',
+  },
+  room: { comfortable: 'room to spare', busy: 'filling up', hot: 'nearly full', overloaded: 'overflows: orders refused' },
+  backlog: {
+    comfortable: 'backlog clears',
+    busy: 'backlog building',
+    hot: 'backlog near its limit',
+    overloaded: 'backlog over its limit',
+  },
+};
+
+/** What the reading is, for its label. */
+const MEASURE_LABEL: Record<GaugeMeasure, string> = {
+  busy: 'Expected peak utilization',
+  deadline: 'Expected backlog, as a share of the deadline,',
+  room: "Expected backlog, as a share of the queue's room,",
+  backlog: 'Expected backlog, as a share of its limit,',
 };
 
 /** The dial's full sweep: 0% on the left to this on the right, so overload has room to show. */
@@ -36,9 +54,10 @@ export function readingText(utilization: number): string {
   return Number.isFinite(utilization) ? formatPercent(utilization) : 'no capacity left';
 }
 
-export function UtilizationGauge({ utilization, variant }: UtilizationGaugeProps) {
+export function UtilizationGauge({ utilization, variant, measure = 'busy' }: UtilizationGaugeProps) {
   const zone = utilizationZone(utilization);
-  const label = `Expected peak utilization ${readingText(utilization)}, ${ZONE_WORDS[zone]}`;
+  const words = ZONE_WORDS[measure][zone];
+  const label = `${MEASURE_LABEL[measure]} ${readingText(utilization)}, ${words}`;
   const [nx, ny] = point(Number.isFinite(utilization) ? utilization : DIAL_MAX, R - 7);
   const dial = (
     <svg className="util-gauge__dial" viewBox="0 0 100 56" aria-hidden>
@@ -67,7 +86,7 @@ export function UtilizationGauge({ utilization, variant }: UtilizationGaugeProps
       {dial}
       <div className="util-gauge__reading" aria-hidden>
         <span className="util-gauge__value num">{readingText(utilization)}</span>
-        <span className="util-gauge__zone-word">{ZONE_WORDS[zone]}</span>
+        <span className="util-gauge__zone-word">{words}</span>
       </div>
     </div>
   );

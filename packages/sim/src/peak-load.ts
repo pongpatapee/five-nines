@@ -15,6 +15,9 @@
  * - A sharded database splits that work by the shard key's spread (`shardShares`); its busiest shard is the reading.
  *   During a hot key event the reading is taken again with the hot value on its shard.
  * - A cache that invalidates on write keeps values only until their key is next written.
+ * - In a level whose cache restarts, the reading is taken again just after the restart: the restarted cache (the one
+ *   with the most lookups, as the engine picks) misses every read unless it's replicated. Coalescing would send the
+ *   database less than that, but how much less depends on how long its reads take, so the worst case is shown.
  * - Payments go to the provider directly or through a queue. A queue's reading is the part of the deadline its oldest
  *   order uses, or of its room the backlog fills, whichever is more: the backlog is worked out over the whole run's
  *   traffic, drained at what the workers (and the provider's limit) allow.
@@ -105,6 +108,11 @@ export interface PeakLoad {
   afterCrash: Record<string, NodeLoad> | null;
   /** The same, while the level's hot key event has one value taking its share. Null in levels without one. */
   duringHotKey: Record<string, NodeLoad> | null;
+  /**
+   * The same, the moment the level's scripted cache restart empties the busiest cache: every read through it misses
+   * (unless it's replicated). Null in levels without a restart.
+   */
+  afterCacheRestart: Record<string, NodeLoad> | null;
 }
 
 /** Utilization below this is comfortable. */
@@ -135,13 +143,27 @@ export function peakLoad(level: Level, design: Design): PeakLoad {
   const peak = peakRps(level);
   const crashes = level.events.some((event) => event.kind === 'instanceFailure');
   const hotKey = level.events.find((event) => event.kind === 'hotKey') ?? null;
+  const restarts = level.events.some((event) => event.kind === 'cacheRestart');
   const nodes = loadsAt(level, design, peak, null, null);
   return {
     peakRps: peak,
     nodes,
     afterCrash: crashes ? loadsAt(level, design, peak, busiestInstance(design, nodes), null) : null,
     duringHotKey: hotKey ? loadsAt(level, design, peak, null, hotKey) : null,
+    afterCacheRestart: restarts ? loadsAt(level, design, peak, null, null, busiestCache(design, nodes)) : null,
   };
+}
+
+/** The cache the engine's "busiest" restart would pick: the most lookups, first in design order on ties. */
+function busiestCache(design: Design, nodes: Record<string, NodeLoad>): string | null {
+  let best: { id: string; lookups: number } | null = null;
+  for (const node of design.nodes) {
+    const load = nodes[node.id];
+    if (node.kind !== 'cache' || !load) continue;
+    const lookups = load.readRps ?? 0;
+    if (best === null || lookups > best.lookups) best = { id: node.id, lookups };
+  }
+  return best?.id ?? null;
 }
 
 type HotKey = Extract<Level['events'][number], { kind: 'hotKey' }>;
@@ -170,6 +192,7 @@ function loadsAt(
   peak: number,
   down: Instance | null,
   hotKey: HotKey | null,
+  emptiedCacheId: string | null = null,
 ): Record<string, NodeLoad> {
   const byId = new Map(design.nodes.map((node) => [node.id, node]));
   const children = new Map<string, NodeSpec[]>();
@@ -286,8 +309,9 @@ function loadsAt(
 
   const hitRates = new Map<string, number>();
   for (const [id, cache] of caches) {
+    const emptied = id === emptiedCacheId && !cache.spec.replicated;
     const hitRate =
-      cache.lookups > 0
+      !emptied && cache.lookups > 0
         ? cacheHitRate({
             keys: keys(),
             capacityKeys: cacheCapacityKeys(CACHE_SIZES[cache.spec.size].memoryGb, data.keys.valueKb),

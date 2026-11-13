@@ -7,7 +7,9 @@ import { evaluateDesign, getLevel, peakLoad, type Design, type Level, type Timel
 import { describe, expect, it } from 'vitest';
 import { addNode, createNodeSpec, emptyDraft } from '../src/canvas/draft.ts';
 import { draftToFlowEdges } from '../src/canvas/flow.ts';
-import { working } from '../src/editor/ExpectedLoad.tsx';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { ExpectedLoad, gaugeMeasure, working } from '../src/editor/ExpectedLoad.tsx';
 import type { GradedEvaluation } from '../src/engine/index.ts';
 import { sampleFrame } from '../src/playback/series.ts';
 import { failureStory, hottestShard, verdictFor } from '../src/theme/situations.ts';
@@ -58,6 +60,36 @@ describe('expected load', () => {
     const provider = design.nodes.find((node) => node.kind === 'paymentProvider')!.id;
     expect(working(load.nodes[queue]!)).toMatch(/^10,000 orders\/s in at the peak, 2,200\/s charged · backlog up to [\d,]+ of 1,000,000 · oldest waits \d+ s of 120 s$/);
     expect(working(load.nodes[provider]!)).toBe('2,200 calls/s ÷ 2,500 calls/s allowed');
+  });
+
+  it('words a queue as a backlog against its deadline or its room, never as p99', () => {
+    const design = flashSale.solutions[0]!.design;
+    const load = peakLoad(flashSale, design);
+    const queue = design.nodes.find((node) => node.kind === 'queue')!.id;
+    expect(gaugeMeasure(load.nodes[queue]!)).toBe('deadline');
+    const html = renderToStaticMarkup(createElement(ExpectedLoad, { nodeId: queue, load }));
+    expect(html).toMatch(/Expected backlog, as a share of the deadline,/);
+    expect(html).not.toMatch(/p99/);
+    // The 100,000-message queue fills up before any order is late.
+    const small = anti(flashSale, 'A 100,000-message queue');
+    const smallLoad = peakLoad(flashSale, small);
+    const smallQueue = small.nodes.find((node) => node.kind === 'queue')!.id;
+    expect(gaugeMeasure(smallLoad.nodes[smallQueue]!)).toBe('room');
+    expect(renderToStaticMarkup(createElement(ExpectedLoad, { nodeId: smallQueue, load: smallLoad }))).toMatch(/overflows: orders refused/);
+  });
+
+  it("shows level 8's database warm and just after the cache restarts", () => {
+    const design = anti(herd, 'A large database, unprotected');
+    const load = peakLoad(herd, design);
+    const db = design.nodes.find((node) => node.kind === 'database')!.id;
+    const html = renderToStaticMarkup(createElement(ExpectedLoad, { nodeId: db, load }));
+    expect(html).toContain('With the cache warm:');
+    expect(html).toContain('Just after the cache restarts, empty:');
+    expect(html).toMatch(/Expected peak utilization 30[45]%, overloaded/);
+    // A replicated cache never empties, so there's nothing extra to show.
+    const replicated = herd.solutions.find((s) => s.name === 'A replicated cache')!.design;
+    const calm = renderToStaticMarkup(createElement(ExpectedLoad, { nodeId: db, load: peakLoad(herd, replicated) }));
+    expect(calm).not.toContain('Just after the cache restarts');
   });
 });
 

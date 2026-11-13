@@ -180,6 +180,20 @@ describe('estimates', () => {
     expect(after(working.result - 1)).toBeGreaterThan(1);
   });
 
+  it('shows the database load the moment the cache restarts empty (level 8)', () => {
+    const lvl = level('08-thundering-herd');
+    const warm = peakLoad(lvl, anti('08-thundering-herd', 'A large database, unprotected'));
+    expect(warm.nodes.db!.utilization).toBeLessThan(0.3);
+    // Every read misses: the napkin answer for a large database.
+    expect(warm.afterCacheRestart!.db!.utilization * 100).toBeCloseTo(estimateWorking(lvl)!.result, 0);
+    expect(warm.afterCacheRestart!.cache!.hitRate).toBe(0);
+    // A replicated cache keeps its contents, so the database never sees the burst.
+    const replicated = peakLoad(lvl, solution('08-thundering-herd', 1));
+    expect(replicated.afterCacheRestart!.db!.utilization).toBeCloseTo(replicated.nodes.db!.utilization);
+    // Levels without a restart have no such reading.
+    expect(peakLoad(level('04-read-all-about-it'), solution('04-read-all-about-it')).afterCacheRestart).toBeNull();
+  });
+
   it('gives the bonus within 10% either side', () => {
     expect(isCloseEstimate(3.5, 3.5)).toBe(true);
     expect(isCloseEstimate(3.85, 3.5)).toBe(true);
