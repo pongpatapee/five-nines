@@ -99,20 +99,33 @@
   padding: 0 0 var(--space-1);
   border-bottom: 1.5px solid var(--ink-faded);
   list-style: none;
+  flex-wrap: wrap;
 }
 
 .contents__body {
   display: grid;
-  grid-template-columns: minmax(720px, 1fr) minmax(340px, 400px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
   gap: var(--space-6);
   align-items: start;
+}
+
+/* Too narrow for the map at full size beside the index card: the card moves under the map. */
+@media (max-width: 1250px) {
+  .contents__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contents__side {
+    position: static;
+    max-width: 480px;
+  }
 }
 
 /* ------------------------------------------------------------------ campaign map */
 
 .campaign-map {
   position: relative;
-  min-width: 720px;
+  container-type: inline-size;
   /* Fit the whole map in a laptop-height window without scrolling. */
   max-width: max(720px, calc((100vh - 130px) * 880 / 760));
 }
@@ -130,6 +143,27 @@
   bottom: 2%;
   width: 40%;
   max-width: 380px;
+}
+
+/*
+ * Below 640px across the map's labels get too small to read, so it stops shrinking and scrolls sideways in its own
+ * frame (the page itself never scrolls sideways), and Erasmus steps out from under it.
+ */
+@container (max-width: 639px) {
+  .campaign-map__frame {
+    overflow-x: auto;
+    padding: var(--space-2) 0;
+  }
+
+  .campaign-map__svg {
+    width: 640px;
+  }
+
+  .campaign-map__mentor {
+    position: static;
+    width: auto;
+    margin-top: var(--space-3);
+  }
 }
 
 .map-trail {
