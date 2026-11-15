@@ -795,7 +795,7 @@
   position: relative;
   display: grid;
   gap: var(--space-4);
-  width: min(560px, 100%);
+  width: min(640px, 100%);
   margin: auto 0;
   padding: var(--space-6) var(--space-6) var(--space-5);
   border: 1px solid var(--paper-edge);
@@ -814,6 +814,11 @@
 .estimate-card__title {
   font-size: var(--text-hand-xl);
   line-height: 1;
+}
+
+/* Focused only to start reading the working from the top; not a control. */
+.estimate-card__title:focus-visible {
+  box-shadow: none;
 }
 
 .estimate-card__mentor .cast-line__bubble {
@@ -909,12 +914,119 @@
   color: var(--healthy);
 }
 
-.estimate-card__working {
-  padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--blue-pen);
-  background: var(--paper-card-veil);
+/* ------------------------------------------------------------------ the napkin working: a worked solution in ink */
+
+.napkin-working {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--paper-edge);
+  border-left: var(--stroke-marker) solid var(--blue-pen);
+  border-radius: 2px;
+  background: var(--paper-card);
+}
+
+.napkin-working__title {
+  font-size: var(--text-2xl);
+  line-height: 1;
+  color: var(--ink);
+}
+
+.napkin-working__steps {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: napkin-step;
+}
+
+.napkin-working__step {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  padding-left: 34px;
+  counter-increment: napkin-step;
+}
+
+/* The step number, inked and circled in the margin. */
+.napkin-working__step::before {
+  content: counter(napkin-step);
+  position: absolute;
+  top: -2px;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: var(--stroke-pen) solid var(--blue-pen-strong);
+  border-radius: var(--radius-hand);
+  font-family: var(--font-hand);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--blue-pen-strong);
+}
+
+.napkin-working__why {
+  margin: 0;
   font-size: var(--text-md);
-  line-height: 1.5;
+  line-height: var(--leading);
+  color: var(--text);
+}
+
+.napkin-working__line {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.napkin-working__sum {
+  color: var(--ink);
+}
+
+/* Each step's number, run over with highlighter. */
+.napkin-working__result {
+  padding: 0 3px;
+  background: linear-gradient(transparent 50%, var(--highlighter) 50%);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* The answer, boxed in red pen. */
+.napkin-working__line[data-answer] .napkin-working__result {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: var(--stroke-pen) solid var(--red-pen);
+  border-radius: var(--radius-hand);
+  background: none;
+  font-size: var(--text-xl);
+  color: var(--red-pen-text);
+}
+
+.napkin-working__note {
+  font-size: var(--text-md);
+  color: var(--text-muted);
+}
+
+.napkin-working__takeaway {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--pencil-line);
+  font-size: var(--text-md);
+  line-height: var(--leading);
+  color: var(--text);
+}
+
+.napkin-working__takeaway-lead {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--red-pen-text);
+}
+
+.briefing__napkin {
+  justify-self: start;
 }
 
 .estimate-card__actions {

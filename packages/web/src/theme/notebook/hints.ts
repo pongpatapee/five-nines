@@ -6,8 +6,17 @@
  * The concept and fix rungs are written per level and per kind of failure, with a general line for each kind as
  * the fallback. CI checks every level has its own line for every failure its known wrong answers produce.
  */
-import { AVAILABILITY_TIERS, COMPONENT_LABELS, type EstimateWorking } from '@five-nines/sim';
-import { formatCount, formatEstimate, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
+import {
+  AVAILABILITY_TIERS,
+  COMFORTABLE_UTILIZATION,
+  COMPONENT_LABELS,
+  HOT_UTILIZATION,
+  utilizationZone,
+  type EstimateWorking,
+  type NapkinSolution,
+  type NapkinStep,
+} from '@five-nines/sim';
+import { capitalize, formatCount, formatEstimate, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
 import type { EstimateResult, MentorEstimateScript, MentorLadderScript } from '../contract.ts';
 import type { FailoverSituation, FailureStory, HintTopic, LatencySituation } from '../situations.ts';
 
@@ -470,27 +479,218 @@ function ask(w: EstimateWorking): { question: string; unit: string } {
   }
 }
 
-function working(w: EstimateWorking): string {
-  switch (w.quantity) {
-    case 'busyVcpusAtPeak':
-      return `${formatCount(w.peakRps)} req/s × ${formatMs(w.cpuMsPerRequest)} = ${round(w.result)} vCPU-seconds of work every second: ${round(w.result)} vCPUs busy. Add headroom to stay under 70%.`;
-    case 'serversWithSpare':
-      return `One ${w.size} server does ${w.vcpu} ÷ ${formatMs(w.cpuMsPerRequest)} = ${formatCount(w.perServerRps)} req/s. ${formatCount(w.peakRps)} ÷ ${formatCount(w.perServerRps)} rounds up to ${w.needed}, plus one spare: ${w.result}.`;
-    case 'cacheHitRateNeeded':
-      return `${formatCount(w.writesPerSec)} writes × ${w.writeCost} = ${formatCount(w.writesPerSec * w.writeCost)} read-equivalents, leaving ${formatCount(w.readsLeft)} reads for the database. ${formatCount(w.readsPerSec)} reads arrive, so the cache must catch 1 − ${formatCount(w.readsLeft)} ÷ ${formatCount(w.readsPerSec)} = ${round(w.result)}%, more for headroom.`;
-    case 'readsAtPeak':
-      return `${formatCount(w.peakRps)} req/s × ${formatPercent(w.readShare)} reads = ${formatCount(w.result)} reads a second.`;
-    case 'readAfterWriteReadsAtPeak':
-      return `${formatCount(w.peakRps)} req/s × ${formatPercent(w.readShare)} reads × ${formatPercent(w.readAfterWriteShare)} checking their own write = ${formatCount(w.result)} reads a second.`;
-    case 'shardsAtFullLoad':
-      return w.readsPerSec > 0
-        ? `${formatCount(w.readsPerSec)} reads + ${formatCount(w.writesPerSec)} writes × ${w.writeCost} = ${formatCount(w.readsPerSec + w.writesPerSec * w.writeCost)} read-equivalents ÷ ${formatCount(w.shardReadsPerSec)} per shard = ${round(w.result)} shards at full load. Round up and add headroom.`
-        : `${formatCount(w.writesPerSec)} writes ÷ ${formatCount(w.shardWritesPerSec)} per shard = ${round(w.result)} shards at full load. Round up and add headroom, and that's only if the shard key spreads them evenly.`;
-    case 'coldCacheDatabaseLoad':
-      return `At ${formatSimTime(w.atSec)} traffic is ${formatCount(w.rps)} req/s: ${formatCount(w.readsPerSec)} reads + ${formatCount(w.writesPerSec)} writes × ${w.writeCost} = ${formatCount(w.readsPerSec + w.writesPerSec * w.writeCost)} read-equivalents ÷ ${formatCount(w.databaseReadsPerSec)} = ${round(w.result)}% busy until the cache refills.`;
-    case 'queueDrainRateNeeded':
-      return `${formatCount(w.peakRps)} a second × ${seconds(w.spikeSec)} = ${formatCount(w.peakRps * w.spikeSec)} orders. The last arrives ${seconds(w.spikeSec)} in and must be charged ${seconds(w.deadlineSec)} later, so all of them within ${seconds(w.spikeSec + w.deadlineSec)}: ${formatCount(w.peakRps * w.spikeSec)} ÷ ${w.spikeSec + w.deadlineSec} = ${formatCount(w.result)} a second, plus normal traffic on top.`;
+/** A line of arithmetic: `sum = result`, then a note in words. `sum` is null for a number read off the page. */
+export interface WorkedLine {
+  sum: string | null;
+  result: string;
+  note?: string;
+  /** The line that states the step's result; on the last step, the answer. Defaults to the step's last line. */
+  main?: boolean;
+}
+
+/** A numbered step: why it is taken, in plain words, then its arithmetic. */
+export interface WorkedStep {
+  reason: string;
+  lines: readonly WorkedLine[];
+}
+
+export interface WorkedSolution {
+  steps: readonly WorkedStep[];
+  /** What the answer means for the design. */
+  takeaway: string;
+}
+
+/** Words that once stood in for an explanation. CI checks no worked solution uses them. */
+export const NAPKIN_JARGON = ['read-equivalent', 'equivalents'] as const;
+
+/** "72.7%", "99.8%", "95%": percents at napkin precision. */
+const pct = (fraction: number) => `${formatEstimate(fraction * 100)}%`;
+const n = formatCount;
+const est = formatEstimate;
+/** "a large", "an xlarge". */
+const a = (word: string) => `${/^[aeiox]/i.test(word) ? 'an' : 'a'} ${word}`;
+
+/** "comfortable", "busy, past the 70% line", "hot, past the 85% line", "over capacity". */
+function zoneWords(utilization: number): string {
+  switch (utilizationZone(utilization)) {
+    case 'comfortable':
+      return 'comfortable';
+    case 'busy':
+      return `busy but under the ${pct(HOT_UTILIZATION)} hot line`;
+    case 'hot':
+      return `hot, past the ${pct(HOT_UTILIZATION)} line`;
+    case 'overloaded':
+      return 'over capacity';
   }
+}
+
+function workedStep(step: NapkinStep): WorkedStep {
+  switch (step.kind) {
+    case 'peak':
+      return {
+        reason: 'Size for the busiest moment, not the average: read the top of the traffic chart in the briefing.',
+        lines: [{ sum: null, result: `${n(step.result)} req/s`, note: `at the peak, from ${formatSimTime(step.atSec)}` }],
+      };
+    case 'trafficAtEvent':
+      return {
+        reason: `What matters is the moment the cache restarts empty, at ${formatSimTime(step.atSec)}. Read the traffic chart there.`,
+        lines: [{ sum: null, result: `${n(step.result)} req/s`, note: `at ${formatSimTime(step.atSec)}` }],
+      };
+    case 'cpuWork':
+      return {
+        reason: `Every request needs ${formatMs(step.cpuMsPerRequest)} of a vCPU's time. Add up the work that arrives each second.`,
+        lines: [
+          { sum: `${n(step.rps)} req/s × ${formatMs(step.cpuMsPerRequest)}`, result: `${n(step.result)} ms`, note: 'of CPU work every second' },
+        ],
+      };
+    case 'vcpusBusy':
+      return {
+        reason: 'One vCPU does at most 1,000 ms of work in a second, so divide by 1,000 to count the vCPUs that work keeps busy.',
+        lines: [{ sum: `${n(step.cpuMsPerSec)} ms ÷ 1,000 ms`, result: `${est(step.result)} vCPUs`, note: 'busy, flat out' }],
+      };
+    case 'serverCapacity':
+      return {
+        reason: `First, what one server can take. A vCPU finishes a ${formatMs(step.cpuMsPerRequest)} request ${est(step.perVcpuRps)} times a second, and ${a(step.size)} server has ${step.vcpu} vCPUs.`,
+        lines: [
+          { sum: `1,000 ms ÷ ${formatMs(step.cpuMsPerRequest)}`, result: `${est(step.perVcpuRps)} req/s`, note: 'per vCPU' },
+          { sum: `${step.vcpu} vCPUs × ${est(step.perVcpuRps)} req/s`, result: `${n(step.result)} req/s`, note: 'per server, flat out' },
+        ],
+      };
+    case 'serversNeeded':
+      return {
+        reason: "Divide the peak by what one server takes, then round up: you can't run part of a server.",
+        lines: [
+          { sum: `${n(step.rps)} ÷ ${n(step.perServerRps)}`, result: est(step.exact), main: false },
+          { sum: null, result: `${step.result} servers`, note: 'rounded up' },
+        ],
+      };
+    case 'spareServer':
+      return {
+        reason: 'Any server can die, so run one spare: lose one, and the rest still carry the peak. Engineers call it N+1.',
+        lines: [{ sum: `${step.needed} + 1 spare`, result: `${step.result} servers` }],
+      };
+    case 'splitTraffic':
+      if (step.readShare === 0) {
+        return {
+          reason: 'Every request here is a write: there are no reads to count.',
+          lines: [{ sum: null, result: `${n(step.writes)} writes/s`, note: 'all of them' }],
+        };
+      }
+      return {
+        reason: `Every request is a read or a write, and a database treats them differently, so count them apart. ${pct(step.readShare)} are reads.`,
+        lines: [
+          { sum: `${n(step.rps)} × ${pct(step.readShare)}`, result: `${n(step.result)} reads/s`, main: true },
+          { sum: `${n(step.rps)} − ${n(step.result)}`, result: `${n(step.writes)} writes/s` },
+        ],
+      };
+    case 'writeCost':
+      return {
+        reason: `A write is more work than a read: it must be stored safely, not just looked up. ${capitalize(a(step.databaseSize))} database does ${n(step.databaseReadsPerSec)} reads a second or ${n(step.databaseWritesPerSec)} writes, so one write is as much work as several reads.`,
+        lines: [
+          {
+            sum: `${n(step.databaseReadsPerSec)} ÷ ${n(step.databaseWritesPerSec)}`,
+            result: est(step.result),
+            note: `one write costs as much as ${est(step.result)} reads`,
+          },
+        ],
+      };
+    case 'writesFirst':
+      return {
+        reason: 'A cache only helps reads: every write still goes to the database. So the writes use up their share of its capacity first.',
+        lines: [
+          { sum: `${n(step.writes)} writes × ${est(step.writeCost)}`, result: `${n(step.writeWork)} reads' worth`, note: 'of work for the writes' },
+          { sum: `${n(step.databaseReadsPerSec)} − ${n(step.writeWork)}`, result: `${n(step.result)} reads/s`, note: 'of room left for reads' },
+        ],
+      };
+    case 'databaseShare':
+      return {
+        reason: "That's all the reads the database has room for. Compare it with the reads that arrive.",
+        lines: [{ sum: `${n(step.readsLeft)} ÷ ${n(step.reads)}`, result: pct(step.result), note: 'of the reads can go to the database' }],
+      };
+    case 'cacheHitRate':
+      return {
+        reason: 'Every other read must be answered by the cache instead. That share is the hit rate the cache needs.',
+        lines: [{ sum: `100% − ${pct(step.databaseShare)}`, result: `${est(step.result)}%`, note: 'hit rate' }],
+      };
+    case 'ownWriteReads':
+      return {
+        reason: `Of those reads, ${pct(step.share)} are users checking their own transfer just after making it. Those must see the fresh balance.`,
+        lines: [{ sum: `${n(step.reads)} × ${pct(step.share)}`, result: `${n(step.result)} reads/s`, note: 'that must be fresh' }],
+      };
+    case 'totalWork':
+      return {
+        reason: step.coldCache
+          ? "An empty cache catches nothing, so every read falls through to the database, and the writes go there as always. Add it all up, counting each write as the reads it's worth."
+          : "Each shard serves reads and writes. Add up the work, counting each write as the reads it's worth.",
+        lines: [
+          { sum: `${n(step.writes)} writes × ${est(step.writeCost)}`, result: `${n(step.writeWork)} reads' worth`, note: 'for the writes' },
+          { sum: `${n(step.reads)} reads + ${n(step.writeWork)}`, result: `${n(step.result)} reads' worth`, note: 'of work a second' },
+        ],
+      };
+    case 'shardsOfWork':
+      return {
+        reason:
+          step.unit === 'writes'
+            ? `A shard is a whole database that owns a slice of the data. If the shard key spreads the writes evenly, each one takes up to ${n(step.shardCapacity)} writes a second.`
+            : `A shard is a whole database that owns a slice of the data. If the work spreads evenly, each one takes up to ${n(step.shardCapacity)} reads' worth a second.`,
+        lines: [{ sum: `${n(step.work)} ÷ ${n(step.shardCapacity)}`, result: `${est(step.result)} shards`, note: 'at full load' }],
+      };
+    case 'databaseBusy':
+      return {
+        reason: `Divide by what the database can do, ${n(step.databaseReadsPerSec)} reads a second, to see how busy it gets.`,
+        lines: [{ sum: `${n(step.work)} ÷ ${n(step.databaseReadsPerSec)}`, result: `${est(step.result)}%`, note: 'busy' }],
+      };
+    case 'spikeOrders':
+      return {
+        reason: `Count the orders first: the sale sends ${n(step.rps)} a second for ${seconds(step.spikeSec)}.`,
+        lines: [{ sum: `${n(step.rps)} × ${step.spikeSec} s`, result: `${n(step.result)} orders` }],
+      };
+    case 'drainWindow':
+      return {
+        reason: `The last order arrives as the sale ends, ${seconds(step.spikeSec)} in, and must be charged within ${seconds(step.deadlineSec)} of that. So the workers have the sale plus the deadline to charge them all.`,
+        lines: [{ sum: `${step.spikeSec} s + ${step.deadlineSec} s`, result: seconds(step.result), note: 'from the start of the sale' }],
+      };
+    case 'drainRate':
+      return {
+        reason: 'Spread the orders over that time.',
+        lines: [{ sum: `${n(step.orders)} ÷ ${step.windowSec} s`, result: `${n(step.result)} orders/s` }],
+      };
+  }
+}
+
+function takeaway(solution: NapkinSolution): string {
+  const t = solution.takeaway;
+  const answer = solution.working.result;
+  switch (t.kind) {
+    case 'vcpuHeadroom':
+      return `${est(t.vcpus)} vCPUs is the work, not the size to buy. Past ${pct(HOT_UTILIZATION)} busy, requests queue and p99 climbs, so give it at least ${est(t.vcpus)} ÷ ${pct(HOT_UTILIZATION)} = ${est(t.atHot)} vCPUs, and nearer ${est(t.vcpus)} ÷ ${pct(COMFORTABLE_UTILIZATION)} = ${est(t.atComfortable)} to be comfortable.`;
+    case 'survivors':
+      return `With all ${t.servers} up, each runs ${pct(t.allUp)} busy. When one dies, the ${t.servers - 1} left run ${pct(t.oneDown)} busy: ${zoneWords(t.oneDown)}.`;
+    case 'hitRateHeadroom':
+      return `At exactly ${est(answer)}% the database runs 100% busy, and a full database is where the queues explode. Aim higher: a ${est(t.atHot)}% hit rate keeps it at ${pct(HOT_UTILIZATION)} busy, and ${est(t.atComfortable)}% at a comfortable ${pct(COMFORTABLE_UTILIZATION)}.`;
+    case 'biggestDatabase':
+      return `Even the biggest database, ${a(t.size)} at ${n(t.readsPerSec)} reads a second, would be ${pct(t.utilization)} busy with them: ${zoneWords(t.utilization)}. These reads need more than one machine.`;
+    case 'freshReads':
+      return `Those ${n(t.fresh)} reads must see the latest write, so they can't use a replica that's a moment behind. The other ${n(t.others)} reads a second can.`;
+    case 'wholeShards':
+      return t.roundedUp === t.shards
+        ? `You can't run ${est(t.atFullLoad)} shards: round up to ${t.shards}, each ${pct(t.utilization)} busy. That's only if the shard key spreads the writes evenly.`
+        : `You can't run ${est(t.atFullLoad)} shards. ${t.roundedUp} would each run ${pct(t.roundedUpUtilization)} busy, ${zoneWords(t.roundedUpUtilization)}; ${t.shards} run ${pct(t.utilization)} each. That's only if the shard key spreads the writes evenly.`;
+    case 'overload':
+      return `That's about ${Number(t.times.toFixed(1))} times what the database can do, all at once. Past 100% the backlog grows every second until the cache refills, so keep the misses off the database, or give it the capacity for that minute.`;
+    case 'normalTraffic':
+      return `That's only the sale. Normal traffic, ${n(t.normalRps)} orders a second, keeps arriving on top, so give the workers some room above ${n(t.drainRate)} a second.`;
+  }
+}
+
+/** The estimate worked step by step, in Erasmus's words. */
+export function workedSolution(solution: NapkinSolution): WorkedSolution {
+  return { steps: solution.steps.map(workedStep), takeaway: takeaway(solution) };
+}
+
+/** The line of a step that states its result: the one marked `main`, else the last. */
+export function mainLine(step: WorkedStep): WorkedLine {
+  return step.lines.find((line) => line.main === true) ?? step.lines[step.lines.length - 1]!;
 }
 
 function verdict({ close, guess, answer }: EstimateResult): { exclaim: string; line: string } {
@@ -500,15 +700,16 @@ function verdict({ close, guess, answer }: EstimateResult): { exclaim: string; l
       : { exclaim: 'Close enough.', line: 'Within 10%: that is all a napkin needs. Bonus mark.' };
   }
   return guess > answer
-    ? { exclaim: 'Too high.', line: "Overestimating costs money. Here's the working; the numbers are all in the briefing." }
-    : { exclaim: 'Too low.', line: "Underestimating costs nines. Here's the working; the numbers are all in the briefing." };
+    ? { exclaim: 'Too high.', line: "Overestimating costs money. Here's the working, step by step." }
+    : { exclaim: 'Too low.', line: "Underestimating costs nines. Here's the working, step by step." };
 }
 
-const round = formatEstimate;
 
 export const MENTOR_ESTIMATE: MentorEstimateScript = {
   ask,
-  working,
   verdict,
+  skipped: { exclaim: 'Skipped.', line: "No harm done. Here's how I'd work it out; the top bar brings the question back." },
+  review: { exclaim: 'The working.', line: "Here's how I'd work it out, step by step." },
+  revisit: 'Show the napkin working',
   bonus: 'napkin bonus',
 };
