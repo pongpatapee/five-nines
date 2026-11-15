@@ -138,6 +138,9 @@
   --leading: 1.5;
 
   /* ---------------------------------------------------------------- space (4px grid) */
+  /* Modal overlays sit above everything on the page, including the notebook's spiral binding. */
+  --z-modal: 50;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
