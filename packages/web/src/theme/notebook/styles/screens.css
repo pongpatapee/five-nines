@@ -290,10 +290,8 @@
   padding: var(--space-4) var(--space-5) var(--space-5);
   border: 1px solid var(--paper-edge);
   background-color: var(--paper-card);
-  /* A red header rule, then blue ruled lines. */
-  background-image:
-    linear-gradient(transparent 62px, var(--margin-rule) 62px, var(--margin-rule) 64px, transparent 64px),
-    repeating-linear-gradient(transparent 0, transparent 27px, var(--rule) 27px, var(--rule) 28px);
+  /* Blue ruled lines. The red header rule hangs off the title (below), so it follows the text. */
+  background-image: repeating-linear-gradient(transparent 0, transparent 27px, var(--rule) 27px, var(--rule) 28px);
   box-shadow: var(--shadow-paper);
   transform: rotate(0.6deg);
 }
@@ -323,7 +321,19 @@
 }
 
 .index-card__title {
+  position: relative;
+  padding-bottom: var(--space-1);
   font-size: var(--text-hand-xl);
+}
+
+/* The index card's red header rule, under the title and across the card's full width, however the title wraps. */
+.index-card__title::after {
+  content: '';
+  position: absolute;
+  inset-inline: calc(-1 * var(--space-5));
+  bottom: 0;
+  height: 2px;
+  background: var(--margin-rule);
 }
 
 .index-card__concept {
