@@ -17,6 +17,7 @@ export const {
   ComponentArt,
   BudgetMeter,
   PostmortemCard,
+  NapkinWorking,
   GradeCard,
   CampaignMap,
   UtilizationGauge,

@@ -160,7 +160,9 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 ### Estimate step (covers back-of-envelope estimation)
 
 - Before building, the mentor asks one question, e.g. "how many app servers will you need?" or "what cache hit rate do you need to protect the database?" (built). Each level's `estimate` names a quantity worked out from its own numbers (`estimate.ts`); the recorded answer is checked against that working in CI.
-- The player answers or skips, and sees the working. An estimate within ±10% earns a bonus mark, kept in saved progress for the Napkin Wizard badge. The step can be reopened from the top bar.
+- The player answers or skips, and sees the working. An estimate within ±10% earns a bonus mark, kept in saved progress for the Napkin Wizard badge. The step can be reopened from the top bar, and once answered or skipped the briefing has a "Show the napkin working" link straight to the working.
+- The working is a worked solution, not a formula: `napkinSolution` (`estimate.ts`) lists the steps in order, each with its numbers and result (find the peak, split reads from writes, what one write costs in reads, ...), ending on the answer, plus a takeaway with numbers for the design (headroom to the 70% and 85% lines, whole machines, the hit rate that keeps the database below full). The theme says why each step is taken and writes its arithmetic; the notebook inks numbered steps, runs highlighter over each result and boxes the answer in red pen. CI checks every level's steps end on its answer, and that no step leans on shorthand it never explains ("read-equivalents").
+- One question per level, answered as one number, even on the multi-step levels (4, 7, 8): the steps teach the method afterwards, and the question stays a quick napkin guess rather than a form.
 - Not yet: the debrief comparing the estimate to what actually happened.
 
 ### Progression and rewards (built)

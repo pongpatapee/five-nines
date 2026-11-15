@@ -15,6 +15,7 @@ import type {
   FailureReason,
   Grade,
   Level,
+  NapkinSolution,
   SimEvent,
 } from '@five-nines/sim';
 import type { ComponentType, ReactNode, Ref } from 'react';
@@ -128,10 +129,14 @@ export interface EstimateResult {
 export interface MentorEstimateScript {
   /** The question for this level's estimate, and the unit the answer is typed in ("vCPUs", "%"). */
   ask(working: EstimateWorking): { question: string; unit: string };
-  /** The arithmetic, shown after answering or skipping. */
-  working(working: EstimateWorking): string;
   /** The mentor's reaction to an answer. */
   verdict(result: EstimateResult): { exclaim: string; line: string };
+  /** The mentor's lead-in to the working after the player skips the question. */
+  skipped: { exclaim: string; line: string };
+  /** The mentor's lead-in when the player comes back to read the working again. */
+  review: { exclaim: string; line: string };
+  /** The control that brings the working back later, from the briefing or the question. */
+  revisit: string;
   /** The name of the bonus mark ("napkin bonus"). */
   bonus: string;
 }
@@ -173,6 +178,11 @@ export interface ComponentArtProps {
 
 export interface BudgetMeterProps {
   usage: BudgetUsage;
+}
+
+export interface NapkinWorkingProps {
+  /** The estimate worked step by step, with every number (`@five-nines/sim`'s `napkinSolution`). */
+  solution: NapkinSolution;
 }
 
 export interface PostmortemCardProps {
@@ -322,6 +332,8 @@ export interface Theme {
   BudgetMeter: ComponentType<BudgetMeterProps>;
   /** The incident postmortem on the freeze-frame. */
   PostmortemCard: ComponentType<PostmortemCardProps>;
+  /** The napkin-maths estimate worked step by step: numbered steps, each with its reason and arithmetic. */
+  NapkinWorking: ComponentType<NapkinWorkingProps>;
   /** The graded result. */
   GradeCard: ComponentType<GradeCardProps>;
   /** The campaign on the level select screen. */

@@ -40,5 +40,16 @@ export {
   type PeakLoad,
   type UtilizationZone,
 } from './peak-load.ts';
-export { ESTIMATE_TOLERANCE, estimateWorking, isCloseEstimate, workEstimate, type EstimateWorking } from './estimate.ts';
+export {
+  ESTIMATE_TOLERANCE,
+  estimateWorking,
+  isCloseEstimate,
+  napkinSolution,
+  solveEstimate,
+  workEstimate,
+  type EstimateWorking,
+  type NapkinSolution,
+  type NapkinStep,
+  type NapkinTakeaway,
+} from './estimate.ts';
 export { totalRequests } from './peak-load.ts';

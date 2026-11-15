@@ -1,7 +1,8 @@
 /**
- * Measured legibility for the rewards screens and the chapter 3 readouts: every audited text is at least 12px as
- * rendered and has at least 4.5:1 contrast (WCAG AA) against each paper it sits on; graphics that carry meaning get
- * 3:1. Sizes and colours are read from the stylesheets and tokens themselves, so a change to either is re-measured.
+ * Measured legibility for the rewards screens, the chapter 3 readouts and the napkin working: every audited text is at
+ * least 12px as rendered and has at least 4.5:1 contrast (WCAG AA) against each paper it sits on; graphics that carry
+ * meaning get 3:1. Sizes and colours are read from the stylesheets and tokens themselves, so a change to either is
+ * re-measured.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -111,6 +112,17 @@ const TEXT: Audit[] = [
   { selector: '.expected-load__peak', on: ['var(--paper)'] },
   { selector: '.live-row__label', on: ['var(--paper-card)'], inheritsSize: 'var(--text-xs)' },
   { selector: '.live-row__value', on: ['var(--paper-card)'], inheritsSize: 'var(--text-xs)', colors: ['var(--ink)', ...ZONES] },
+  // The napkin working: the worked solution after the estimate.
+  { selector: '.napkin-working__title', on: ['var(--paper-card)'], inheritsSize: 'var(--text-2xl)' },
+  { selector: '.napkin-working__step::before', on: ['var(--paper-card)'] },
+  { selector: '.napkin-working__why', on: ['var(--paper-card)'] },
+  { selector: '.napkin-working__line', on: ['var(--paper-card)'] },
+  { selector: '.napkin-working__sum', on: ['var(--paper-card)'], inheritsSize: 'var(--text-lg)' },
+  { selector: '.napkin-working__result', on: ['var(--paper-card)', 'var(--highlighter)'], inheritsSize: 'var(--text-lg)' },
+  { selector: '.napkin-working__line[data-answer] .napkin-working__result', on: ['var(--paper-card)'] },
+  { selector: '.napkin-working__note', on: ['var(--paper-card)'] },
+  { selector: '.napkin-working__takeaway', on: ['var(--paper-card)'] },
+  { selector: '.napkin-working__takeaway-lead', on: ['var(--paper-card)'] },
 ];
 
 /**

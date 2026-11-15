@@ -13,10 +13,12 @@ export interface BriefingPanelProps {
   design: Design;
   collapsed: boolean;
   onToggle(): void;
+  /** Opens the napkin-maths working again; null when there's none to show yet, or it can't open now. */
+  onShowEstimateWorking?: (() => void) | null;
 }
 
 /** Left side panel, in every mode: briefing, requirements, component reference card and live cost. */
-export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle }: BriefingPanelProps) {
+export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle, onShowEstimateWorking }: BriefingPanelProps) {
   const cost = designCostUsdPerMonth(design);
   const tease = troublemakerTease(level);
   if (collapsed) {
@@ -57,6 +59,11 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle 
               <p key={i}>{paragraph}</p>
             ))}
           </div>
+          {onShowEstimateWorking && (
+            <button type="button" className="btn btn--sm btn--ghost briefing__napkin" onClick={onShowEstimateWorking}>
+              {cast.mentorEstimate.revisit}
+            </button>
+          )}
         </section>
 
         {tease && (

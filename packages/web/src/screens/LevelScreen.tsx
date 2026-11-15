@@ -30,9 +30,10 @@ export function LevelScreen({ level }: LevelScreenProps) {
   const draft = useDraft(level.id);
   const bestGrade = useBestGrade(level.id);
   const estimateRecord = useEstimate(level.id);
-  // The napkin-maths step opens before building, the first time a level with one is visited.
-  const [estimateOpen, setEstimateOpen] = useState(
-    () => level.estimate !== undefined && progressStore.getState().estimates[level.id] === undefined,
+  // The napkin-maths step opens on its question before building, the first time a level with one is visited. Null
+  // when closed; `review` opens it on the worked solution.
+  const [estimateOpen, setEstimateOpen] = useState<'ask' | 'review' | null>(() =>
+    level.estimate !== undefined && progressStore.getState().estimates[level.id] === undefined ? 'ask' : null,
   );
   const runCounter = useRef(0);
   // One evaluation per run, even when StrictMode replays the effect in development.
@@ -73,9 +74,10 @@ export function LevelScreen({ level }: LevelScreenProps) {
   );
   const handleEstimateSkip = useCallback(() => {
     progressStore.getState().recordEstimate(level.id, null, false);
-    setEstimateOpen(false);
   }, [level.id]);
-  const handleEstimateClose = useCallback(() => setEstimateOpen(false), []);
+  const handleEstimateClose = useCallback(() => setEstimateOpen(null), []);
+  // The worked solution, from the briefing, once the question was answered or skipped.
+  const canReviewEstimate = mode.kind === 'build' && level.estimate !== undefined && estimateRecord !== undefined;
 
   // Esc closes the debrief overlay over the editor.
   useEffect(() => {
@@ -122,7 +124,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
         mode={mode}
         cost={briefingCollapsed ? designCostUsdPerMonth(shownDraft.design) : null}
         onOpenDebrief={mode.kind === 'build' && bestGrade !== undefined ? () => setDebriefOpen(true) : null}
-        onOpenEstimate={mode.kind === 'build' && level.estimate && !estimateOpen ? () => setEstimateOpen(true) : null}
+        onOpenEstimate={mode.kind === 'build' && level.estimate && !estimateOpen ? () => setEstimateOpen('ask') : null}
         estimateBonus={estimateRecord?.close ?? false}
       />
       <div className="level-screen__body">
@@ -132,6 +134,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
           design={shownDraft.design}
           collapsed={briefingCollapsed}
           onToggle={() => setBriefingCollapsed((c) => !c)}
+          onShowEstimateWorking={canReviewEstimate && !estimateOpen ? () => setEstimateOpen('review') : null}
         />
         <main className="level-screen__stage" data-mode={mode.kind}>
           {mode.kind === 'build' && (
@@ -148,6 +151,8 @@ export function LevelScreen({ level }: LevelScreenProps) {
               />
               {estimateOpen && level.estimate && (
                 <EstimateStep
+                  key={estimateOpen}
+                  start={estimateOpen}
                   level={level}
                   estimate={level.estimate}
                   record={estimateRecord}
