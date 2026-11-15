@@ -1,9 +1,10 @@
 /* ------------------------------------------------------------------ overlay: the page dims as a card is laid on it */
 
 .results-overlay {
-  position: absolute;
+  /* Fixed to the window, not the stage, so the card is centred on screen whatever the window's shape. */
+  position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;

@@ -779,9 +779,10 @@
 /* ================================================================== napkin maths: a napkin taped over the page */
 
 .estimate-overlay {
-  position: absolute;
+  /* Fixed to the window, not the stage, so the card is centred on screen whatever the window's shape. */
+  position: fixed;
   inset: 0;
-  z-index: 25;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;
