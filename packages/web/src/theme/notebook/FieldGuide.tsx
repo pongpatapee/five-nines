@@ -225,24 +225,37 @@ export const FIELD_GUIDE_SCRIPT: FieldGuideScript = {
 
 const anchor = (id: GuideEntryId) => `field-guide-${id}`;
 
+/**
+ * Scrolls `container` so `target` sits at its top. Unlike `scrollIntoView`, which scrolls every scrollable ancestor,
+ * this leaves the page behind the guide where it was.
+ */
+function scrollWithin(container: HTMLElement, target: HTMLElement): void {
+  const padding = Number.parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
+  const offset = target.getBoundingClientRect().top - container.getBoundingClientRect().top - padding;
+  container.scrollTo({ top: container.scrollTop + offset });
+}
+
 /** The field guide, laid open over the page. */
 export function FieldGuide({ components, concepts, unmet, focus, onClose }: FieldGuideProps) {
   const titleId = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const target = focus ? bodyRef.current?.querySelector<HTMLElement>(`#${anchor(focus)}`) : null;
-    if (target) {
-      target.scrollIntoView({ block: 'start' });
+    const body = bodyRef.current;
+    const target = focus ? body?.querySelector<HTMLElement>(`#${anchor(focus)}`) : null;
+    if (body && target) {
+      scrollWithin(body, target);
       target.focus({ preventScroll: true });
     } else {
       titleRef.current?.focus({ preventScroll: true });
     }
   }, [focus]);
   const jump = (id: GuideEntryId) => {
-    const target = bodyRef.current?.querySelector<HTMLElement>(`#${anchor(id)}`);
-    target?.scrollIntoView({ block: 'start' });
-    target?.focus({ preventScroll: true });
+    const body = bodyRef.current;
+    const target = body?.querySelector<HTMLElement>(`#${anchor(id)}`);
+    if (!body || !target) return;
+    scrollWithin(body, target);
+    target.focus({ preventScroll: true });
   };
 
   return (
