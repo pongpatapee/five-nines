@@ -23,6 +23,7 @@ export const {
   FieldGuide,
   fieldGuide,
   GradeCard,
+  HintLadderView,
   CampaignMap,
   UtilizationGauge,
   BadgeShelf,
@@ -37,6 +38,8 @@ export {
   hottestShard,
   latencyAt,
   latencyWorthNoting,
+  LEVEL_TRAPS,
+  levelTrap,
   lockSituation,
   savingsSituation,
   verdictFor,
@@ -45,6 +48,7 @@ export {
   type FailureStory,
   type HintLadder,
   type LatencySituation,
+  type LevelTrap,
   type LockSituation,
   type SavingsSituation,
 } from './situations.ts';
@@ -60,3 +64,6 @@ export const eventCaption = (event: SimEvent) => situations.eventCaption(event, 
 
 /** The mentor's hint ladder for a failed run. */
 export const hintLadder = (level: Level, story: situations.FailureStory) => situations.hintLadder(level, story, cast);
+
+/** The mentor's hint ladder before any failed run, about the level's main trap. Null for a level without one. */
+export const levelHintLadder = (level: Level) => situations.levelHintLadder(level, cast);

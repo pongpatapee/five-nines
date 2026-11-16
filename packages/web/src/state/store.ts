@@ -13,6 +13,9 @@ import type { Draft } from '../canvas/types.ts';
 import {
   awardBadges,
   bestOf,
+  creditedGrade,
+  creditedRunBadges,
+  peekCosts,
   progressBadges,
   runReward,
   type BadgeId,
@@ -30,6 +33,10 @@ export interface ProgressState {
   estimates: Readonly<Record<string, EstimateRecord>>;
   /** Badges earned. */
   badges: EarnedBadges;
+  /** Levels whose solution was seen before passing: capped at a pass, no badges (progression/peek.ts). */
+  peeked: Readonly<Record<string, true>>;
+  /** The player's own design per level, kept aside while a reference solution is on the canvas. */
+  stashedDrafts: Readonly<Record<string, Draft>>;
 
   /** Replaces a level's draft (design and layout). Autosaved. */
   updateDraft(levelId: string, draft: Draft): void;
@@ -37,7 +44,8 @@ export interface ProgressState {
   resetDraft(levelId: string): void;
   /**
    * Records a graded run: keeps the grade if it beats the level's best, awards `earned` (the run's badges, from
-   * `runBadges`) and any progress badges the new best grade earns. Returns what the run paid out.
+   * `runBadges`) and any progress badges the new best grade earns. On a peeked level the grade is capped at a pass and
+   * the run's badges are dropped. Returns what the run paid out.
    */
   recordRun(levelId: string, grade: Grade, earned: readonly BadgeId[]): RunReward;
   /**
@@ -45,6 +53,15 @@ export interface ProgressState {
    * earned stays earned. Returns the badges this answer earned for the first time.
    */
   recordEstimate(levelId: string, guess: number | null, close: boolean): BadgeId[];
+  /** Records that the player saw the level's solution. Only before it is passed; a no-op after (`peekCosts`). */
+  recordPeek(levelId: string): void;
+  /**
+   * Puts a reference solution on the level's canvas. The player's own design is kept aside first, unless one is
+   * already kept (a second solution replaces the first, not the player's design).
+   */
+  loadSolution(levelId: string, solution: Draft): void;
+  /** Puts the player's kept design back on the canvas, replacing the solution. */
+  restoreStashedDraft(levelId: string): void;
 }
 
 /** Every level starts with just the clients node. Shared and frozen so selectors return a stable reference. */
@@ -68,6 +85,8 @@ export type ProgressStore = StoreApi<ProgressState> & {
 };
 
 type Facts = Pick<ProgressState, 'bestGrades' | 'estimates' | 'badges'>;
+type Saved = Pick<ProgressState, 'drafts' | 'bestGrades' | 'estimates' | 'badges' | 'peeked' | 'stashedDrafts'>;
+const SAVED_KEYS = ['drafts', 'bestGrades', 'estimates', 'badges', 'peeked', 'stashedDrafts'] as const satisfies readonly (keyof Saved)[];
 
 /** The progress badges `facts` earn that it doesn't hold yet, credited to `levelId`. */
 function withProgressBadges(chapters: readonly Chapter[], facts: Facts, levelId: string | null): EarnedBadges {
@@ -87,6 +106,8 @@ export function createProgressStore({ storage, writeDelayMs = 300, chapters = CH
     bestGrades: initial.bestGrades,
     estimates: initial.estimates,
     badges: initialBadges,
+    peeked: initial.peeked,
+    stashedDrafts: initial.stashedDrafts,
     updateDraft: (levelId, draft) =>
       set((state) => (state.drafts[levelId] === draft ? state : { drafts: { ...state.drafts, [levelId]: draft } })),
     resetDraft: (levelId) =>
@@ -97,12 +118,17 @@ export function createProgressStore({ storage, writeDelayMs = 300, chapters = CH
       }),
     recordRun: (levelId, grade, earned) => {
       const before = get();
-      const best = bestOf(before.bestGrades[levelId], grade);
+      const peeked = before.peeked[levelId] === true;
+      const credited = creditedGrade(grade, peeked);
+      const best = bestOf(before.bestGrades[levelId], credited);
       const bestGrades = best === before.bestGrades[levelId] ? before.bestGrades : { ...before.bestGrades, [levelId]: best };
-      const withRun = awardBadges(before.badges, earned, levelId);
+      const withRun = awardBadges(before.badges, creditedRunBadges(earned, peeked), levelId);
       const badges = withProgressBadges(chapters, { ...before, bestGrades, badges: withRun }, levelId);
       if (bestGrades !== before.bestGrades || badges !== before.badges) set({ bestGrades, badges });
-      return runReward(chapters, levelId, { best: before.bestGrades, badges: before.badges }, { best: bestGrades, badges });
+      return {
+        ...runReward(chapters, levelId, { best: before.bestGrades, badges: before.badges }, { best: bestGrades, badges }),
+        capped: credited !== grade || (peeked && earned.length > 0),
+      };
     },
     recordEstimate: (levelId, guess, close) => {
       const state = get();
@@ -117,14 +143,33 @@ export function createProgressStore({ storage, writeDelayMs = 300, chapters = CH
       set(badges === state.badges ? { estimates } : { estimates, badges });
       return (Object.keys(badges) as BadgeId[]).filter((id) => state.badges[id] === undefined);
     },
+    recordPeek: (levelId) =>
+      set((state) =>
+        peekCosts(state.bestGrades[levelId], state.peeked[levelId] === true) ? { peeked: { ...state.peeked, [levelId]: true } } : state,
+      ),
+    loadSolution: (levelId, solution) =>
+      set((state) => ({
+        drafts: { ...state.drafts, [levelId]: solution },
+        stashedDrafts:
+          levelId in state.stashedDrafts
+            ? state.stashedDrafts
+            : { ...state.stashedDrafts, [levelId]: selectDraft(state, levelId) },
+      })),
+    restoreStashedDraft: (levelId) =>
+      set((state) => {
+        const stashed = state.stashedDrafts[levelId];
+        if (!stashed) return state;
+        const { [levelId]: _restored, ...stashedDrafts } = state.stashedDrafts;
+        return { drafts: { ...state.drafts, [levelId]: stashed }, stashedDrafts };
+      }),
   }));
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   const write = () => {
     timer = null;
     if (!writable) return;
-    const { drafts, bestGrades, estimates, badges } = store.getState();
-    writeSave(storage, { drafts, bestGrades, estimates, badges });
+    const { drafts, bestGrades, estimates, badges, peeked, stashedDrafts } = store.getState();
+    writeSave(storage, { drafts, bestGrades, estimates, badges, peeked, stashedDrafts });
   };
   const flush = () => {
     if (timer === null) return;
@@ -133,14 +178,7 @@ export function createProgressStore({ storage, writeDelayMs = 300, chapters = CH
   };
 
   store.subscribe((state, prev) => {
-    if (
-      state.drafts === prev.drafts &&
-      state.bestGrades === prev.bestGrades &&
-      state.estimates === prev.estimates &&
-      state.badges === prev.badges
-    ) {
-      return;
-    }
+    if (SAVED_KEYS.every((key) => state[key] === prev[key])) return;
     if (writeDelayMs <= 0) {
       write();
       return;
@@ -185,4 +223,17 @@ export function useEstimate(levelId: string): EstimateRecord | undefined {
 
 export function useBadges(): EarnedBadges {
   return useProgress((state) => state.badges);
+}
+
+export function usePeeked(levelId: string): boolean {
+  return useProgress((state) => state.peeked[levelId] === true);
+}
+
+export function usePeekedLevels(): Readonly<Record<string, true>> {
+  return useProgress((state) => state.peeked);
+}
+
+/** The player's own design kept aside while a solution is on the canvas, if any. */
+export function useStashedDraft(levelId: string): Draft | undefined {
+  return useProgress((state) => state.stashedDrafts[levelId]);
 }

@@ -1,5 +1,5 @@
 /**
- * What Erasmus says when the maths matters: the hint ladder after a failed run, the p99 explanation, the failover
+ * What Erasmus says when the maths matters: the hint ladders (before any failed run, and after one), the p99 explanation, the failover
  * arithmetic after a crash and the napkin-maths step. The game decides the situation and its numbers
  * (`theme/situations.ts`, `@five-nines/sim`'s estimate working); this file only words them.
  *
@@ -7,6 +7,7 @@
  * the fallback. CI checks every level has its own line for every failure its known wrong answers produce.
  */
 import {
+  APP_SERVER_SIZES,
   AVAILABILITY_TIERS,
   COMFORTABLE_UTILIZATION,
   COMPONENT_LABELS,
@@ -20,7 +21,7 @@ import {
 import { capitalize, formatCount, formatEstimate, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
 import type { EstimateResult, MentorEstimateScript, MentorLadderScript } from '../contract.ts';
 import { bigCount } from './numbers.tsx';
-import type { FailoverSituation, FailureStory, HintTopic, LatencySituation } from '../situations.ts';
+import type { FailoverSituation, FailureStory, HintTopic, LatencySituation, LevelTrap } from '../situations.ts';
 
 // ---------------------------------------------------------------------------- numbers, said aloud
 
@@ -422,12 +423,89 @@ export const LEVEL_HINTS: Readonly<Record<string, LevelHints>> = {
   },
 };
 
+// ---------------------------------------------------------------------------- hints before any failed run
+
+/** The traffic the level peaks at: a spike's top if it has one, otherwise the sustained rate. */
+const peakOf = (trap: LevelTrap) => Math.max(trap.numbers.traffic.sustainedRps, ...trap.numbers.traffic.spikes.map((s) => s.rps));
+const readsAtPeak = (trap: LevelTrap) => Math.round(peakOf(trap) * (trap.numbers.data?.readShare ?? 0));
+const writesAtPeak = (trap: LevelTrap) => peakOf(trap) - readsAtPeak(trap);
+
+/**
+ * Where to look and why it's hard, per level, before the player has run anything: about the level's main trap
+ * (`LEVEL_TRAPS`), quoting the level's own numbers. The concept and fix rungs are the level's lines for that trap.
+ */
+const BEFORE_RUN: Readonly<Record<string, { where(trap: LevelTrap): string; why(trap: LevelTrap): string }>> = {
+  '01-hello-traffic': {
+    where: (t) => `The one app server, at the peak: ${formatCount(peakOf(t))} requests a second, each needing ${formatMs(t.numbers.cpuMsPerRequest)} of CPU.`,
+    why: (t) =>
+      `One vCPU finishes 1,000 ÷ ${formatCount(t.numbers.cpuMsPerRequest)} = ${formatCount(1000 / t.numbers.cpuMsPerRequest)} requests a second. Too few vCPUs and requests queue until they time out; too many and you pay for idle ones.`,
+  },
+  '02-scale-out': {
+    where: (t) => `The app tier at the peak: ${formatCount(peakOf(t))} requests a second.`,
+    why: (t) => {
+      const vcpus = (peakOf(t) * t.numbers.cpuMsPerRequest) / 1000;
+      return `That's ${formatCount(peakOf(t))} × ${formatMs(t.numbers.cpuMsPerRequest)} = ${formatCount(vcpus)} vCPUs of work, and the biggest server has ${APP_SERVER_SIZES.xlarge.vcpu}. No one machine can do it.`;
+    },
+  },
+  '03-pull-the-plug': {
+    where: () => 'The app servers, the moment one of them crashes.',
+    why: () =>
+      'Two things go wrong at once: the balancer keeps sending the dead server its share until health checks notice, and the survivors must carry the whole load without it.',
+  },
+  '04-read-all-about-it': {
+    where: (t) => `The database at the spike: ${formatCount(peakOf(t))} requests a second, ${formatPercent(t.numbers.data?.readShare ?? 0)} of them reads.`,
+    why: (t) =>
+      `${formatCount(readsAtPeak(t))} reads a second, plus the writes, is more than any database size takes. Every read lands on it unless something catches it first.`,
+  },
+  '05-cache-miss': {
+    where: (t) => `The database at the peak: ${formatCount(readsAtPeak(t))} reads a second.`,
+    why: (t) =>
+      `The obvious fix may not work here. ${capitalize(bigCount(t.numbers.data?.keys?.count ?? 0))} ${t.numbers.data?.keys?.label ?? 'items'}, all equally likely: no small set of them gets most reads, so a copy kept in memory is rarely asked for again.`,
+  },
+  '06-bank-balance': {
+    where: (t) =>
+      `The balance checks right after a transfer: ${formatPercent(t.numbers.data?.readAfterWrite?.share ?? 0)} of reads come about ${t.numbers.data?.readAfterWrite?.meanGapSec ?? 0} s after the user's own write.`,
+    why: () =>
+      "Replicas are a little behind the primary, and further behind when busy. A user checking a transfer they just made can read the balance from before it, and that counts as a failure here.",
+  },
+  '07-the-write-wall': {
+    where: (t) => `The writes: ${formatCount(writesAtPeak(t))} a second, and every one goes to a primary.`,
+    why: () =>
+      'Replicas and caches only help reads. This is more writes than any one database takes, and where they land depends on how the data is split.',
+  },
+  '08-thundering-herd': {
+    where: () => 'The database, the moment the cache restarts.',
+    why: () =>
+      'A warm cache hides how many reads there are. When it empties, every read misses at once and goes straight to the database.',
+  },
+  '09-stale-prices': {
+    where: (t) => `The prices in the cache: a read must see a price at most ${t.numbers.requirements.maxStalenessSec ?? 0} s out of date.`,
+    why: () =>
+      'A cached copy can be as old as its expiry. A short expiry keeps prices fresh, but throws away copies the database needs the cache to keep.',
+  },
+  '10-flash-sale': {
+    where: (t) => `The payment provider during the sale: it takes at most ${formatCount(t.numbers.payments?.rateLimitRps ?? 0)} charges a second.`,
+    why: (t) =>
+      `Charging while the customer waits sends the whole spike, ${formatCount(peakOf(t))} orders a second, straight to the provider, and it refuses the rest.`,
+  },
+};
+
+/** The level's own lines, exported so tests can check every level has them. */
+export const BEFORE_RUN_HINTS = BEFORE_RUN;
+
 export const MENTOR_LADDER: MentorLadderScript = {
   where,
   why,
+  beforeRun: {
+    where: (trap) => BEFORE_RUN[trap.levelId]?.where(trap) ?? 'Start with the busiest part of the design at the peak.',
+    why: (trap) => BEFORE_RUN[trap.levelId]?.why(trap) ?? GENERAL[trap.topic].concept,
+  },
   concept: (levelId, topic) => LEVEL_HINTS[levelId]?.[topic]?.concept ?? GENERAL[topic].concept,
   fix: (levelId, topic) => LEVEL_HINTS[levelId]?.[topic]?.fix ?? GENERAL[topic].fix,
-  stepLabels: { where: 'Where it broke', why: 'Why', concept: 'The idea', fix: 'The fix' },
+  stepLabels: {
+    level: { where: 'Where to look', why: 'Why it\'s hard', concept: 'The idea', fix: 'The fix' },
+    run: { where: 'Where it broke', why: 'Why', concept: 'The idea', fix: 'The fix' },
+  },
   more: 'Another hint',
 };
 

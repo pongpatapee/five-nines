@@ -1,31 +1,45 @@
-import { designCostUsdPerMonth, type Level } from '@five-nines/sim';
-import { useMemo } from 'react';
+import { CLIENTS_ID, designCostUsdPerMonth, peakLoad, type Design, type Level } from '@five-nines/sim';
+import { useEffect, useMemo, useRef } from 'react';
 import { DesignCanvas, draftFromDesign } from '../canvas/index.ts';
-import { formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
-import { marks } from '../theme/index.ts';
+import { formatCount, formatPercent, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
+import { cast, marks } from '../theme/index.ts';
 
 export interface DebriefPanelProps {
   level: Level;
-  /** Show a spoiler warning: the player hasn't passed this level yet. */
-  spoilers: boolean;
+  /** The player saw this before passing: the page pays at most a pass. */
+  peeked: boolean;
   onClose(): void;
   /** Label of the close button, e.g. "Back to result" or "Close". */
   closeLabel?: string;
+  /** Puts a solution on the player's canvas (their own design is kept aside first). Null where it can't. */
+  onLoad: ((design: Design) => void) | null;
+  /** Puts the player's kept design back. Null when nothing is kept aside. */
+  onSwitchBack: (() => void) | null;
 }
 
-/** The level's debrief, reference solutions (as read-only canvases) and common traps. */
-export function DebriefPanel({ level, spoilers, onClose, closeLabel = 'Close' }: DebriefPanelProps) {
+/**
+ * The solution page: the level's debrief, every reference solution drawn on the notebook with its explanation and key
+ * numbers (what it costs, how busy each part is at the peak), and the common traps.
+ */
+export function DebriefPanel({ level, peeked, onClose, closeLabel = 'Close', onLoad, onSwitchBack }: DebriefPanelProps) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => titleRef.current?.focus({ preventScroll: true }), []);
   return (
-    <section className="debrief panel" aria-labelledby="debrief-title">
+    <section className="debrief panel" role="dialog" aria-modal="true" aria-labelledby="debrief-title">
       <header className="panel__header debrief__header">
         <div>
           <div className="eyebrow">{level.concept}</div>
-          <h2 id="debrief-title" className="debrief__title hand">
-            Debrief &amp; solutions
+          <h2 ref={titleRef} tabIndex={-1} id="debrief-title" className="debrief__title hand">
+            {cast.giveUp.pageTitle}
           </h2>
         </div>
         <div className="debrief__header-actions">
-          {spoilers && <span className="spoiler-tag">Spoilers: you haven't passed this level yet</span>}
+          {peeked && <span className="spoiler-tag">{capitalizeFirst(cast.giveUp.peekedNote)}</span>}
+          {onSwitchBack && (
+            <button type="button" className="btn" onClick={onSwitchBack}>
+              {cast.giveUp.switchBack}
+            </button>
+          )}
           <button type="button" className="btn" onClick={onClose}>
             {closeLabel}
           </button>
@@ -44,11 +58,13 @@ export function DebriefPanel({ level, spoilers, onClose, closeLabel = 'Close' }:
           {level.solutions.map((solution) => (
             <SolutionCard
               key={solution.name}
+              level={level}
               name={solution.name}
               explanation={solution.explanation}
               design={solution.design}
               badge={GRADE_LABELS[solution.expectedGrade]}
               grade={solution.expectedGrade}
+              onLoad={onLoad ? () => onLoad(solution.design) : null}
             />
           ))}
         </div>
@@ -79,20 +95,27 @@ export function DebriefPanel({ level, spoilers, onClose, closeLabel = 'Close' }:
   );
 }
 
+const capitalizeFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 function SolutionCard({
+  level,
   name,
   explanation,
   design,
   badge,
   grade,
+  onLoad,
 }: {
+  level: Level;
   name: string;
   explanation: string;
-  design: Level['solutions'][number]['design'];
+  design: Design;
   badge: string;
   grade: string;
+  onLoad: (() => void) | null;
 }) {
   const draft = useMemo(() => draftFromDesign(design), [design]);
+  const numbers = useMemo(() => keyNumbers(level, design), [level, design]);
   return (
     <article className="solution">
       <div className="solution__canvas">
@@ -107,7 +130,34 @@ function SolutionCard({
         </div>
         <div className="solution__cost num muted">{formatUsdPerMonth(designCostUsdPerMonth(design))}</div>
         <p className="solution__explanation">{explanation}</p>
+        <dl className="solution__numbers">
+          {numbers.map((row) => (
+            <div key={row.id} className="solution__number">
+              <dt className="num">{row.id}</dt>
+              <dd className="num">{row.text}</dd>
+            </div>
+          ))}
+        </dl>
+        {onLoad && (
+          <button type="button" className="btn btn--sm solution__load" onClick={onLoad}>
+            {cast.giveUp.load}
+          </button>
+        )}
       </div>
     </article>
   );
+}
+
+/** How busy each part of a solution is at the level's peak: "app: 5 machines, 62% busy (3,100 of 5,000 requests/s each)". */
+function keyNumbers(level: Level, design: Design): { id: string; text: string }[] {
+  const load = peakLoad(level, design);
+  return design.nodes
+    .filter((node) => node.id !== CLIENTS_ID && load.nodes[node.id])
+    .map((node) => {
+      const n = load.nodes[node.id]!;
+      const machines = n.machines > 1 ? `${n.machines} machines, ` : '';
+      const busy = Number.isFinite(n.utilization) ? `${formatPercent(n.utilization)} busy` : 'nothing left to serve';
+      const each = n.capacity > 0 ? ` (${formatCount(n.load)} of ${formatCount(n.capacity)} ${n.unit}/s${n.machines > 1 ? ' each' : ''})` : '';
+      return { id: node.id, text: `${machines}${busy}${each}` };
+    });
 }

@@ -11,7 +11,7 @@ import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
 import { ComponentDoodle } from './doodles.tsx';
 import { FIELD_GUIDE_SCRIPT, FieldGuide } from './FieldGuide.tsx';
-import { GradeCard } from './GradeCard.tsx';
+import { GradeCard, HintLadderView } from './GradeCard.tsx';
 import { Cross, HandArrow, HandBox, NinesDots, RootCauseCircle, SpeakerMark, Tick } from './ink.tsx';
 import { NapkinWorking } from './NapkinWorking.tsx';
 import { NumbersBox, numbersText } from './numbers.tsx';
@@ -50,6 +50,7 @@ export const notebookTheme: Theme = {
   FieldGuide,
   fieldGuide: FIELD_GUIDE_SCRIPT,
   GradeCard,
+  HintLadderView,
   CampaignMap,
   UtilizationGauge,
   BadgeShelf,

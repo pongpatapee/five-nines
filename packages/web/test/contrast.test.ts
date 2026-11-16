@@ -103,6 +103,7 @@ const TEXT: Audit[] = [
   { selector: '.grade-card__savings-line .cast-line__bubble', on: ['var(--paper-card)'], colors: ['var(--text)'] },
   { selector: '.locked-level__concept', on: ['var(--paper)'], colors: ['var(--text-muted)'] },
   { selector: '.map-text--lock-note', on: ['var(--paper)'], scale: MAP_SCALE },
+  { selector: '.map-text--peek', on: ['var(--paper)'], scale: MAP_SCALE },
   { selector: '.map-stop--locked .map-text--title', on: ['var(--paper)'], inheritsSize: '17px', scale: MAP_SCALE },
   // Chapter 3: gauges (now with queue wording), the inspector's working and the nodes' live readouts.
   { selector: '.util-gauge__zone-word', on: ['var(--paper)', 'var(--paper-card)'], colors: ZONES },
@@ -139,6 +140,13 @@ const TEXT: Audit[] = [
   { selector: '.field-guide__table th', on: ['var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
   { selector: '.field-guide__table td', on: ['var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
   { selector: '.field-guide__table thead th', on: ['var(--paper-card)'], inheritsSize: 'var(--text-xs)', colors: ['var(--ink)'] },
+  { selector: '.hints-card__title', on: ['var(--paper-card)'] },
+  // Giving up: the confirm, the solution's key numbers and the capped note.
+  { selector: '.confirm-card__title', on: ['var(--paper-card)'] },
+  { selector: '.confirm-card__body', on: ['var(--paper-card)'], inheritsSize: 'var(--text-md)' },
+  { selector: '.solution__number dt', on: ['var(--highlighter)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.solution__number dd', on: ['var(--highlighter)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.grade-card__capped', on: ['var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
   { selector: '.guide-link', on: ['var(--paper-card)', 'var(--paper)', 'var(--paper-shade)'] },
 ];
 

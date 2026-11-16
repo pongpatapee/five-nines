@@ -36,6 +36,7 @@ import type {
   HintTopic,
   LatencySituation,
   LevelStress,
+  LevelTrap,
   Verdict,
 } from './situations.ts';
 
@@ -95,6 +96,29 @@ export interface CastScript {
   lockedLevel(situation: LockSituation): { role: CastRole; line: string };
   /** The line under the nines counter when a run opens a chapter. */
   chapterOpened(chapterNumber: number, title: string): string;
+  /** Giving up: seeing a level's solution, and what it costs (docs/design.md, "Giving up"). */
+  giveUp: GiveUpScript;
+}
+
+export interface GiveUpScript {
+  /** The button, wherever the solution can be asked for. */
+  show: string;
+  /** The same button once the level is passed, when it costs nothing. */
+  showFree: string;
+  /** The confirm before a peek: what it costs, said before it happens. */
+  confirmTitle: string;
+  confirmLines: readonly string[];
+  confirm: string;
+  cancel: string;
+  /** On the solution page. */
+  pageTitle: string;
+  load: string;
+  /** Once a solution is on the canvas: back to the design kept aside. */
+  switchBack: string;
+  /** On the results card, when a peeked level's run was credited less than it earned. */
+  capped: string;
+  /** On the solution page and the map, for a peeked level. */
+  peekedNote: string;
 }
 
 export interface BadgeCopy {
@@ -115,8 +139,13 @@ export interface MentorLadderScript {
   concept(levelId: string, topic: HintTopic): string;
   /** The change that fixes it, in this level, without handing over a whole design. */
   fix(levelId: string, topic: HintTopic): string;
-  /** A heading for each rung. */
-  stepLabels: Readonly<Record<HintStep, string>>;
+  /** The first two rungs before any failed run, about the level's main trap; the concept and fix are shared. */
+  beforeRun: {
+    where(trap: LevelTrap): string;
+    why(trap: LevelTrap): string;
+  };
+  /** A heading for each rung, before any failed run (`level`) and after one (`run`). */
+  stepLabels: Readonly<Record<HintLadder['kind'], Readonly<Record<HintStep, string>>>>;
   /** The button that reveals the next rung. */
   more: string;
 }
@@ -249,21 +278,32 @@ export interface GradeCardProps {
   /** 1-based, for the heading. */
   levelNumber: number;
   evaluation: GradedEvaluation;
-  /** The mentor's hints, when the run failed. */
-  hints: HintLadder | null;
+  /** The mentor's hints, when the run failed: the ladder the top bar's hints button also shows. */
+  hints: HintLadderProps | null;
   /** The failover around the run's crash, over the whole run. Null when nothing crashed. */
   failover: FailoverSituation | null;
   onBackToEditor(): void;
   onReplay(): void;
+  /** The solution page (behind a confirm while it costs something). */
   onShowDebrief(): void;
+  /** Its button: "Show me the solution" before the level is passed. */
+  solutionLabel: string;
   /** Null when there's no next level or this attempt didn't pass. */
   onNextLevel: (() => void) | null;
   /** The run's payout, once recorded. */
   reward: RewardView | null;
   /** Money left under the budget, or null when over it. */
   savings: SavingsSituation | null;
-  /** The player revealed another hint. */
-  onHintRevealed?(): void;
+}
+
+export interface HintLadderProps {
+  ladder: HintLadder;
+  /** Rungs revealed so far, at least 1. */
+  shown: number;
+  /** Reveal the next rung. */
+  onReveal(): void;
+  /** Under the rungs: links to the field guide and to the solution. */
+  footer?: ReactNode;
 }
 
 export interface CampaignMapProps {
@@ -272,6 +312,8 @@ export interface CampaignMapProps {
   /** The levels, in play order. */
   levels: readonly Level[];
   best: Readonly<Record<string, Grade>>;
+  /** Levels whose solution was seen before passing (progression/peek.ts): marked in pencil. */
+  peeked?: Readonly<Record<string, true>>;
   /** Index of the level to play next, or null when all are passed. */
   nextUp: number | null;
   /** Whether each level (by id) is open, and if not, why. */
@@ -383,6 +425,8 @@ export interface Theme {
   fieldGuide: FieldGuideScript;
   /** The graded result. */
   GradeCard: ComponentType<GradeCardProps>;
+  /** The mentor's hints, one rung at a time: on the results card and in the hints dialog. */
+  HintLadderView: ComponentType<HintLadderProps>;
   /** The campaign on the level select screen. */
   CampaignMap: ComponentType<CampaignMapProps>;
   /** Expected peak utilization, in the inspector and on canvas nodes while building. */

@@ -168,6 +168,13 @@
   font-weight: 700;
 }
 
+.map-text--peek {
+  fill: var(--pencil);
+  font-family: var(--font-hand);
+  font-size: 21px;
+  font-weight: 700;
+}
+
 .map-stop--locked:hover .map-locked__page {
   fill: var(--surface-hover);
 }

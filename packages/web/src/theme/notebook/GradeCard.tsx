@@ -12,8 +12,8 @@ import {
 } from '../../format.ts';
 import { MAX_NINES_PER_LEVEL, ninesForGrade, type BadgeId } from '../../progression/index.ts';
 import { gradeHeadline, litTiers, nextTier, tierPercent, tierRequirementLabel, TIER_ORDER } from '../../results/grading.ts';
-import type { GradeCardProps, RewardView } from '../contract.ts';
-import { verdictFor, type HintLadder, type SavingsSituation } from '../situations.ts';
+import type { GradeCardProps, HintLadderProps, RewardView } from '../contract.ts';
+import { verdictFor, type SavingsSituation } from '../situations.ts';
 import { BADGE_GLYPHS } from './BadgeShelf.tsx';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
@@ -29,10 +29,10 @@ export function GradeCard({
   onBackToEditor,
   onReplay,
   onShowDebrief,
+  solutionLabel,
   onNextLevel,
   reward,
   savings,
-  onHintRevealed,
 }: GradeCardProps) {
   const { grade, checks, simulation } = evaluation;
   const passed = grade !== 'fail';
@@ -151,7 +151,8 @@ export function GradeCard({
           <b className="grade-card__note-label">First failure:</b> {describeCause(mainCause)}
         </p>
       )}
-      {hints && <MentorHints key={hints.topic} ladder={hints} onReveal={onHintRevealed} />}
+      {reward?.reward.capped && <p className="grade-card__note grade-card__capped">{NOTEBOOK_SCRIPT.giveUp.capped}</p>}
+      {hints && <HintLadderView {...hints} />}
       {upNext && passed && <p className="grade-card__note muted">Next: {tierRequirementLabel(upNext)}.</p>}
       {evaluation.warnings.length > 0 && (
         <ul className="grade-card__warnings">
@@ -169,7 +170,7 @@ export function GradeCard({
           Replay
         </button>
         <button type="button" className="btn" onClick={onShowDebrief}>
-          Debrief &amp; solutions
+          {solutionLabel}
         </button>
         {onNextLevel && (
           <button type="button" className="btn btn--primary" onClick={onNextLevel}>
@@ -298,49 +299,49 @@ function NewBadges({ badges }: { badges: readonly BadgeId[] }) {
   );
 }
 
-/** Erasmus's hints, one rung at a time: where it broke, why, the idea, the fix. */
-function MentorHints({ ladder, onReveal }: { ladder: HintLadder; onReveal?: () => void }) {
-  const [shown, setShown] = useState(1);
+/**
+ * Erasmus's hints, one rung at a time: where to look (or where it broke), why, the idea, the fix. Controlled, so the
+ * results card and the hints dialog show the same rungs.
+ */
+export function HintLadderView({ ladder, shown, onReveal, footer }: HintLadderProps) {
   const total = ladder.rungs.length;
+  const visible = Math.min(Math.max(shown, 1), total);
   const words = NOTEBOOK_SCRIPT.mentorLadder;
+  const labels = words.stepLabels[ladder.kind];
   // Each new hint takes the focus, so keyboard and screen-reader players land on what they asked for.
   const latest = useRef<HTMLLIElement>(null);
+  const revealed = useRef(visible);
   useEffect(() => {
-    if (shown > 1) latest.current?.focus();
-  }, [shown]);
+    if (visible > revealed.current) latest.current?.focus();
+    revealed.current = visible;
+  }, [visible]);
   return (
     <CastLine
       role="mentor"
-      mood="concerned"
+      mood={ladder.kind === 'run' ? 'concerned' : undefined}
       size={56}
       className="grade-card__mentor"
-      lead={`Hint ${shown} of ${total}`}
+      lead={`Hint ${visible} of ${total}`}
     >
       <ol className="hint-ladder">
-        {ladder.rungs.slice(0, shown).map((rung, i) => (
+        {ladder.rungs.slice(0, visible).map((rung, i) => (
           <li
             key={rung.step}
-            ref={i === shown - 1 ? latest : undefined}
+            ref={i === visible - 1 ? latest : undefined}
             tabIndex={-1}
             className="hint-ladder__rung"
             data-step={rung.step}
           >
-            <b className="hint-ladder__label">{words.stepLabels[rung.step]}:</b> {rung.text}
+            <b className="hint-ladder__label">{labels[rung.step]}:</b> {rung.text}
           </li>
         ))}
       </ol>
-      {shown < total && (
-        <button
-          type="button"
-          className="btn btn--sm btn--ghost hint-ladder__more"
-          onClick={() => {
-            setShown(shown + 1);
-            onReveal?.();
-          }}
-        >
-          {words.more} ({shown + 1} of {total})
+      {visible < total && (
+        <button type="button" className="btn btn--sm btn--ghost hint-ladder__more" onClick={onReveal}>
+          {words.more} ({visible + 1} of {total})
         </button>
       )}
+      {footer && <div className="hint-ladder__footer">{footer}</div>}
     </CastLine>
   );
 }

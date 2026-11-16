@@ -247,6 +247,7 @@ describe('run rewards', () => {
       totalNines: { before: 7, after: 12, total: 25 },
       newBadges: ['rightSized'],
       openedChapterIds: ['growing-pains'],
+      capped: false,
     });
     expect(runReward(CAMPAIGN, 'c', after, after)).toMatchObject({ levelNines: { before: 5, after: 5 }, newBadges: [], openedChapterIds: [] });
   });

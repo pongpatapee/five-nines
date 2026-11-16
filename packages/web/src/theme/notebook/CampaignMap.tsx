@@ -1,6 +1,6 @@
 import { isWritten, type Grade, type Level } from '@five-nines/sim';
 import type { ReactNode } from 'react';
-import { GRADE_LABELS } from '../../format.ts';
+import { capitalize, GRADE_LABELS } from '../../format.ts';
 import { MAX_NINES_PER_LEVEL, ninesForGrade, type ChapterAccess, type LevelAccess } from '../../progression/index.ts';
 import { routeHref } from '../../routing.ts';
 import type { CampaignMapProps } from '../contract.ts';
@@ -32,7 +32,7 @@ const WASH: Record<ChapterWash, string> = {
  *
  * The map is drawn for 880 units across. Its frame scrolls sideways when the page is narrower than it can shrink to.
  */
-export function CampaignMap({ chapters, levels, best, nextUp, access, chapterAccess }: CampaignMapProps) {
+export function CampaignMap({ chapters, levels, best, peeked, nextUp, access, chapterAccess }: CampaignMapProps) {
   const written = chapters.filter(isWritten);
   const planned = chapters.filter((chapter) => !isWritten(chapter));
   return (
@@ -67,6 +67,7 @@ export function CampaignMap({ chapters, levels, best, nextUp, access, chapterAcc
               index={i}
               at={LEVEL_SLOTS[i]!}
               grade={best[level.id]}
+              peeked={peeked?.[level.id] === true}
               current={i === nextUp}
               access={access[level.id] ?? { kind: 'open' }}
               levelNumberOf={(id) => levels.findIndex((l) => l.id === id) + 1}
@@ -135,6 +136,7 @@ function LevelStop({
   index,
   at,
   grade,
+  peeked,
   current,
   access,
   levelNumberOf,
@@ -143,6 +145,8 @@ function LevelStop({
   index: number;
   at: XYPoint;
   grade: Grade | undefined;
+  /** The solution was seen before passing: a pencil note beside the page. */
+  peeked: boolean;
   current: boolean;
   access: LevelAccess;
   levelNumberOf(levelId: string): number;
@@ -182,7 +186,7 @@ function LevelStop({
       href={routeHref({ name: 'level', levelId: level.id })}
       className="map-stop"
       data-grade={grade ?? 'unplayed'}
-      aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}. ${status}, ${nines} of ${MAX_NINES_PER_LEVEL} nines.${current ? ' You are here.' : ''}`}
+      aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}. ${status}, ${nines} of ${MAX_NINES_PER_LEVEL} nines.${peeked ? ` ${capitalize(NOTEBOOK_SCRIPT.giveUp.peekedNote)}.` : ''}${current ? ' You are here.' : ''}`}
     >
       {current && (
         <path
@@ -211,6 +215,7 @@ function LevelStop({
       </text>
       <NinesDots filled={nines} total={MAX_NINES_PER_LEVEL} size="sm" x={at.x - 47} y={at.y + r + 32} />
       <GradeMark grade={grade} at={at} />
+      {peeked && <PeekMark at={at} r={r} />}
       {current && (
         <g className="map-stop__here">
           <path
@@ -225,6 +230,24 @@ function LevelStop({
         </g>
       )}
     </a>
+  );
+}
+
+/** A pencil note beside a page whose solution was seen before passing: it pays at most a pass. Decorative (the link says it). */
+function PeekMark({ at, r }: { at: XYPoint; r: number }) {
+  const x = at.x - r - 10;
+  const y = at.y - r + 2;
+  return (
+    <g aria-hidden>
+      <path
+        d={`M${x - 6},${y + 4} l14,-14 l4,4 l-14,14 z M${x - 6},${y + 4} l-3,7 l7,-3`}
+        style={paint(null, 'var(--pencil)', 1.6)}
+        strokeLinejoin="round"
+      />
+      <text x={x - 12} y={y + 2} textAnchor="end" className="map-text map-text--peek" transform={`rotate(-6 ${x - 12} ${y + 2})`}>
+        peeked
+      </text>
+    </g>
   );
 }
 
