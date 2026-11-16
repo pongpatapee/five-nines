@@ -29,10 +29,20 @@
 }
 
 .contents__wordmark {
-  position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
   font-size: 64px;
   line-height: 1;
+}
+
+.logo-mark {
+  flex: none;
+}
+
+/* The name and its highlighter swipe, without the logo mark. */
+.contents__name {
+  position: relative;
 }
 
 .contents__wordmark .hand {
@@ -457,8 +467,16 @@
 
 .topbar__back {
   display: grid;
+  grid-template-columns: auto auto;
+  column-gap: var(--space-2);
+  align-items: center;
   line-height: 1;
   color: var(--ink);
+}
+
+/* The logo mark sits beside both lines: the wordmark and the "contents" hint under it. */
+.topbar__back .logo-mark {
+  grid-row: span 2;
 }
 
 .topbar__back:hover {

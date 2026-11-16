@@ -13,6 +13,7 @@ import { ComponentDoodle } from './doodles.tsx';
 import { FIELD_GUIDE_SCRIPT, FieldGuide } from './FieldGuide.tsx';
 import { GradeCard, HintLadderView } from './GradeCard.tsx';
 import { Cross, HandArrow, HandBox, NinesDots, RootCauseCircle, SpeakerMark, Tick } from './ink.tsx';
+import { StickyGradeLogo } from './Logo.tsx';
 import { NapkinWorking } from './NapkinWorking.tsx';
 import { NumbersBox, numbersText } from './numbers.tsx';
 import { PostmortemCard } from './PostmortemCard.tsx';
@@ -62,6 +63,7 @@ export const notebookTheme: Theme = {
     Nines: NinesDots,
     RootCause: RootCauseCircle,
     Sound: SpeakerMark,
+    Logo: StickyGradeLogo,
   },
   sounds: NOTEBOOK_SOUNDS,
 };
