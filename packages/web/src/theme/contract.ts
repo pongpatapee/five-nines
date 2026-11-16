@@ -374,6 +374,8 @@ export interface ThemeMarks {
   RootCause: ComponentType;
   /** The sound toggle's icon: a speaker, struck through when off. Decorative (the button carries the label). */
   Sound: ComponentType<{ on: boolean }>;
+  /** The game's logo mark, beside the wordmark. Decorative (the wordmark carries the name). */
+  Logo: ComponentType<{ size?: number }>;
 }
 
 /** Moments the game makes a sound for. Sound is off unless the player turns it on. */
