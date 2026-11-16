@@ -10,6 +10,7 @@ import { CampaignMap } from './CampaignMap.tsx';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
 import { ComponentDoodle } from './doodles.tsx';
+import { FIELD_GUIDE_SCRIPT, FieldGuide } from './FieldGuide.tsx';
 import { GradeCard } from './GradeCard.tsx';
 import { Cross, HandArrow, HandBox, NinesDots, RootCauseCircle, SpeakerMark, Tick } from './ink.tsx';
 import { NapkinWorking } from './NapkinWorking.tsx';
@@ -46,6 +47,8 @@ export const notebookTheme: Theme = {
   NapkinWorking,
   numbersText,
   NumbersBox,
+  FieldGuide,
+  fieldGuide: FIELD_GUIDE_SCRIPT,
   GradeCard,
   CampaignMap,
   UtilizationGauge,

@@ -2,6 +2,7 @@ import { CLIENTS_ID, nodeCostUsdPerMonth, type Edge, type Level, type NodeSpec, 
 import type { CanvasSelection, Draft } from '../canvas/types.ts';
 import { COMPONENTS } from '../components/registry.ts';
 import { formatUsdPerMonth } from '../format.ts';
+import { GuideLink } from '../guide/FieldGuideProvider.tsx';
 import { ExpectedLoad } from './ExpectedLoad.tsx';
 import { NodeFields } from './fields.tsx';
 
@@ -34,6 +35,7 @@ export function Inspector({ level, draft, load, selection, onNodeChange, onDelet
         <span className="num">{formatUsdPerMonth(nodeCostUsdPerMonth(node))}</span>
       </div>
       <ExpectedLoad nodeId={node.id} load={load} />
+      <GuideLink entry={node.kind} className="inspector__guide" />
     </section>
   );
 }

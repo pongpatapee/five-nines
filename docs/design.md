@@ -176,6 +176,13 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 - What happens during the run is named, never timed: "an app server will crash", "the cache will restart", "a hot key", "the payment provider refuses calls over its rate limit".
 - Component specs stay in the inspector, the palette, the briefing's reference card and the field guide.
 
+### Field guide (built)
+
+- A reference section of the notebook, opened from the top bar on any level, and from "More in the field guide" links in the napkin working, the hints and the inspector of each component.
+- It shows only what the player has met: the components of every level they can open, and each concept from the level that introduces it (availability and the nines, p99 and the 70% rule on page 1; the error budget on page 3). Entries still to come are counted, never named. `?unlock=all` opens them all. The game decides what's met (`guide/guide.ts`); a link to an entry not yet met draws nothing.
+- Per component: what it does in one sentence, how its capacity works with a worked example (an app server does 1,000 ÷ CPU ms requests a second per vCPU; a database write costs reads/s ÷ writes/s reads; a cache's memory and TTL against how popular the keys are; replicas, shards, queue workers, the provider, the load balancer), its full spec table generated from the catalog, and its gotchas (the cache starts empty; replicas lag most when busy; the balancer sends to a dead server until health checks notice).
+- Concepts: the nines, p99, the 70% rule and the error budget, each with one example. Every figure in the worked examples is computed from the catalog.
+
 ### Progression and rewards (built)
 
 Pure functions in `packages/web/src/progression/`, over saved progress and run results; the theme only words and draws them.

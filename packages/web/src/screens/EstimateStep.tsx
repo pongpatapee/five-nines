@@ -5,6 +5,9 @@ import { formatEstimate } from '../format.ts';
 import type { BadgeId } from '../progression/index.ts';
 import type { EstimateRecord } from '../state/index.ts';
 import { cast, CastLine, marks, NapkinWorking, NumbersBox } from '../theme/index.ts';
+import { ESTIMATE_GUIDE_ENTRY } from '../guide/guide.ts';
+import { GuideLink } from '../guide/FieldGuideProvider.tsx';
+import { useEscape, useRestoreFocus } from './escape.ts';
 import { isDurationQuantity, parseEstimateInput } from './estimate.ts';
 
 export interface EstimateStepProps {
@@ -56,16 +59,11 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
   }, [phase.kind]);
 
   // Esc leaves the step: a skip if nothing was ever answered.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      if (phase.kind === 'ask' && record === undefined) onSkip();
-      onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [phase.kind, record, onSkip, onClose]);
+  useEscape(() => {
+    if (phase.kind === 'ask' && record === undefined) onSkip();
+    onClose();
+  });
+  useRestoreFocus();
 
   const check = (event: FormEvent) => {
     event.preventDefault();
@@ -177,6 +175,7 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
             working={
               <>
                 <NapkinWorking solution={solution} />
+                <GuideLink entry={ESTIMATE_GUIDE_ENTRY[estimate.quantity]} className="estimate-card__guide" />
                 <NumbersBox numbers={numbers} variant="card" />
               </>
             }

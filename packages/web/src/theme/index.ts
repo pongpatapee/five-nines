@@ -20,6 +20,8 @@ export const {
   NapkinWorking,
   numbersText,
   NumbersBox,
+  FieldGuide,
+  fieldGuide,
   GradeCard,
   CampaignMap,
   UtilizationGauge,
