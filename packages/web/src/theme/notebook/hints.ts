@@ -360,7 +360,7 @@ export const LEVEL_HINTS: Readonly<Record<string, LevelHints>> = {
   '08-thundering-herd': {
     overload: {
       concept:
-        "A warm cache hides how many reads there are. At 90 s about 30,000 reads a second all miss at once; refills queue behind the misses, so even the popular items keep missing. The database has to survive that minute, or the cache must not empty.",
+        "A warm cache hides how many reads there are. When it restarts, about 30,000 reads a second all miss at once; refills queue behind the misses, so even the popular items keep missing. The database has to survive that minute, or the cache must not empty.",
       fix: 'Pick one: coalesce misses so each key goes to the database once, with a database big enough to refill the cache; or replicate the cache so a restart keeps its contents; or a database that can take every read on its own.',
     },
     latency: {
@@ -575,7 +575,7 @@ function ask(w: EstimateWorking, level: Level): { question: string; unit: string
       };
     case 'coldCacheOverload':
       return {
-        question: `At ${clock(w.atSec)} the cache restarts empty, and ${formatCount(w.readsPerSec)} reads a second fall straight on ${a(w.databaseSize)} database that handles ${formatCount(w.databaseReadsPerSec)} reads a second. How many times its capacity is that?`,
+        question: `When the cache restarts empty during the run, ${formatCount(w.readsPerSec)} reads a second fall straight on ${a(w.databaseSize)} database that handles ${formatCount(w.databaseReadsPerSec)} reads a second. How many times its capacity is that?`,
         unit: 'times',
       };
     case 'queueDrainRateNeeded':
@@ -640,8 +640,8 @@ function workedStep(step: NapkinStep): WorkedStep {
       };
     case 'trafficAtEvent':
       return {
-        reason: `What matters is the moment the cache restarts empty, at ${clock(step.atSec)}. By then the traffic has finished climbing.`,
-        lines: [{ sum: null, result: `${n(step.result)} req/s`, note: `at ${clock(step.atSec)}` }],
+        reason: `What matters is the moment the cache restarts empty. It happens after the traffic has finished climbing, so use the full rate.`,
+        lines: [{ sum: null, result: `${n(step.result)} req/s` }],
       };
     case 'cpuWork':
       return {

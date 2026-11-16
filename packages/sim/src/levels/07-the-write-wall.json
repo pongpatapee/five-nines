@@ -5,7 +5,7 @@
   "briefing": [
     "A social app at the top of the charts: 12,000 likes and comments a second, climbing to 15,000 within a minute. Every request is a write.",
     "The biggest database takes 8,000 writes a second, and read replicas won't help: each one replays every write the primary takes. The data has to be split over several primaries, shards, each owning part of it. The shard key decides which shard a row lives on.",
-    "Choose it with care. About a minute and a half in, a celebrity posts, and for 40 seconds a quarter of all writes are reactions to that one post."
+    "Choose it with care. At some point a celebrity posts, and for 40 seconds a quarter of all writes are reactions to that one post."
   ],
   "debrief": [
     "15,000 writes a second against the biggest database's 8,000 is 188%. Replicas replay every write, so they would be just as overloaded; they only add read capacity.",

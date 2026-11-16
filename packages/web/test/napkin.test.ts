@@ -181,7 +181,7 @@ describe('the napkin question is self-contained (docs/design.md, "Estimate step"
       '3,800 reads a second are users checking a transfer they just made, so they must read from the primary. The primary also takes 1,000 writes a second, and each costs as much as 2.5 reads. A large primary does 10,000 reads a second. How busy is it?',
     );
     expect(ask('08-thundering-herd')).toBe(
-      'At 1:30 the cache restarts empty, and 29,700 reads a second fall straight on a large database that handles 10,000 reads a second. How many times its capacity is that?',
+      'When the cache restarts empty during the run, 29,700 reads a second fall straight on a large database that handles 10,000 reads a second. How many times its capacity is that?',
     );
     expect(ask('09-stale-prices')).toBe(
       'After the writes, a medium database has room for 4,880 reads a second. At the peak, 23,952 reads arrive. What share must the cache catch?',

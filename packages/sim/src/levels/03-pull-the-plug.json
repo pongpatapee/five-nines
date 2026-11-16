@@ -4,7 +4,7 @@
   "concept": "Redundancy and failover",
   "briefing": [
     "Same traffic as before: up to 5,000 requests per second, 10ms of CPU each.",
-    "About a minute in, one of your app servers will crash. Machines die all the time in production, and your design has to keep serving through it.",
+    "At some point during the run, one of your app servers will crash. Machines die all the time in production, and your design has to keep serving through it.",
     "Load balancers find dead instances with health checks: every few seconds they probe each instance, and take it out of rotation after 2 failed checks in a row. Until then, they keep sending it traffic."
   ],
   "debrief": [

@@ -635,8 +635,8 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
       return {
         working,
         givens: [
+          // The restart's time is deliberately not a given: events are named up front, never timed.
           count(working.rps),
-          { value: working.atSec, unit: 'clock' },
           percent(working.readShare),
           database(working.databaseSize, working.databaseReadsPerSec),
         ],
