@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
     <!-- The theme's favicon and fonts (src/theme/notebook). -->
-    <link rel="icon" href="/src/theme/notebook/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/src/theme/notebook/favicon.svg" />
+    <!-- PNG fallbacks for browsers without SVG favicons, and the home-screen icon on iOS. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/src/theme/notebook/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/src/theme/notebook/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
