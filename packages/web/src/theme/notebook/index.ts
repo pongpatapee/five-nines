@@ -12,6 +12,7 @@ import { CastLine } from './Characters.tsx';
 import { ComponentDoodle } from './doodles.tsx';
 import { GradeCard } from './GradeCard.tsx';
 import { Cross, HandArrow, HandBox, NinesDots, RootCauseCircle, SpeakerMark, Tick } from './ink.tsx';
+import { StickyGradeLogo } from './Logo.tsx';
 import { NapkinWorking } from './NapkinWorking.tsx';
 import { PostmortemCard } from './PostmortemCard.tsx';
 import { Shell } from './Shell.tsx';
@@ -55,6 +56,7 @@ export const notebookTheme: Theme = {
     Nines: NinesDots,
     RootCause: RootCauseCircle,
     Sound: SpeakerMark,
+    Logo: StickyGradeLogo,
   },
   sounds: NOTEBOOK_SOUNDS,
 };
