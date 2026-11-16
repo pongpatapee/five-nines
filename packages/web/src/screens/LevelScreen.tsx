@@ -242,6 +242,7 @@ function TopBar({
     <header className="topbar">
       <div className="topbar__title">
         <a className="topbar__back" href={routeHref({ name: 'levels' })} title={`Back to the ${words.homeLong}`}>
+          <marks.Logo size={28} />
           <span className="hand topbar__wordmark">Five Nines</span>
           <span className="topbar__back-hint">{words.home}</span>
         </a>

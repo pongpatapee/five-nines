@@ -22,8 +22,11 @@ export function LevelSelect() {
       <header className="contents__header">
         <div className="contents__title-block">
           <h1 className="contents__wordmark">
-            <span className="contents__swash" aria-hidden />
-            <span className="hand">Five Nines</span>
+            <marks.Logo size={56} />
+            <span className="contents__name">
+              <span className="contents__swash" aria-hidden />
+              <span className="hand">Five Nines</span>
+            </span>
           </h1>
           <p className="contents__tagline">
             {words.tagline} · <span className="contents__underline">{words.homeLong}</span>
