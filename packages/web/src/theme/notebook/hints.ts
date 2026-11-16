@@ -453,12 +453,12 @@ function ask(w: EstimateWorking): { question: string; unit: string } {
       };
     case 'readsAtPeak':
       return {
-        question: `Napkin first. How many reads per second reach the data tier at the peak, before any cache or replica?`,
+        question: `Napkin first. Traffic peaks at ${formatCount(w.peakRps)} requests a second, and ${formatPercent(w.readShare)} of them read a profile. How many reads a second does the database have to serve at the peak, before you add any cache or replica?`,
         unit: 'reads/s',
       };
     case 'readAfterWriteReadsAtPeak':
       return {
-        question: `Napkin first. On payday, how many reads per second are users checking their own fresh transfer? Those are the reads that can't afford a stale copy.`,
+        question: `Napkin first. On payday traffic peaks at ${formatCount(w.peakRps)} requests a second. ${formatPercent(w.readShare)} are reads, and ${formatPercent(w.readAfterWriteShare)} of those reads are users checking a transfer they just made. How many reads a second is that? Those are the reads that can't afford a stale copy.`,
         unit: 'reads/s',
       };
     case 'shardsAtFullLoad':
@@ -468,7 +468,7 @@ function ask(w: EstimateWorking): { question: string; unit: string } {
       };
     case 'coldCacheDatabaseLoad':
       return {
-        question: `Napkin first. The cache restarts empty at ${formatSimTime(w.atSec)}. If every read missed that moment, how busy would a ${w.databaseSize} database (${formatCount(w.databaseReadsPerSec)} reads a second) be?`,
+        question: `Napkin first. The cache restarts empty at ${formatSimTime(w.atSec)}, when traffic is ${formatCount(w.rps)} requests a second: ${formatCount(w.readsPerSec)} reads and ${formatCount(w.writesPerSec)} writes. If every read missed the cache at that moment, how busy would a ${w.databaseSize} database be? It does ${formatCount(w.databaseReadsPerSec)} reads a second, and one write costs it as much as ${w.writeCost} reads.`,
         unit: '%',
       };
     case 'queueDrainRateNeeded':
