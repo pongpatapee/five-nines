@@ -121,7 +121,7 @@ Grading is by outcome, so any design that meets the requirements passes. The ref
    - Intended solution: shard by user ID: five large shards ($3,385 with the app tier) or ten medium ones. Deviation: the hot key is part of the main grade rather than a separate star objective, so the naive key is an anti-solution.
 8. **Thundering Herd** (cache stampede)
    - Workload: 4k climbing to 30k req/s, 99% reads over 1M keys (Zipf 1.1); the busiest cache restarts at t=90s. A small cache with a 5-minute TTL catches nearly every read while warm. $2,000/month.
-   - Estimate: at 90 s every read misses: 30,450 read-equivalents on a large database, about 305% busy.
+   - Estimate: at 1:30 every read misses: 29,700 reads a second on a large database that does 10,000, 2.97 times its capacity (with the writes, about 305% busy).
    - The traps: a medium database sized for the warm cache (609% at the restart); a large database alone (refills queue behind the misses, so popular keys keep missing and about 12,600 requests time out); coalescing in front of a medium database (times out for about ten seconds); no cache and the biggest database.
    - Intended solutions, all mastered: coalescing misses in front of a large database; a replicated cache in front of a medium one; an xlarge database that absorbs the burst.
 9. **Stale Prices** (cache invalidation)
@@ -163,7 +163,18 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 - The player answers or skips, and sees the working. An estimate within ±10% earns a bonus mark, kept in saved progress for the Napkin Wizard badge. The step can be reopened from the top bar, and once answered or skipped the briefing has a "Show the napkin working" link straight to the working.
 - The working is a worked solution, not a formula: `napkinSolution` (`estimate.ts`) lists the steps in order, each with its numbers and result (find the peak, split reads from writes, what one write costs in reads, ...), ending on the answer, plus a takeaway with numbers for the design (headroom to the 70% and 85% lines, whole machines, the hit rate that keeps the database below full). The theme says why each step is taken and writes its arithmetic; the notebook inks numbered steps, runs highlighter over each result and boxes the answer in red pen. CI checks every level's steps end on its answer, and that no step leans on shorthand it never explains ("read-equivalents").
 - One question per level, answered as one number, even on the multi-step levels (4, 7, 8): the steps teach the method afterwards, and the question stays a quick napkin guess rather than a form.
+- Every question follows three rules, and CI enforces the first:
+  1. **Self-contained.** With the level's numbers beside it, the question gives every number the working starts from. `napkinSolution` lists those `givens`; CI checks each is in the question or the numbers box (a component's catalog figure may instead be left to the component the question names, "a large database"), and that every other number in the steps is worked out from the givens.
+  2. **An easy, relevant warm-up.** One or two steps from the numbers given; the longer derivation (where those numbers come from) belongs in the worked solution.
+  3. **It makes sense.** The answer informs a design decision, and the worked solution's takeaway says which (e.g. level 5: a profile is read once every 87 minutes, longer than any cache expiry, so add replicas rather than a cache).
+- A duration may be answered in seconds, minutes or hours ("87 min").
 - Not yet: the debrief comparing the estimate to what actually happened.
+
+### The numbers (built)
+
+- Every level has a "the numbers" box, generated from its data (`levelNumbers` in `sim`), never hand-written: on a sticky note under the briefing's story, and again on the napkin-maths card. It holds only what the level uses: traffic (start → sustained, plus spikes and how long they last), CPU per request, the request timeout, the read/write split, the share of reads that check the reader's own write, the keys and how popular they are in plain words (only with a cache), the item size (only with a cache), the shard keys on offer (only with shards), the payment provider's limits, what it takes to pass (availability, p99, staleness, budget) and the run length.
+- What happens during the run is named, never timed: "an app server will crash", "the cache will restart", "a hot key", "the payment provider refuses calls over its rate limit".
+- Component specs stay in the inspector, the palette, the briefing's reference card and the field guide.
 
 ### Progression and rewards (built)
 

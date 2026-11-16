@@ -55,6 +55,7 @@
       "readShare": 0.95,
       "keys": {
         "count": 10000000,
+        "label": "accounts",
         "zipf": 0.8,
         "valueKb": 1
       },
@@ -68,7 +69,7 @@
     "p99Ms": 50,
     "budgetUsdPerMonth": 2400
   },
-  "estimate": { "quantity": "readAfterWriteReadsAtPeak", "answer": 3800 },
+  "estimate": { "quantity": "pinnedPrimaryLoad", "databaseSize": "large", "answer": 63 },
   "solutions": [
     {
       "name": "Replicas, with reads pinned for 5 seconds after a write",

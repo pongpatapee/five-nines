@@ -1,9 +1,8 @@
-import { designCostUsdPerMonth, type Design, type Level } from '@five-nines/sim';
-import { Fragment } from 'react';
+import { designCostUsdPerMonth, levelNumbers, type Design, type Level } from '@five-nines/sim';
+import { Fragment, useMemo } from 'react';
 import { COMPONENTS } from '../components/registry.ts';
-import { capitalize, formatCount, formatDuration, formatMs, formatUsdPerMonth, GRADE_LABELS } from '../format.ts';
-import { cast, CastLine, troublemakerTease, words } from '../theme/index.ts';
-import { tierPercent } from '../results/grading.ts';
+import { capitalize } from '../format.ts';
+import { cast, CastLine, NumbersBox, troublemakerTease, words } from '../theme/index.ts';
 import { CostMeter } from './CostMeter.tsx';
 
 export interface BriefingPanelProps {
@@ -17,10 +16,11 @@ export interface BriefingPanelProps {
   onShowEstimateWorking?: (() => void) | null;
 }
 
-/** Left side panel, in every mode: briefing, requirements, component reference card and live cost. */
+/** Left side panel, in every mode: briefing, the level's numbers, component reference card and live cost. */
 export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle, onShowEstimateWorking }: BriefingPanelProps) {
   const cost = designCostUsdPerMonth(design);
   const tease = troublemakerTease(level);
+  const numbers = useMemo(() => levelNumbers(level), [level]);
   if (collapsed) {
     return (
       <aside className="briefing briefing--collapsed" aria-label="Briefing (collapsed)">
@@ -66,64 +66,13 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle,
           )}
         </section>
 
+        <NumbersBox numbers={numbers} variant="briefing" />
+
         {tease && (
           <CastLine role="troublemaker" size={56} tone="alarm" className="briefing__troublemaker">
             {tease}
           </CastLine>
         )}
-
-        <section className="briefing__section">
-          <h2 className="briefing__section-title">Requirements</h2>
-          <dl className="spec-list">
-            <div>
-              <dt>Availability</dt>
-              <dd className="num">
-                ≥ {tierPercent('pass')}
-                <span className="spec-list__tiers">
-                  {GRADE_LABELS.star} {tierPercent('star')} · {GRADE_LABELS.mastered} {tierPercent('mastered')}
-                </span>
-              </dd>
-            </div>
-            <div>
-              <dt>p99 latency</dt>
-              <dd className="num">≤ {formatMs(level.requirements.p99Ms)}</dd>
-            </div>
-            <div>
-              <dt>Budget</dt>
-              <dd className="num">≤ {formatUsdPerMonth(level.requirements.budgetUsdPerMonth)}</dd>
-            </div>
-            {level.requirements.maxStalenessSec !== undefined && (
-              <div>
-                <dt>Staleness</dt>
-                <dd className="num">reads ≤ {level.requirements.maxStalenessSec} s out of date</dd>
-              </div>
-            )}
-            {level.workload.data?.readAfterWrite && (
-              <div>
-                <dt>Consistency</dt>
-                <dd>users always see their own writes</dd>
-              </div>
-            )}
-            {level.requirements.processWithinSec !== undefined && (
-              <div>
-                <dt>Charging</dt>
-                <dd className="num">every order within {formatDuration(level.requirements.processWithinSec)}</dd>
-              </div>
-            )}
-            {level.workload.payments && (
-              <div>
-                <dt>Provider</dt>
-                <dd className="num">
-                  ≤ {formatCount(level.workload.payments.rateLimitRps)} calls/s · {formatMs(level.workload.payments.latencyMs)} each
-                </dd>
-              </div>
-            )}
-            <div>
-              <dt>Run length</dt>
-              <dd className="num">{formatDuration(level.durationSec)}</dd>
-            </div>
-          </dl>
-        </section>
 
         <section className="briefing__section">
           <h2 className="briefing__section-title">Component reference</h2>

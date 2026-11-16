@@ -155,6 +155,8 @@ const TrafficPointSchema = z.strictObject({
 const KeyDistributionSchema = z.strictObject({
   /** Distinct keys (rows, articles, profiles…) in the dataset. */
   count: z.int().min(1),
+  /** What one key is, plural, as the player reads it in the level's numbers: "articles", "profiles". */
+  label: z.string().min(1).optional(),
   /**
    * Zipf skew of how reads spread over the keys: the k-th most popular key gets a share proportional to k^−zipf.
    * 0 is uniform; around 1 is typical of web content, where a few keys get most of the traffic. Writes follow the
@@ -309,17 +311,23 @@ export const EstimateSchema = z.discriminatedUnion('quantity', [
   z.strictObject({ quantity: z.literal('serversWithSpare'), size: SizeSchema, answer: z.int().positive() }),
   /** The cache hit rate, in percent, that keeps a database of one size at or under full load at the peak. */
   z.strictObject({ quantity: z.literal('cacheHitRateNeeded'), databaseSize: SizeSchema, answer: z.number().min(0).max(100) }),
-  /** Reads per second at the peak. */
-  z.strictObject({ quantity: z.literal('readsAtPeak'), answer: z.number().positive() }),
-  /** Read-after-write reads (users reading their own fresh write) per second at the peak. */
-  z.strictObject({ quantity: z.literal('readAfterWriteReadsAtPeak'), answer: z.number().positive() }),
+  /**
+   * On average, the seconds between two reads of the same key at the peak, with reads spread evenly over the keys:
+   * keys ÷ reads per second. Compared with a cache's expiry, it says whether a cached copy lives to be read again.
+   */
+  z.strictObject({ quantity: z.literal('secondsBetweenKeyReads'), answer: z.number().positive() }),
+  /**
+   * How busy a primary of one size is, in percent, at the peak, serving every read-after-write read (pinned to it so
+   * it sees the reader's own write) plus every write.
+   */
+  z.strictObject({ quantity: z.literal('pinnedPrimaryLoad'), databaseSize: SizeSchema, answer: z.number().positive() }),
   /** Shards of one size that the peak writes fill completely: writes ÷ one shard's write capacity, before headroom. */
   z.strictObject({ quantity: z.literal('shardsAtFullLoad'), size: SizeSchema, answer: z.number().positive() }),
   /**
-   * How busy a database of one size is, in percent, the moment the level's cache restart empties the cache and every
-   * read reaches the database.
+   * How many times a database of one size's read capacity arrives the moment the level's cache restart empties the
+   * cache and every read falls through to it.
    */
-  z.strictObject({ quantity: z.literal('coldCacheDatabaseLoad'), databaseSize: SizeSchema, answer: z.number().positive() }),
+  z.strictObject({ quantity: z.literal('coldCacheOverload'), databaseSize: SizeSchema, answer: z.number().positive() }),
   /**
    * The drain rate (per second) a queue needs so that the last order of the level's spike is processed within the
    * deadline: peak rate × spike length ÷ (deadline + spike length).

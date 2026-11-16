@@ -13,11 +13,13 @@ import {
   HOT_UTILIZATION,
   utilizationZone,
   type EstimateWorking,
+  type Level,
   type NapkinSolution,
   type NapkinStep,
 } from '@five-nines/sim';
 import { capitalize, formatCount, formatEstimate, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
 import type { EstimateResult, MentorEstimateScript, MentorLadderScript } from '../contract.ts';
+import { bigCount } from './numbers.tsx';
 import type { FailoverSituation, FailureStory, HintTopic, LatencySituation } from '../situations.ts';
 
 // ---------------------------------------------------------------------------- numbers, said aloud
@@ -434,7 +436,30 @@ export const GENERAL_HINTS = GENERAL;
 
 // ---------------------------------------------------------------------------- napkin maths
 
-function ask(w: EstimateWorking): { question: string; unit: string } {
+/** "1 hour", "2 minutes", "30 seconds", "90 seconds": a duration as said aloud, in whole hours or minutes when it is one. */
+function duration(sec: number): string {
+  if (sec >= 3600 && sec % 3600 === 0) return sec === 3600 ? '1 hour' : `${sec / 3600} hours`;
+  if (sec >= 60 && sec % 60 === 0) return sec === 60 ? '1 minute' : `${sec / 60} minutes`;
+  return seconds(sec);
+}
+
+/** "1:30": a moment in the run, as a clock reads it. */
+export function clock(sec: number): string {
+  const whole = Math.floor(sec);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
+
+/** "profile" from "profiles": what one key is. */
+function singular(label: string): string {
+  return label.endsWith('s') ? label.slice(0, -1) : label;
+}
+
+/** Per level: what a read of the reader's own fresh write is, in the story's words. */
+const OWN_WRITE_READS: Readonly<Record<string, string>> = {
+  '06-bank-balance': 'users checking a transfer they just made',
+};
+
+function ask(w: EstimateWorking, level: Level): { question: string; unit: string } {
   switch (w.quantity) {
     case 'busyVcpusAtPeak':
       return {
@@ -448,32 +473,36 @@ function ask(w: EstimateWorking): { question: string; unit: string } {
       };
     case 'cacheHitRateNeeded':
       return {
-        question: `Napkin first. At the peak, what share of reads must a cache catch so that a ${w.databaseSize} database (${formatCount(w.databaseReadsPerSec)} reads a second, one write costs ${w.writeCost} reads) keeps up?`,
+        question: `After the writes, ${a(w.databaseSize)} database has room for ${formatCount(w.readsLeft)} reads a second. At the peak, ${formatCount(w.readsPerSec)} reads arrive. What share must the cache catch?`,
         unit: '%',
       };
-    case 'readsAtPeak':
+    case 'secondsBetweenKeyReads': {
+      const spread = w.keysPopularity === 'uniform' ? ', all equally likely,' : '';
       return {
-        question: `Napkin first. Traffic peaks at ${formatCount(w.peakRps)} requests a second, and ${formatPercent(w.readShare)} of them read a profile. How many reads a second does the database have to serve at the peak, before you add any cache or replica?`,
-        unit: 'reads/s',
+        question: `${capitalize(bigCount(w.keys))} ${w.keyLabel}${spread} and ${formatCount(w.readsPerSec)} reads a second at the peak. On average, how long between two reads of the same ${singular(w.keyLabel)}?`,
+        unit: 'seconds',
       };
-    case 'readAfterWriteReadsAtPeak':
+    }
+    case 'pinnedPrimaryLoad': {
+      const who = OWN_WRITE_READS[level.id] ?? 'users reading something they just wrote';
       return {
-        question: `Napkin first. On payday traffic peaks at ${formatCount(w.peakRps)} requests a second. ${formatPercent(w.readShare)} are reads, and ${formatPercent(w.readAfterWriteShare)} of those reads are users checking a transfer they just made. How many reads a second is that? Those are the reads that can't afford a stale copy.`,
-        unit: 'reads/s',
+        question: `${formatCount(w.freshReadsPerSec)} reads a second are ${who}, so they must read from the primary. The primary also takes ${formatCount(w.writesPerSec)} writes a second, and each costs as much as ${est(w.writeCost)} reads. ${capitalize(a(w.databaseSize))} primary does ${formatCount(w.databaseReadsPerSec)} reads a second. How busy is it?`,
+        unit: '%',
       };
+    }
     case 'shardsAtFullLoad':
       return {
         question: `Napkin first. A ${w.size} database takes ${formatCount(w.shardWritesPerSec)} writes a second. How many ${w.size} shards' worth of work do ${formatCount(w.writesPerSec)} writes a second make, if they spread evenly?`,
         unit: 'shards',
       };
-    case 'coldCacheDatabaseLoad':
+    case 'coldCacheOverload':
       return {
-        question: `Napkin first. The cache restarts empty at ${formatSimTime(w.atSec)}, when traffic is ${formatCount(w.rps)} requests a second: ${formatCount(w.readsPerSec)} reads and ${formatCount(w.writesPerSec)} writes. If every read missed the cache at that moment, how busy would a ${w.databaseSize} database be? It does ${formatCount(w.databaseReadsPerSec)} reads a second, and one write costs it as much as ${w.writeCost} reads.`,
-        unit: '%',
+        question: `At ${clock(w.atSec)} the cache restarts empty, and ${formatCount(w.readsPerSec)} reads a second fall straight on ${a(w.databaseSize)} database that handles ${formatCount(w.databaseReadsPerSec)} reads a second. How many times its capacity is that?`,
+        unit: 'times',
       };
     case 'queueDrainRateNeeded':
       return {
-        question: `Napkin first. The sale sends ${formatCount(w.peakRps)} orders a second for ${seconds(w.spikeSec)}, and each must be charged within ${seconds(w.deadlineSec)}. How many orders a second must the workers charge?`,
+        question: `Napkin first. The sale sends ${formatCount(w.peakRps)} orders a second for ${seconds(w.spikeSec)}, and each must be charged within ${duration(w.deadlineSec)}. Say the workers start charging as orders arrive, and every order is charged by ${duration(w.deadlineSec)} after the sale ends. How many orders a second must they charge?`,
         unit: 'orders/s',
       };
   }
@@ -533,8 +562,8 @@ function workedStep(step: NapkinStep): WorkedStep {
       };
     case 'trafficAtEvent':
       return {
-        reason: `What matters is the moment the cache restarts empty, at ${formatSimTime(step.atSec)}. Read the traffic chart there.`,
-        lines: [{ sum: null, result: `${n(step.result)} req/s`, note: `at ${formatSimTime(step.atSec)}` }],
+        reason: `What matters is the moment the cache restarts empty, at ${clock(step.atSec)}. By then the traffic has finished climbing.`,
+        lines: [{ sum: null, result: `${n(step.result)} req/s`, note: `at ${clock(step.atSec)}` }],
       };
     case 'cpuWork':
       return {
@@ -612,6 +641,17 @@ function workedStep(step: NapkinStep): WorkedStep {
         reason: 'Every other read must be answered by the cache instead. That share is the hit rate the cache needs.',
         lines: [{ sum: `100% − ${pct(step.databaseShare)}`, result: `${est(step.result)}%`, note: 'hit rate' }],
       };
+    case 'keyReadGap':
+      return {
+        reason: `The reads are spread evenly: every one of the ${n(step.keys)} ${step.keyLabel} is as likely as any other. So the same ${singular(step.keyLabel)} comes round again only once every ${step.keyLabel} has had its turn: ${step.keyLabel} ÷ reads a second.`,
+        lines: [
+          {
+            sum: `${n(step.keys)} ÷ ${n(step.reads)} reads/s`,
+            result: `${n(step.result)} s`,
+            note: `between two reads of one ${singular(step.keyLabel)}, about ${Math.round(step.result / 60)} minutes`,
+          },
+        ],
+      };
     case 'ownWriteReads':
       return {
         reason: `Of those reads, ${pct(step.share)} are users checking their own transfer just after making it. Those must see the fresh balance.`,
@@ -619,9 +659,10 @@ function workedStep(step: NapkinStep): WorkedStep {
       };
     case 'totalWork':
       return {
-        reason: step.coldCache
-          ? "An empty cache catches nothing, so every read falls through to the database, and the writes go there as always. Add it all up, counting each write as the reads it's worth."
-          : "Each shard serves reads and writes. Add up the work, counting each write as the reads it's worth.",
+        reason:
+          step.context === 'pinnedPrimary'
+            ? `Those reads go to the primary, and so does every write. A write is as much work as ${est(step.writeCost)} reads, so add it all up in reads.`
+            : "Each shard serves reads and writes. Add up the work, counting each write as the reads it's worth.",
         lines: [
           { sum: `${n(step.writes)} writes × ${est(step.writeCost)}`, result: `${n(step.writeWork)} reads' worth`, note: 'for the writes' },
           { sum: `${n(step.reads)} reads + ${n(step.writeWork)}`, result: `${n(step.result)} reads' worth`, note: 'of work a second' },
@@ -639,6 +680,11 @@ function workedStep(step: NapkinStep): WorkedStep {
       return {
         reason: `Divide by what the database can do, ${n(step.databaseReadsPerSec)} reads a second, to see how busy it gets.`,
         lines: [{ sum: `${n(step.work)} ÷ ${n(step.databaseReadsPerSec)}`, result: `${est(step.result)}%`, note: 'busy' }],
+      };
+    case 'timesCapacity':
+      return {
+        reason: `An empty cache catches nothing, so every read falls straight through to the database. Compare that with the ${n(step.databaseReadsPerSec)} reads a second it can do.`,
+        lines: [{ sum: `${n(step.reads)} ÷ ${n(step.databaseReadsPerSec)}`, result: `${est(step.result)}×`, note: 'its capacity, all at once' }],
       };
     case 'spikeOrders':
       return {
@@ -668,16 +714,24 @@ function takeaway(solution: NapkinSolution): string {
       return `With all ${t.servers} up, each runs ${pct(t.allUp)} busy. When one dies, the ${t.servers - 1} left run ${pct(t.oneDown)} busy: ${zoneWords(t.oneDown)}.`;
     case 'hitRateHeadroom':
       return `At exactly ${est(answer)}% the database runs 100% busy, and a full database is where the queues explode. Aim higher: a ${est(t.atHot)}% hit rate keeps it at ${pct(HOT_UTILIZATION)} busy, and ${est(t.atComfortable)}% at a comfortable ${pct(COMFORTABLE_UTILIZATION)}.`;
-    case 'biggestDatabase':
-      return `Even the biggest database, ${a(t.size)} at ${n(t.readsPerSec)} reads a second, would be ${pct(t.utilization)} busy with them: ${zoneWords(t.utilization)}. These reads need more than one machine.`;
-    case 'freshReads':
-      return `Those ${n(t.fresh)} reads must see the latest write, so they can't use a replica that's a moment behind. The other ${n(t.others)} reads a second can.`;
+    case 'ttlCeiling':
+      return `To keep values fresh by expiry alone, the TTL can't be longer than ${seconds(t.ttlSec)}, and with a ${seconds(t.ttlSec)} TTL even the biggest cache catches only about ${Math.round(t.hitRate)}% of reads at the peak: short of the ${est(t.needed)}% needed. So keep them fresh another way: invalidate on write, and keep the TTL long.`;
+    case 'cacheExpiry':
+      return `${n(t.gapSec)} s is about ${Math.round(t.gapSec / 60)} minutes. Even the longest expiry on offer, ${duration(t.longestTtlSec)} (${n(t.longestTtlSec)} s), runs out first, so a cached copy is almost always gone before anyone asks for it again: even the biggest cache catches only about ${Math.max(1, Math.round(t.hitRate * 100))}% of reads here. Add read capacity instead, with read replicas.`;
+    case 'primaryHeadroom': {
+      const smaller = t.smaller
+        ? ` ${capitalize(a(t.smaller.size))} one would be ${pct(t.smaller.utilization)} busy: ${zoneWords(t.smaller.utilization)}.`
+        : '';
+      return t.utilization < COMFORTABLE_UTILIZATION
+        ? `${pct(t.utilization)} is under the ${pct(COMFORTABLE_UTILIZATION)} line, so ${a(t.size)} primary is enough for the fresh reads and the writes.${smaller}`
+        : `${pct(t.utilization)} is ${zoneWords(t.utilization)}: ${a(t.size)} primary is too small for the fresh reads and the writes.${smaller}`;
+    }
     case 'wholeShards':
       return t.roundedUp === t.shards
         ? `You can't run ${est(t.atFullLoad)} shards: round up to ${t.shards}, each ${pct(t.utilization)} busy. That's only if the shard key spreads the writes evenly.`
         : `You can't run ${est(t.atFullLoad)} shards. ${t.roundedUp} would each run ${pct(t.roundedUpUtilization)} busy, ${zoneWords(t.roundedUpUtilization)}; ${t.shards} run ${pct(t.utilization)} each. That's only if the shard key spreads the writes evenly.`;
-    case 'overload':
-      return `That's about ${Number(t.times.toFixed(1))} times what the database can do, all at once. Past 100% the backlog grows every second until the cache refills, so keep the misses off the database, or give it the capacity for that minute.`;
+    case 'stampede':
+      return `About ${Number(t.times.toFixed(1))} databases' worth of reads arrive at once, and the writes come on top. Past 100% the queue grows every second, refills wait behind the misses, and even the popular items keep missing: the stampede. Keep the misses off the database, or give it the capacity for that moment.`;
     case 'normalTraffic':
       return `That's only the sale. Normal traffic, ${n(t.normalRps)} orders a second, keeps arriving on top, so give the workers some room above ${n(t.drainRate)} a second.`;
   }

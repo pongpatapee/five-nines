@@ -2,10 +2,20 @@
  * The napkin-maths step: the working behind each level's estimate question, from the level's own numbers. The
  * working carries every number in it, so the mentor can show the arithmetic after the player answers.
  */
-import { APP_SERVER_SIZES, DATABASE_SIZES, type AppServerSize, type DatabaseSize } from './catalog.ts';
+import {
+  APP_SERVER_SIZES,
+  CACHE_SIZES,
+  CACHE_TTLS,
+  CLIENTS_ID,
+  DATABASE_SIZES,
+  type AppServerSize,
+  type CacheSize,
+  type DatabaseSize,
+} from './catalog.ts';
 import { interpolate } from './math.ts';
-import { COMFORTABLE_UTILIZATION, HOT_UTILIZATION, peakRps } from './peak-load.ts';
-import type { Estimate, Level } from './schema.ts';
+import { popularity, type Popularity } from './numbers.ts';
+import { COMFORTABLE_UTILIZATION, HOT_UTILIZATION, peakLoad, peakRps } from './peak-load.ts';
+import type { ComponentKind, Design, Estimate, Level } from './schema.ts';
 
 /** An estimate within this share of the answer, either side, earns the bonus mark. */
 export const ESTIMATE_TOLERANCE = 0.1;
@@ -38,12 +48,31 @@ export type EstimateWorking =
       /** Percent. */
       result: number;
     }
-  | { quantity: 'readsAtPeak'; peakRps: number; readShare: number; result: number }
   | {
-      quantity: 'readAfterWriteReadsAtPeak';
+      quantity: 'secondsBetweenKeyReads';
       peakRps: number;
       readShare: number;
+      readsPerSec: number;
+      /** Keys the reads spread evenly over, and what they are ("profiles"). */
+      keys: number;
+      keyLabel: string;
+      keysPopularity: Popularity;
+      /** Seconds. */
+      result: number;
+    }
+  | {
+      quantity: 'pinnedPrimaryLoad';
+      databaseSize: DatabaseSize;
+      peakRps: number;
+      readShare: number;
+      readsPerSec: number;
+      writesPerSec: number;
       readAfterWriteShare: number;
+      /** Reads of the reader's own fresh write: all pinned to the primary. */
+      freshReadsPerSec: number;
+      writeCost: number;
+      databaseReadsPerSec: number;
+      /** Percent. */
       result: number;
     }
   | {
@@ -60,16 +89,15 @@ export type EstimateWorking =
       result: number;
     }
   | {
-      quantity: 'coldCacheDatabaseLoad';
+      quantity: 'coldCacheOverload';
       databaseSize: DatabaseSize;
       /** When the cache restarts, and the request rate then. */
       atSec: number;
       rps: number;
+      readShare: number;
       readsPerSec: number;
-      writesPerSec: number;
-      writeCost: number;
       databaseReadsPerSec: number;
-      /** Percent. */
+      /** Times the database's read capacity. */
       result: number;
     }
   | {
@@ -129,16 +157,39 @@ export function workEstimate(level: Level, estimate: Estimate): EstimateWorking 
         result: hitRate * 100,
       };
     }
-    case 'readsAtPeak':
-      return { quantity: estimate.quantity, peakRps: peak, readShare, result: peak * readShare };
-    case 'readAfterWriteReadsAtPeak': {
-      const share = data?.readAfterWrite?.share ?? 0;
+    case 'secondsBetweenKeyReads': {
+      const readsPerSec = peak * readShare;
+      const keys = data?.keys.count ?? 0;
       return {
         quantity: estimate.quantity,
         peakRps: peak,
         readShare,
+        readsPerSec,
+        keys,
+        keyLabel: data?.keys.label ?? 'items',
+        keysPopularity: popularity(data?.keys.zipf ?? 0),
+        result: readsPerSec > 0 ? keys / readsPerSec : Infinity,
+      };
+    }
+    case 'pinnedPrimaryLoad': {
+      const db = DATABASE_SIZES[estimate.databaseSize];
+      const readsPerSec = peak * readShare;
+      const writesPerSec = peak - readsPerSec;
+      const share = data?.readAfterWrite?.share ?? 0;
+      const freshReadsPerSec = readsPerSec * share;
+      const writeCost = db.readsPerSec / db.writesPerSec;
+      return {
+        quantity: estimate.quantity,
+        databaseSize: estimate.databaseSize,
+        peakRps: peak,
+        readShare,
+        readsPerSec,
+        writesPerSec,
         readAfterWriteShare: share,
-        result: peak * readShare * share,
+        freshReadsPerSec,
+        writeCost,
+        databaseReadsPerSec: db.readsPerSec,
+        result: ((freshReadsPerSec + writesPerSec * writeCost) / db.readsPerSec) * 100,
       };
     }
     case 'shardsAtFullLoad': {
@@ -158,24 +209,21 @@ export function workEstimate(level: Level, estimate: Estimate): EstimateWorking 
         result: (readsPerSec + writesPerSec * writeCost) / db.readsPerSec,
       };
     }
-    case 'coldCacheDatabaseLoad': {
+    case 'coldCacheOverload': {
       const db = DATABASE_SIZES[estimate.databaseSize];
       const restart = level.events.find((event) => event.kind === 'cacheRestart');
       const atSec = restart?.atSec ?? 0;
       const rps = restart ? interpolate(level.workload.traffic, atSec) : peak;
       const readsPerSec = rps * readShare;
-      const writesPerSec = rps - readsPerSec;
-      const writeCost = db.readsPerSec / db.writesPerSec;
       return {
         quantity: estimate.quantity,
         databaseSize: estimate.databaseSize,
         atSec,
         rps,
+        readShare,
         readsPerSec,
-        writesPerSec,
-        writeCost,
         databaseReadsPerSec: db.readsPerSec,
-        result: ((readsPerSec + writesPerSec * writeCost) / db.readsPerSec) * 100,
+        result: readsPerSec / db.readsPerSec,
       };
     }
     case 'queueDrainRateNeeded': {
@@ -198,6 +246,7 @@ export function isCloseEstimate(guess: number, answer: number): boolean {
   if (!Number.isFinite(guess)) return false;
   return Math.abs(guess - answer) <= ESTIMATE_TOLERANCE * Math.abs(answer) + 1e-9;
 }
+
 
 // ---------------------------------------------------------------------------- the worked solution
 
@@ -250,23 +299,27 @@ export type NapkinStep =
   | { kind: 'databaseShare'; readsLeft: number; reads: number; result: number }
   /** The rest is the cache's job: the hit rate, in percent. */
   | { kind: 'cacheHitRate'; databaseShare: number; result: number }
+  /** Reads spread evenly over the keys: on average, the seconds between two reads of one key. */
+  | { kind: 'keyReadGap'; keys: number; keyLabel: string; reads: number; result: number }
   /** The reads that come from a user checking their own fresh write. */
   | { kind: 'ownWriteReads'; reads: number; share: number; result: number }
-  /** Reads plus each write's reads' worth of work: the database's whole load, in reads' worth. */
+  /** Reads plus each write's reads' worth of work: a database's whole load, in reads' worth. */
   | {
       kind: 'totalWork';
       reads: number;
       writes: number;
       writeCost: number;
       writeWork: number;
-      /** Every read reaches the database because the cache just emptied. */
-      coldCache: boolean;
+      /** What the work is for: one shard among many, or a primary that also takes the pinned reads. */
+      context: 'shards' | 'pinnedPrimary';
       result: number;
     }
   /** Work ÷ one shard's capacity, if the work spreads evenly over the shards. */
   | { kind: 'shardsOfWork'; work: number; shardCapacity: number; unit: 'reads' | 'writes'; result: number }
   /** Work ÷ the database's capacity: how busy it is, in percent. */
   | { kind: 'databaseBusy'; work: number; databaseReadsPerSec: number; result: number }
+  /** Reads ÷ the database's read capacity: how many times what it can do, all at once. */
+  | { kind: 'timesCapacity'; reads: number; databaseReadsPerSec: number; result: number }
   /** Orders the spike brings: rate × how long it lasts. */
   | { kind: 'spikeOrders'; rps: number; spikeSec: number; result: number }
   /** The last order arrives at the end of the spike and has the deadline after that: the time to charge them all. */
@@ -282,19 +335,48 @@ export type NapkinTakeaway =
   | { kind: 'survivors'; servers: number; allUp: number; oneDown: number }
   /** The answer leaves the database exactly full; the hit rates that keep it at the hot and comfortable lines. */
   | { kind: 'hitRateHeadroom'; atHot: number; atComfortable: number }
-  /** How busy even the biggest database would be with all the reads. */
-  | { kind: 'biggestDatabase'; size: DatabaseSize; readsPerSec: number; utilization: number }
-  /** The reads that need fresh data and the rest, which can read a copy. */
-  | { kind: 'freshReads'; fresh: number; others: number }
+  /**
+   * Fresh data needs a TTL no longer than the staleness limit, and that TTL can't reach the hit rate needed: `hitRate`
+   * is the best a cache with that TTL manages at the peak.
+   */
+  | { kind: 'ttlCeiling'; needed: number; ttlSec: number; hitRate: number }
+  /**
+   * The gap between reads of a key against the longest cache expiry on offer: a cached copy is gone before it's read
+   * again. `hitRate` is the best a cache manages at the peak, with the most memory and the longest expiry.
+   */
+  | { kind: 'cacheExpiry'; gapSec: number; longestTtlSec: number; hitRate: number }
+  /** How busy the primary is against the comfortable line, and the next size down. */
+  | {
+      kind: 'primaryHeadroom';
+      size: DatabaseSize;
+      utilization: number;
+      smaller: { size: DatabaseSize; utilization: number } | null;
+    }
   /** Whole shards with headroom: the fewest at or under the hot line, and how busy each is. */
   | { kind: 'wholeShards'; atFullLoad: number; roundedUp: number; roundedUpUtilization: number; shards: number; utilization: number }
-  /** How many databases' worth of work arrives at once. */
-  | { kind: 'overload'; times: number }
+  /** Several databases' worth of reads at once, the moment the cache empties: the stampede. */
+  | { kind: 'stampede'; times: number }
   /** Normal traffic keeps arriving on top of the spike. */
   | { kind: 'normalTraffic'; drainRate: number; normalRps: number };
 
+/** How a number the working starts from is written, so it can be found in the question or the level's numbers. */
+export type NapkinGivenUnit = 'count' | 'percent' | 'ms' | 'seconds' | 'clock' | 'ratio';
+
+/**
+ * A number the working starts from rather than works out. Each one must be in front of the player when they're
+ * asked: in the question, or in the level's numbers. A `spec` is a component's catalog figure, which the question
+ * may leave to the component it names ("a large database").
+ */
+export interface NapkinGiven {
+  value: number;
+  unit: NapkinGivenUnit;
+  spec?: { kind: ComponentKind; size: string };
+}
+
 export interface NapkinSolution {
   working: EstimateWorking;
+  /** The numbers the steps start from. Every other number in them is worked out from these. */
+  givens: readonly NapkinGiven[];
   steps: readonly NapkinStep[];
   takeaway: NapkinTakeaway;
 }
@@ -304,6 +386,8 @@ export function napkinSolution(level: Level): NapkinSolution | null {
   const estimate = level.estimate;
   return estimate ? solveEstimate(level, estimate) : null;
 }
+
+const ORDERED_DATABASE_SIZES = Object.keys(DATABASE_SIZES) as DatabaseSize[];
 
 export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution {
   const working = workEstimate(level, estimate);
@@ -331,12 +415,20 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
       result: db.readsPerSec / db.writesPerSec,
     };
   };
+  const count = (value: number): NapkinGiven => ({ value, unit: 'count' });
+  const percent = (value: number): NapkinGiven => ({ value, unit: 'percent' });
+  const database = (size: DatabaseSize, value: number, unit: NapkinGivenUnit = 'count'): NapkinGiven => ({
+    value,
+    unit,
+    spec: { kind: 'database', size },
+  });
 
   switch (working.quantity) {
     case 'busyVcpusAtPeak': {
       const cpuMsPerSec = working.peakRps * working.cpuMsPerRequest;
       return {
         working,
+        givens: [count(working.peakRps), { value: working.cpuMsPerRequest, unit: 'ms' }],
         steps: [
           peak,
           { kind: 'cpuWork', rps: working.peakRps, cpuMsPerRequest: working.cpuMsPerRequest, result: cpuMsPerSec },
@@ -353,6 +445,11 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
     case 'serversWithSpare':
       return {
         working,
+        givens: [
+          count(working.peakRps),
+          { value: working.cpuMsPerRequest, unit: 'ms' },
+          { value: working.vcpu, unit: 'count', spec: { kind: 'appServer', size: working.size } },
+        ],
         steps: [
           peak,
           {
@@ -380,13 +477,21 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
         },
       };
     case 'cacheHitRateNeeded': {
+      const db = DATABASE_SIZES[working.databaseSize];
       const writeWork = working.writesPerSec * working.writeCost;
       const databaseShare = working.result === 0 ? 1 : 1 - working.result / 100;
       // The hit rate that leaves the database `utilization` busy instead of full.
       const hitRateAt = (utilization: number) =>
         Math.min(100, Math.max(0, (1 - (utilization * working.databaseReadsPerSec - writeWork) / working.readsPerSec) * 100));
+      const staleness = level.requirements.maxStalenessSec;
       return {
         working,
+        givens: [
+          count(working.peakRps),
+          percent(readShare),
+          database(working.databaseSize, db.readsPerSec),
+          database(working.databaseSize, db.writesPerSec),
+        ],
         steps: [
           peak,
           split(working.peakRps, working.readsPerSec, working.writesPerSec),
@@ -402,36 +507,75 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
           { kind: 'databaseShare', readsLeft: working.readsLeft, reads: working.readsPerSec, result: databaseShare },
           { kind: 'cacheHitRate', databaseShare, result: working.result },
         ],
-        takeaway: {
-          kind: 'hitRateHeadroom',
-          atHot: hitRateAt(HOT_UTILIZATION),
-          atComfortable: hitRateAt(COMFORTABLE_UTILIZATION),
-        },
+        takeaway:
+          staleness === undefined
+            ? { kind: 'hitRateHeadroom', atHot: hitRateAt(HOT_UTILIZATION), atComfortable: hitRateAt(COMFORTABLE_UTILIZATION) }
+            : {
+                kind: 'ttlCeiling',
+                needed: working.result,
+                ttlSec: freshTtl(staleness),
+                hitRate: bestCacheHitRate(level, freshTtl(staleness)) * 100,
+              },
       };
     }
-    case 'readsAtPeak': {
-      const [size, biggest] = Object.entries(DATABASE_SIZES).reduce((a, b) => (b[1].readsPerSec > a[1].readsPerSec ? b : a));
+    case 'secondsBetweenKeyReads': {
+      const longestTtlSec = Math.max(...CACHE_TTLS);
       return {
         working,
-        steps: [peak, split(working.peakRps, working.result, working.peakRps - working.result)],
-        takeaway: {
-          kind: 'biggestDatabase',
-          size: size as DatabaseSize,
-          readsPerSec: biggest.readsPerSec,
-          utilization: working.result / biggest.readsPerSec,
-        },
-      };
-    }
-    case 'readAfterWriteReadsAtPeak': {
-      const reads = working.peakRps * working.readShare;
-      return {
-        working,
+        givens: [count(working.peakRps), percent(working.readShare), count(working.keys)],
         steps: [
           peak,
-          split(working.peakRps, reads, working.peakRps - reads),
-          { kind: 'ownWriteReads', reads, share: working.readAfterWriteShare, result: working.result },
+          split(working.peakRps, working.readsPerSec, working.peakRps - working.readsPerSec),
+          { kind: 'keyReadGap', keys: working.keys, keyLabel: working.keyLabel, reads: working.readsPerSec, result: working.result },
         ],
-        takeaway: { kind: 'freshReads', fresh: working.result, others: reads - working.result },
+        takeaway: {
+          kind: 'cacheExpiry',
+          gapSec: working.result,
+          longestTtlSec,
+          hitRate: bestCacheHitRate(level, longestTtlSec),
+        },
+      };
+    }
+    case 'pinnedPrimaryLoad': {
+      const writeWork = working.writesPerSec * working.writeCost;
+      const work = working.freshReadsPerSec + writeWork;
+      const index = ORDERED_DATABASE_SIZES.indexOf(working.databaseSize);
+      const smallerSize = index > 0 ? ORDERED_DATABASE_SIZES[index - 1]! : null;
+      return {
+        working,
+        givens: [
+          count(working.peakRps),
+          percent(working.readShare),
+          percent(working.readAfterWriteShare),
+          database(working.databaseSize, working.databaseReadsPerSec),
+          database(working.databaseSize, working.writeCost, 'ratio'),
+        ],
+        steps: [
+          peak,
+          split(working.peakRps, working.readsPerSec, working.writesPerSec),
+          { kind: 'ownWriteReads', reads: working.readsPerSec, share: working.readAfterWriteShare, result: working.freshReadsPerSec },
+          {
+            kind: 'totalWork',
+            reads: working.freshReadsPerSec,
+            writes: working.writesPerSec,
+            writeCost: working.writeCost,
+            writeWork,
+            context: 'pinnedPrimary',
+            result: work,
+          },
+          { kind: 'databaseBusy', work, databaseReadsPerSec: working.databaseReadsPerSec, result: working.result },
+        ],
+        takeaway: {
+          kind: 'primaryHeadroom',
+          size: working.databaseSize,
+          utilization: working.result / 100,
+          smaller: smallerSize
+            ? {
+                size: smallerSize,
+                utilization: (working.freshReadsPerSec + working.writesPerSec * writeCostOf(smallerSize)) / DATABASE_SIZES[smallerSize].readsPerSec,
+              }
+            : null,
+        },
       };
     }
     case 'shardsAtFullLoad': {
@@ -446,7 +590,7 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
                 writes: working.writesPerSec,
                 writeCost: working.writeCost,
                 writeWork,
-                coldCache: false,
+                context: 'shards',
                 result: working.readsPerSec + writeWork,
               },
               {
@@ -471,6 +615,11 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
       while (working.result / shards > HOT_UTILIZATION) shards += 1;
       return {
         working,
+        givens: [
+          count(working.peakRps),
+          ...(working.readsPerSec > 0 ? [percent(readShare), database(working.size, working.shardReadsPerSec)] : []),
+          database(working.size, working.shardWritesPerSec),
+        ],
         steps: [peak, split(working.peakRps, working.readsPerSec, working.writesPerSec), ...work],
         takeaway: {
           kind: 'wholeShards',
@@ -482,34 +631,37 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
         },
       };
     }
-    case 'coldCacheDatabaseLoad': {
-      const writeWork = working.writesPerSec * working.writeCost;
-      const total = working.readsPerSec + writeWork;
+    case 'coldCacheOverload':
       return {
         working,
+        givens: [
+          count(working.rps),
+          { value: working.atSec, unit: 'clock' },
+          percent(working.readShare),
+          database(working.databaseSize, working.databaseReadsPerSec),
+        ],
         steps: [
           { kind: 'trafficAtEvent', event: 'cacheRestart', atSec: working.atSec, result: working.rps },
-          split(working.rps, working.readsPerSec, working.writesPerSec),
-          writeCost(working.databaseSize),
+          split(working.rps, working.readsPerSec, working.rps - working.readsPerSec),
           {
-            kind: 'totalWork',
+            kind: 'timesCapacity',
             reads: working.readsPerSec,
-            writes: working.writesPerSec,
-            writeCost: working.writeCost,
-            writeWork,
-            coldCache: true,
-            result: total,
+            databaseReadsPerSec: working.databaseReadsPerSec,
+            result: working.result,
           },
-          { kind: 'databaseBusy', work: total, databaseReadsPerSec: working.databaseReadsPerSec, result: working.result },
         ],
-        takeaway: { kind: 'overload', times: working.result / 100 },
+        takeaway: { kind: 'stampede', times: working.result },
       };
-    }
     case 'queueDrainRateNeeded': {
       const orders = working.peakRps * working.spikeSec;
       const windowSec = working.spikeSec + working.deadlineSec;
       return {
         working,
+        givens: [
+          count(working.peakRps),
+          { value: working.spikeSec, unit: 'seconds' },
+          { value: working.deadlineSec, unit: 'seconds' },
+        ],
         steps: [
           peak,
           { kind: 'spikeOrders', rps: working.peakRps, spikeSec: working.spikeSec, result: orders },
@@ -524,4 +676,37 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
       };
     }
   }
+}
+
+function writeCostOf(size: DatabaseSize): number {
+  return DATABASE_SIZES[size].readsPerSec / DATABASE_SIZES[size].writesPerSec;
+}
+
+/** The longest TTL on offer that keeps a cached value within the staleness limit (the shortest, if none does). */
+function freshTtl(maxStalenessSec: number): number {
+  const fresh = CACHE_TTLS.filter((ttl) => ttl <= maxStalenessSec);
+  return fresh.length > 0 ? Math.max(...fresh) : Math.min(...CACHE_TTLS);
+}
+
+/**
+ * The best hit rate a cache with this TTL reaches at the level's peak: the most memory on offer, worked out the way
+ * the editor's gauges work it (`peakLoad`), on a design that is nothing but app servers, the cache and a database.
+ */
+export function bestCacheHitRate(level: Level, ttlSec: number): number {
+  const biggest = (Object.keys(CACHE_SIZES) as CacheSize[]).reduce((a, b) =>
+    CACHE_SIZES[b].memoryGb > CACHE_SIZES[a].memoryGb ? b : a,
+  );
+  const design: Design = {
+    nodes: [
+      { id: 'app', kind: 'appServer', size: 'xlarge', instances: 64 },
+      { id: 'cache', kind: 'cache', size: biggest, ttlSec },
+      { id: 'db', kind: 'database', size: 'xlarge' },
+    ],
+    edges: [
+      { from: CLIENTS_ID, to: 'app' },
+      { from: 'app', to: 'cache' },
+      { from: 'app', to: 'db' },
+    ],
+  };
+  return peakLoad(level, design).nodes.cache?.hitRate ?? 0;
 }

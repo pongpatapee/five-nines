@@ -44,6 +44,7 @@
       "readShare": 0.998,
       "keys": {
         "count": 1000000,
+        "label": "products",
         "zipf": 1,
         "valueKb": 1
       }

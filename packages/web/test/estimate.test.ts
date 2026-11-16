@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEstimateInput } from '../src/screens/estimate.ts';
+import { isDurationQuantity, parseEstimateInput } from '../src/screens/estimate.ts';
 
 describe('napkin-maths input', () => {
   it('reads the numbers people type', () => {
@@ -13,6 +13,17 @@ describe('napkin-maths input', () => {
     expect(parseEstimateInput('50 vCPUs')).toBe(50);
     expect(parseEstimateInput('3800 reads/s')).toBe(3800);
     expect(parseEstimateInput('.5')).toBe(0.5);
+  });
+
+  it('reads a duration in seconds, minutes or hours', () => {
+    expect(parseEstimateInput('5200', { duration: true })).toBe(5200);
+    expect(parseEstimateInput('5,200 s', { duration: true })).toBe(5200);
+    expect(parseEstimateInput('87 min', { duration: true })).toBe(5220);
+    expect(parseEstimateInput('1.5 hours', { duration: true })).toBe(5400);
+    expect(parseEstimateInput('2 h', { duration: true })).toBe(7200);
+    expect(parseEstimateInput('3 parsecs', { duration: true })).toBeNull();
+    expect(isDurationQuantity('secondsBetweenKeyReads')).toBe(true);
+    expect(isDurationQuantity('busyVcpusAtPeak')).toBe(false);
   });
 
   it('refuses anything that is not one number', () => {

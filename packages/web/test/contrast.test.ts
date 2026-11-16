@@ -1,5 +1,5 @@
 /**
- * Measured legibility for the rewards screens, the chapter 3 readouts and the napkin working: every audited text is at
+ * Measured legibility for the rewards screens, the chapter 3 readouts, the napkin working and the level's numbers: every audited text is at
  * least 12px as rendered and has at least 4.5:1 contrast (WCAG AA) against each paper it sits on; graphics that carry
  * meaning get 3:1. Sizes and colours are read from the stylesheets and tokens themselves, so a change to either is
  * re-measured.
@@ -123,6 +123,12 @@ const TEXT: Audit[] = [
   { selector: '.napkin-working__note', on: ['var(--paper-card)'] },
   { selector: '.napkin-working__takeaway', on: ['var(--paper-card)'] },
   { selector: '.napkin-working__takeaway-lead', on: ['var(--paper-card)'] },
+  // The numbers: a sticky note in the briefing and on the napkin card.
+  { selector: '.numbers-box__title', on: ['var(--sticky)'] },
+  { selector: '.numbers-box__heading', on: ['var(--sticky)'] },
+  { selector: '.numbers-box__row dt', on: ['var(--sticky)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.numbers-box__row dd', on: ['var(--sticky)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.numbers-box__during', on: ['var(--sticky)'] },
 ];
 
 /**

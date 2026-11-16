@@ -59,6 +59,7 @@
       "readShare": 0.95,
       "keys": {
         "count": 2000000,
+        "label": "articles",
         "zipf": 1,
         "valueKb": 100
       }
