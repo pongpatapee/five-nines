@@ -225,10 +225,18 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 ### Hints and iteration
 
-- A hint ladder: *where* it broke → *why* → the concept → the fix (built, on the grade card of a failed run, one rung at a time). The game derives the failure story from the first failed check and its numbers (`failureStory` in `theme/situations.ts`); the theme words where and why from those numbers and supplies a concept and fix per level and kind of failure. The full reference solution stays in the debrief, after an attempt.
+- A hint ladder: *where* it broke → *why* → the concept → the fix (built, one rung at a time). The game derives the failure story from the first failed check and its numbers (`failureStory` in `theme/situations.ts`); the theme words where and why from those numbers and supplies a concept and fix per level and kind of failure.
+- Hints are always available (built): a "Hints" button in the top bar on every level, from the start. Before any failed run it shows the level's own ladder about its main trap (`LEVEL_TRAPS` in `theme/situations.ts`): where to look → why it's hard → the concept → the fix, quoting the level's numbers, never a time. After a failed run that run's ladder takes over, on the results card and in the top bar while building, until a run passes. Both show the same rungs: revealing one in either place reveals it in both. Each ladder links to the field-guide entry for its idea and offers the solution at the bottom. CI checks every level has a full ladder of its own.
 - Latency is explained with real numbers (built): while p99 nears or passes the limit, playback notes which machine was busiest and how busy ("p99 hit 120 ms while app was 87% busy"), and the grade card's hints quote the run's worst second.
 - Crashes show the failover arithmetic (built): when the instance died, the health-check interval, when the load balancer took it out of rotation, and the requests lost meanwhile against the 0.1% a pass allows. So shorter health checks visibly shrink the window without closing it.
 - Re-running must take one keystroke and leave the layout untouched. Fast iteration is the whole game.
+
+### Giving up (built)
+
+- "Show me the solution" is always available: in the top bar, at the bottom of the hints and on the results card, with no run needed. Before the level is passed a confirm says what it costs first; after it is passed the solutions are free and the button reads "Debrief & solutions".
+- The solution page draws every reference solution on the notebook with its explanation and key numbers (cost, and how busy each part is at the peak), plus the common traps. "Load it onto my canvas" puts a solution on the canvas, keeping the player's own design aside first (saved); "Switch back to my design" puts it back.
+- The rules (`progression/peek.ts`): a level is *peeked* when the player confirms seeing its solution while it has no passing grade. A peek is permanent. Runs on a peeked level are credited at most a pass (three nines) and earn no run badges; the best grade is never lowered, so grades from before the peek stay; a pass still opens the next level. Progress badges follow the credited grades (a capped level can't complete a mastered chapter); the Napkin Wizard, earned before building, is unaffected. The map marks peeked pages in pencil, and the results card says when a run was capped.
+- Saved progress version 3 records `peeked` and the designs kept aside (`stashedDrafts`); older saves migrate with neither and keep everything else.
 
 ### Debrief
 

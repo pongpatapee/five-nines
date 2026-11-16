@@ -1356,3 +1356,57 @@
     display: none;
   }
 }
+
+/* ------------------------------------------------------------------ the hints, from the top bar */
+
+.hints-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: var(--space-8) var(--space-6);
+  background: var(--paper-veil);
+  backdrop-filter: blur(1.5px);
+}
+
+.hints-card {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  width: min(600px, 100%);
+  margin: auto 0;
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  background: var(--paper-card);
+  box-shadow: var(--shadow-paper);
+}
+
+.hints-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.hints-card__title {
+  margin: 0;
+  font-size: var(--text-hand-lg);
+  line-height: 1;
+  color: var(--ink);
+}
+
+.hints-card__title:focus {
+  outline: none;
+}
+
+.hint-ladder__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-3);
+}

@@ -4,7 +4,7 @@ import { formatMs, formatUsd } from '../format.ts';
 import { NINES_FOR_GRADE, chapterThreshold, type LevelAccess } from '../progression/index.ts';
 import { tierPercent } from '../results/grading.ts';
 import { routeHref } from '../routing.ts';
-import { useBadges } from '../state/index.ts';
+import { useBadges, usePeekedLevels } from '../state/index.ts';
 import { BadgeShelf, CampaignMap, cast, CastLine, lockSituation, marks, troublemakerTease, words } from '../theme/index.ts';
 import { useCampaign, type CampaignState } from './campaign.ts';
 
@@ -14,6 +14,7 @@ const { Arrow, Checkbox } = marks;
 export function LevelSelect() {
   const campaign = useCampaign();
   const badges = useBadges();
+  const peeked = usePeekedLevels();
   const { best, nines, nextUp } = campaign;
   const target = nextChapterTarget(campaign);
 
@@ -49,6 +50,7 @@ export function LevelSelect() {
           chapters={CHAPTERS}
           levels={LEVELS}
           best={best}
+          peeked={peeked}
           nextUp={nextUp}
           access={campaign.access}
           chapterAccess={campaign.chapterAccess}

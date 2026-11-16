@@ -8,6 +8,9 @@
  * - 1: drafts, best grades and napkin-maths estimates.
  * - 2: adds earned badges. A version 1 save loads with none; the progress store then awards the badges its grades
  *   and estimates already earn (Five Nines Club, Napkin Wizard).
+ * - 3: adds the levels whose solution was seen before passing (`peeked`) and the player's own designs kept aside
+ *   while a reference solution is on the canvas (`stashedDrafts`). Older saves load with neither, and keep everything
+ *   else.
  */
 import { DesignSchema, GradeSchema, type Grade } from '@five-nines/sim';
 import { completeLayout } from '../canvas/layout.ts';
@@ -18,7 +21,7 @@ import { isBadgeId, type BadgeId, type BadgeRecord, type EarnedBadges } from '..
 export const STORAGE_KEY = 'five-nines:v1';
 /** Where an unreadable save is copied, once, before the game starts afresh. */
 export const BACKUP_KEY = 'five-nines:unreadable-backup';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface SaveData {
   /** Per-level drafts, keyed by level id. */
@@ -29,6 +32,10 @@ export interface SaveData {
   estimates: Record<string, EstimateRecord>;
   /** Badges earned, by id. */
   badges: EarnedBadges;
+  /** Levels whose reference solution the player saw before passing them (progression/peek.ts). */
+  peeked: Record<string, true>;
+  /** The player's own design per level id, kept aside while a reference solution is loaded onto the canvas. */
+  stashedDrafts: Record<string, Draft>;
 }
 
 /** A level's napkin-maths answer. Kept for the "Napkin Wizard" badge (estimates within 10% on several levels). */
@@ -46,7 +53,7 @@ export interface StorageLike {
 }
 
 export function emptySave(): SaveData {
-  return { drafts: {}, bestGrades: {}, estimates: {}, badges: {} };
+  return { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {} };
 }
 
 /** `window.localStorage`, or null when it doesn't exist or access throws (e.g. blocked cookies). */
@@ -126,6 +133,18 @@ export function readSave(raw: string | null): ParsedSave {
   }
   // Version 1 had no badges: nothing to read.
   if (data.version >= 2 && isRecord(data.badges)) save.badges = parseBadges(data.badges);
+  // Versions 1 and 2 had no peeks and no stashed designs.
+  if (data.version >= 3) {
+    if (isRecord(data.peeked)) {
+      for (const [levelId, value] of Object.entries(data.peeked)) if (value === true) save.peeked[levelId] = true;
+    }
+    if (isRecord(data.stashedDrafts)) {
+      for (const [levelId, value] of Object.entries(data.stashedDrafts)) {
+        const draft = parseDraft(value);
+        if (draft) save.stashedDrafts[levelId] = draft;
+      }
+    }
+  }
   return { save, readable: true };
 }
 
@@ -153,6 +172,8 @@ export function serializeSave(save: SaveData): string {
     bestGrades: save.bestGrades,
     estimates: save.estimates,
     badges: save.badges,
+    peeked: save.peeked,
+    stashedDrafts: save.stashedDrafts,
   });
 }
 

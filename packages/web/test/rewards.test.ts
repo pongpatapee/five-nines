@@ -15,6 +15,7 @@ const reward: RunReward = {
   totalNines: { before: 10, after: 12, total: 50 },
   newBadges: ['rightSized', 'pennyPincher'],
   openedChapterIds: [],
+  capped: false,
 };
 
 describe('payout reveal', () => {

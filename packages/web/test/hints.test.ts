@@ -5,8 +5,8 @@ import { evaluateDesign, LEVELS, type Design, type Level } from '@five-nines/sim
 import { describe, expect, it } from 'vitest';
 import type { GradedEvaluation } from '../src/engine/index.ts';
 import { litTiers } from '../src/results/grading.ts';
-import { cast, hintLadder } from '../src/theme/index.ts';
-import { GENERAL_HINTS, LEVEL_HINTS } from '../src/theme/notebook/hints.ts';
+import { cast, hintLadder, LEVEL_TRAPS, levelHintLadder, levelTrap } from '../src/theme/index.ts';
+import { BEFORE_RUN_HINTS, GENERAL_HINTS, LEVEL_HINTS } from '../src/theme/notebook/hints.ts';
 import {
   busiestAt,
   failoverSituation,
@@ -168,7 +168,9 @@ describe('the hint ladder', () => {
         expect(cast.mentorLadder.fix(level.id, topic)).toBeTruthy();
       }
     }
-    for (const step of HINT_STEPS) expect(cast.mentorLadder.stepLabels[step]).toBeTruthy();
+    for (const kind of ['level', 'run'] as const) {
+      for (const step of HINT_STEPS) expect(cast.mentorLadder.stepLabels[kind][step]).toBeTruthy();
+    }
   });
 
   it('tells the stories behind the known traps', () => {
@@ -197,5 +199,39 @@ describe('the hint ladder', () => {
   it('has nothing to say about a run that passed', () => {
     const design = level1.solutions[0]!.design;
     expect(failureStory(level1, design, graded(level1, design))).toBeNull();
+  });
+});
+
+describe('the hints before any failed run', () => {
+  it('gives every level a full ladder about its main trap, in its own words', () => {
+    for (const level of LEVELS) {
+      const ladder = levelHintLadder(level);
+      expect(ladder, level.id).not.toBeNull();
+      expect(ladder!.kind).toBe('level');
+      expect(ladder!.rungs.map((rung) => rung.step)).toEqual([...HINT_STEPS]);
+      for (const rung of ladder!.rungs) expect(rung.text.length, `${level.id} ${rung.step}`).toBeGreaterThan(20);
+      // Its own where and why, and its own concept and fix for the trap rather than the general fallback.
+      expect(BEFORE_RUN_HINTS[level.id], level.id).toBeDefined();
+      const trap = LEVEL_TRAPS[level.id]!;
+      expect(LEVEL_HINTS[level.id]?.[trap.topic], `${level.id} ${trap.topic}`).toBeDefined();
+      expect(ladder!.rungs[2]!.text).toBe(LEVEL_HINTS[level.id]![trap.topic]!.concept);
+      expect(ladder!.rungs[3]!.text).toBe(LEVEL_HINTS[level.id]![trap.topic]!.fix);
+      expect(ladder!.guide).toBe(trap.guide);
+    }
+  });
+
+  it('quotes the level\'s own numbers, never a time', () => {
+    const where = (id: string) => levelHintLadder(LEVELS.find((level) => level.id === id)!)!.rungs[0]!.text;
+    expect(where('01-hello-traffic')).toContain('350 requests a second');
+    expect(where('05-cache-miss')).toContain('19,200 reads a second');
+    expect(where('10-flash-sale')).toContain('2,500 charges a second');
+    for (const level of LEVELS) {
+      for (const rung of levelHintLadder(level)!.rungs.slice(0, 2)) expect(rung.text).not.toMatch(/\bt=|\d+ ?s into|at \d+:\d\d/);
+    }
+  });
+
+  it('works out each trap from the level', () => {
+    expect(levelTrap(LEVELS[2]!)).toMatchObject({ topic: 'crash', stress: { kind: 'crash' } });
+    expect(levelTrap(LEVELS[5]!)?.numbers.data?.readAfterWrite).not.toBeNull();
   });
 });

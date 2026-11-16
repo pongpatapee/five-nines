@@ -5,6 +5,7 @@
  */
 import {
   HEALTH_CHECK,
+  levelNumbers,
   LOAD_BALANCER,
   nodeCostUsdPerMonth,
   type Chapter,
@@ -14,6 +15,7 @@ import {
   type FailureReason,
   type Grade,
   type Level,
+  type LevelNumbers,
   type LoadBalancerSpec,
   type QueueSpec,
   type ReadReplicasSpec,
@@ -22,6 +24,7 @@ import {
   type TimelineFrame,
 } from '@five-nines/sim';
 import type { GradedEvaluation } from '../engine/index.ts';
+import type { GuideEntryId } from '../guide/guide.ts';
 import type { LevelAccess } from '../progression/index.ts';
 import type { CastScript } from './contract.ts';
 
@@ -534,14 +537,19 @@ export interface HintRung {
 }
 
 export interface HintLadder {
+  /** `level`: before any failed run, about the level's main trap. `run`: about what went wrong in a failed run. */
+  kind: 'level' | 'run';
   topic: HintTopic;
   rungs: readonly HintRung[];
+  /** The field-guide entry that explains the idea, or null when none does. */
+  guide: GuideEntryId | null;
 }
 
 /** The mentor's four hints for a failed run, in order: where it broke, why, the concept, the fix. */
 export function hintLadder(level: Level, story: FailureStory, script: CastScript): HintLadder {
   const words = script.mentorLadder;
   return {
+    kind: 'run',
     topic: story.topic,
     rungs: [
       { step: 'where', text: words.where(story) },
@@ -549,6 +557,73 @@ export function hintLadder(level: Level, story: FailureStory, script: CastScript
       { step: 'concept', text: words.concept(level.id, story.topic) },
       { step: 'fix', text: words.fix(level.id, story.topic) },
     ],
+    guide: storyGuideEntry(story),
+  };
+}
+
+function storyGuideEntry(story: FailureStory): GuideEntryId | null {
+  switch (story.topic) {
+    case 'overload':
+    case 'stale':
+      return story.kind;
+    case 'crash':
+      return 'loadBalancer';
+    case 'rateLimit':
+    case 'queueFull':
+    case 'deadline':
+      return 'queue';
+    case 'latency':
+      return 'p99';
+    case 'budget':
+      return null;
+  }
+}
+
+/**
+ * Each level's main trap: the kind of failure a first design most likely runs into, and the field-guide entry for
+ * the idea that avoids it. The hints before any failed run are about this (docs/design.md, "Hints and iteration").
+ */
+export const LEVEL_TRAPS: Readonly<Record<string, { topic: HintTopic; guide: GuideEntryId }>> = {
+  '01-hello-traffic': { topic: 'overload', guide: 'appServer' },
+  '02-scale-out': { topic: 'overload', guide: 'loadBalancer' },
+  '03-pull-the-plug': { topic: 'crash', guide: 'loadBalancer' },
+  '04-read-all-about-it': { topic: 'overload', guide: 'cache' },
+  '05-cache-miss': { topic: 'overload', guide: 'readReplicas' },
+  '06-bank-balance': { topic: 'stale', guide: 'readReplicas' },
+  '07-the-write-wall': { topic: 'overload', guide: 'shards' },
+  '08-thundering-herd': { topic: 'overload', guide: 'cache' },
+  '09-stale-prices': { topic: 'stale', guide: 'cache' },
+  '10-flash-sale': { topic: 'rateLimit', guide: 'queue' },
+};
+
+/** A level's main trap, with the numbers the mentor's hints quote. */
+export interface LevelTrap {
+  levelId: string;
+  topic: HintTopic;
+  numbers: LevelNumbers;
+  stress: LevelStress | null;
+}
+
+export function levelTrap(level: Level): LevelTrap | null {
+  const trap = LEVEL_TRAPS[level.id];
+  return trap ? { levelId: level.id, topic: trap.topic, numbers: levelNumbers(level), stress: levelStress(level) } : null;
+}
+
+/** The mentor's four hints before any failed run: where to look, why it's hard, the concept, the fix. */
+export function levelHintLadder(level: Level, script: CastScript): HintLadder | null {
+  const trap = levelTrap(level);
+  if (!trap) return null;
+  const words = script.mentorLadder;
+  return {
+    kind: 'level',
+    topic: trap.topic,
+    rungs: [
+      { step: 'where', text: words.beforeRun.where(trap) },
+      { step: 'why', text: words.beforeRun.why(trap) },
+      { step: 'concept', text: words.concept(level.id, trap.topic) },
+      { step: 'fix', text: words.fix(level.id, trap.topic) },
+    ],
+    guide: LEVEL_TRAPS[level.id]!.guide,
   };
 }
 

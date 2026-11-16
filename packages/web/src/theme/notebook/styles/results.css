@@ -342,6 +342,98 @@
   color: var(--text);
 }
 
+/* Key numbers: how busy each part is at the peak, in the margin's small hand. */
+.solution__numbers {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--highlighter);
+  background: var(--highlighter-wash);
+  font-size: var(--text-sm);
+}
+
+.solution__number {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+}
+
+.solution__number dt {
+  min-width: 7ch;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.solution__number dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.debrief__title:focus {
+  outline: none;
+}
+
+.solution__load {
+  margin-top: var(--space-3);
+}
+
+.grade-card__capped {
+  color: var(--pencil);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------ the confirm before giving up */
+
+.confirm-overlay {
+  /* Above the overlay that asked: the hints, the results card. */
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--paper-veil);
+  backdrop-filter: blur(1.5px);
+}
+
+.confirm-card {
+  display: grid;
+  gap: var(--space-3);
+  width: min(480px, 100%);
+  padding: var(--space-5) var(--space-6);
+  border: var(--stroke-pen) solid var(--ink);
+  border-radius: var(--radius-hand);
+  background: var(--paper-card);
+  box-shadow: var(--shadow-ink);
+}
+
+.confirm-card__title {
+  margin: 0;
+  font-size: var(--text-hand-lg);
+  line-height: 1;
+  color: var(--red-pen-text);
+}
+
+.confirm-card__body {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--ink);
+}
+
+.confirm-card__body p {
+  margin: 0;
+}
+
+.confirm-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 .debrief__traps {
   display: grid;
   gap: var(--space-3);

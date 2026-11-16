@@ -1,7 +1,7 @@
 import { CLIENTS_ID } from '@five-nines/sim';
 import { describe, expect, it, vi } from 'vitest';
 import { addNode, createNodeSpec } from '../src/canvas/draft.ts';
-import { STORAGE_KEY, type StorageLike } from '../src/state/persistence.ts';
+import { SAVE_VERSION, STORAGE_KEY, type StorageLike } from '../src/state/persistence.ts';
 import { createProgressStore, selectDraft, STARTING_DRAFT } from '../src/state/store.ts';
 
 function memoryStorage(): StorageLike & { data: Map<string, string> } {
@@ -130,8 +130,10 @@ describe('progress store', () => {
     expect(JSON.parse(storage.data.get(STORAGE_KEY)!).version).toBe(1);
     state.updateDraft('other', edited);
     const written = JSON.parse(storage.data.get(STORAGE_KEY)!);
-    expect(written.version).toBe(2);
+    expect(written.version).toBe(SAVE_VERSION);
     expect(written.bestGrades).toEqual(v1.bestGrades);
+    expect(written.estimates).toEqual(v1.estimates);
+    expect(written.peeked).toEqual({});
     expect(written.badges).toEqual({ fiveNinesClub: { levelId: null }, napkinWizard: { levelId: null } });
   });
 

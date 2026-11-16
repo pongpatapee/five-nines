@@ -1,19 +1,23 @@
-import { designCostUsdPerMonth, LEVELS, validateDesign, type Evaluation, type Level } from '@five-nines/sim';
+import { designCostUsdPerMonth, LEVELS, validateDesign, type Design, type Evaluation, type Level } from '@five-nines/sim';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { playCue } from '../audio/sfx.ts';
 import { SoundToggle } from '../audio/SoundToggle.tsx';
-import { DesignCanvas } from '../canvas/index.ts';
+import { DesignCanvas, draftFromDesign } from '../canvas/index.ts';
 import type { Draft } from '../canvas/types.ts';
 import { Editor } from '../editor/index.tsx';
 import { runEvaluation } from '../engine/index.ts';
 import { Playback } from '../playback/index.tsx';
 import { DebriefPanel, ResultsView } from '../results/index.ts';
 import { navigate, routeHref } from '../routing.ts';
-import { formatDuration, isPassingGrade } from '../format.ts';
-import { progressStore, useBestGrade, useDraft, useEstimate } from '../state/index.ts';
+import { formatDuration } from '../format.ts';
+import { peekCosts } from '../progression/index.ts';
+import { progressStore, useBestGrade, useDraft, useEstimate, usePeeked, useStashedDraft } from '../state/index.ts';
 import { FieldGuideProvider, useFieldGuide } from '../guide/FieldGuideProvider.tsx';
 import { cast, fieldGuide, marks, words } from '../theme/index.ts';
 import { useEscape } from './escape.ts';
+import { GiveUpConfirm } from './GiveUpConfirm.tsx';
+import { HintsDialog } from './HintsDialog.tsx';
+import { useHints } from './useHints.ts';
 import { EstimateStep } from './EstimateStep.tsx';
 import { CostMeter } from './CostMeter.tsx';
 import { BriefingPanel } from './BriefingPanel.tsx';
@@ -38,6 +42,12 @@ function LevelPage({ level }: LevelScreenProps) {
   const [mode, dispatch] = useReducer(levelModeReducer, INITIAL_MODE);
   const [briefingCollapsed, setBriefingCollapsed] = useState(false);
   const [debriefOpen, setDebriefOpen] = useState(false);
+  const [hintsOpen, setHintsOpen] = useState(false);
+  const hints = useHints(level, mode);
+  const peeked = usePeeked(level.id);
+  const stashed = useStashedDraft(level.id);
+  // The solution, once the player has confirmed what it costs: what to open after the confirm.
+  const [confirmingPeek, setConfirmingPeek] = useState<(() => void) | null>(null);
   const draft = useDraft(level.id);
   const bestGrade = useBestGrade(level.id);
   const estimateRecord = useEstimate(level.id);
@@ -113,6 +123,37 @@ function LevelPage({ level }: LevelScreenProps) {
   const handleEdit = useCallback(() => dispatch({ type: 'edit' }), []);
   const handleReplay = useCallback(() => dispatch({ type: 'replay' }), []);
   const handleViewChange = useCallback((view: ResultView) => dispatch({ type: 'showView', view }), []);
+  // Giving up: the solution, behind a confirm while seeing it still costs something (progression/peek.ts).
+  const solutionCosts = peekCosts(bestGrade, peeked);
+  const showSolution = useCallback(() => {
+    const open = () => {
+      setHintsOpen(false);
+      if (mode.kind === 'result') dispatch({ type: 'showView', view: 'debrief' });
+      else setDebriefOpen(true);
+    };
+    if (solutionCosts) setConfirmingPeek(() => open);
+    else open();
+  }, [mode.kind, solutionCosts]);
+  const confirmPeek = useCallback(() => {
+    progressStore.getState().recordPeek(level.id);
+    const open = confirmingPeek;
+    setConfirmingPeek(null);
+    open?.();
+  }, [confirmingPeek, level.id]);
+  const handleLoadSolution = useCallback(
+    (design: Design) => {
+      progressStore.getState().loadSolution(level.id, draftFromDesign(design));
+      setDebriefOpen(false);
+      dispatch({ type: 'edit' });
+    },
+    [level.id],
+  );
+  const handleSwitchBack = useCallback(() => {
+    progressStore.getState().restoreStashedDraft(level.id);
+    setDebriefOpen(false);
+    dispatch({ type: 'edit' });
+  }, [level.id]);
+
   const handleNextLevel = useMemo(
     () => (nextLevel ? () => navigate({ name: 'level', levelId: nextLevel.id }) : null),
     [nextLevel],
@@ -127,10 +168,13 @@ function LevelPage({ level }: LevelScreenProps) {
         levelNumber={levelIndex + 1}
         mode={mode}
         cost={briefingCollapsed ? designCostUsdPerMonth(shownDraft.design) : null}
-        onOpenDebrief={mode.kind === 'build' && bestGrade !== undefined ? () => setDebriefOpen(true) : null}
+        onShowSolution={mode.kind === 'build' || mode.kind === 'result' ? showSolution : null}
+        solutionLabel={solutionCosts ? cast.giveUp.show : cast.giveUp.showFree}
+        onSwitchBack={mode.kind === 'build' && stashed ? handleSwitchBack : null}
         onOpenEstimate={mode.kind === 'build' && level.estimate && !estimateOpen ? () => setEstimateOpen('ask') : null}
         estimateBonus={estimateRecord?.close ?? false}
         onOpenGuide={guide ? () => guide.open() : null}
+        onOpenHints={hints && (mode.kind === 'build' || mode.kind === 'result') ? () => setHintsOpen(true) : null}
       />
       <div className="level-screen__body">
         <BriefingPanel
@@ -152,7 +196,7 @@ function LevelPage({ level }: LevelScreenProps) {
                 onRun={handleRun}
                 onReset={handleReset}
                 notice={mode.notice}
-                active={!debriefOpen && !estimateOpen && !guide?.isOpen}
+                active={!debriefOpen && !estimateOpen && !hintsOpen && !confirmingPeek && !guide?.isOpen}
               />
               {estimateOpen && level.estimate && (
                 <EstimateStep
@@ -168,7 +212,13 @@ function LevelPage({ level }: LevelScreenProps) {
               )}
               {debriefOpen && (
                 <div className="results-overlay">
-                  <DebriefPanel level={level} spoilers={!isPassingGrade(bestGrade)} onClose={() => setDebriefOpen(false)} />
+                  <DebriefPanel
+                    level={level}
+                    peeked={peeked}
+                    onClose={() => setDebriefOpen(false)}
+                    onLoad={handleLoadSolution}
+                    onSwitchBack={stashed ? handleSwitchBack : null}
+                  />
                 </div>
               )}
             </>
@@ -207,11 +257,29 @@ function LevelPage({ level }: LevelScreenProps) {
                 onBackToEditor={handleEdit}
                 onReplay={handleReplay}
                 onNextLevel={handleNextLevel}
+                hints={hints}
+                onShowSolution={showSolution}
+                solutionCosts={solutionCosts}
+                peeked={peeked}
+                onLoadSolution={handleLoadSolution}
+                onSwitchBack={stashed ? handleSwitchBack : null}
               />
             </>
           )}
         </main>
       </div>
+      {hintsOpen && hints && (
+        <HintsDialog
+          hints={hints}
+          onClose={() => setHintsOpen(false)}
+          solution={
+            <button type="button" className="btn btn--sm" onClick={showSolution}>
+              {solutionCosts ? cast.giveUp.show : cast.giveUp.showFree}
+            </button>
+          }
+        />
+      )}
+      {confirmingPeek && <GiveUpConfirm onConfirm={confirmPeek} onCancel={() => setConfirmingPeek(null)} />}
     </div>
   );
 }
@@ -227,22 +295,31 @@ function TopBar({
   levelNumber,
   mode,
   cost,
-  onOpenDebrief,
+  onShowSolution,
+  solutionLabel,
+  onSwitchBack,
   onOpenEstimate,
   estimateBonus,
   onOpenGuide,
+  onOpenHints,
 }: {
   level: Level;
   levelNumber: number;
   mode: LevelMode;
   /** Shown compactly when the briefing panel (and its cost meter) is collapsed. */
   cost: number | null;
-  onOpenDebrief: (() => void) | null;
+  /** The solution page, behind a confirm while it costs something. Null when it can't open now. */
+  onShowSolution: (() => void) | null;
+  solutionLabel: string;
+  /** Back to the player's own design, while a solution is on the canvas. */
+  onSwitchBack: (() => void) | null;
   /** Reopens the napkin-maths step; null when the level has none or it can't open now. */
   onOpenEstimate: (() => void) | null;
   /** Whether the napkin-maths bonus is earned on this level. */
   estimateBonus: boolean;
   onOpenGuide: (() => void) | null;
+  /** Opens the hints: null when the level has none or they can't open now. */
+  onOpenHints: (() => void) | null;
 }) {
   const active = mode.kind === 'evaluating' ? 'run' : mode.kind;
   return (
@@ -274,14 +351,24 @@ function TopBar({
             {estimateBonus && <marks.Met label={cast.mentorEstimate.bonus} />}
           </button>
         )}
+        {onOpenHints && (
+          <button type="button" className="btn btn--sm btn--ghost" onClick={onOpenHints}>
+            Hints
+          </button>
+        )}
         {onOpenGuide && (
           <button type="button" className="btn btn--sm btn--ghost" onClick={onOpenGuide}>
             {fieldGuide.title}
           </button>
         )}
-        {onOpenDebrief && (
-          <button type="button" className="btn btn--sm" onClick={onOpenDebrief}>
-            Debrief &amp; solutions
+        {onSwitchBack && (
+          <button type="button" className="btn btn--sm btn--ghost" onClick={onSwitchBack}>
+            {cast.giveUp.switchBack}
+          </button>
+        )}
+        {onShowSolution && (
+          <button type="button" className="btn btn--sm" onClick={onShowSolution}>
+            {solutionLabel}
           </button>
         )}
         <SoundToggle />

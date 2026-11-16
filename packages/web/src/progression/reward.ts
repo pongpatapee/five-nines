@@ -30,6 +30,8 @@ export interface RunReward {
   newBadges: BadgeId[];
   /** Chapters this run opened (by nines), in campaign order. */
   openedChapterIds: string[];
+  /** The level's solution was seen before passing, and this run was credited less than it earned (progression/peek.ts). */
+  capped: boolean;
 }
 
 /** The best of two grades: a worse run never lowers what the level has paid. */
@@ -56,5 +58,6 @@ export function runReward(chapters: readonly Chapter[], levelId: string, before:
     totalNines: { before: totalBefore.earned, after: ninesTotal(levelIds, after.best).earned, total: totalBefore.total },
     newBadges: BADGE_IDS.filter((id) => before.badges[id] === undefined && after.badges[id] !== undefined),
     openedChapterIds: openChapterIds(chapters, { best: after.best }).filter((id) => !openBefore.has(id)),
+    capped: false,
   };
 }

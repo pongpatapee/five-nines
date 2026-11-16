@@ -3,4 +3,5 @@ export * from './nines.ts';
 export * from './unlocks.ts';
 export * from './badges.ts';
 export * from './reward.ts';
+export * from './peek.ts';
 export { devUnlockAll } from './dev.ts';
