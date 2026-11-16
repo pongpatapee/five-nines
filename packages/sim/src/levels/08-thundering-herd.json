@@ -4,7 +4,7 @@
   "concept": "Cache stampedes",
   "briefing": [
     "A shopping feed on launch day: 4,000 requests a second at opening, 30,000 a minute later. 99% are reads of a million items, and a few thousand popular ones get most of them. Even the smallest cache holds every item.",
-    "Warm, the cache answers almost every read and the database idles. Then, a minute and a half in, the cache node restarts. It comes back empty, and every read misses at once.",
+    "Warm, the cache answers almost every read and the database idles. Then, at some point during the run, the cache node restarts. It comes back empty, and every read misses at once.",
     "Make the database survive that moment. A cache can coalesce misses (the first miss on an item fetches it, the rest wait for that fetch), keep a replica that takes over warm, or the database can simply be big enough."
   ],
   "debrief": [

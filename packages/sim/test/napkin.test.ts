@@ -115,8 +115,9 @@ describe('the numbers the napkin working uses', () => {
     for (const step of solution.steps) {
       // A step's numbers may lean on each other in any order, so resolve them until nothing more can be.
       let open = Object.entries(step).filter(
-        // The peak step's time is a note on where to read the chart, not a number the arithmetic uses.
-        ([field, value]) => typeof value === 'number' && !(step.kind === 'peak' && field === 'atSec'),
+        // A step's time is a note on where to read the chart, not a number the arithmetic uses. (Event times are
+        // never given up front: events are named, not timed.)
+        ([field, value]) => typeof value === 'number' && field !== 'atSec',
       ) as [string, number][];
       for (let progress = true; progress && open.length > 0; ) {
         const resolved = open.filter(([, value]) => derivable(value, known));

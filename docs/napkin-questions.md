@@ -86,10 +86,10 @@ Levels 1, 2, 3 and 7 are unchanged. Level 10 keeps its question and states its a
 - **Before:** Napkin first. The cache restarts empty at t=90s, when traffic is 30,000 requests a second: 29,700 reads
   and 300 writes. If every read missed the cache at that moment, how busy would a large database be? It does 10,000
   reads a second, and one write costs it as much as 2.5 reads. (304.5%)
-- **After:** At 1:30 the cache restarts empty, and 29,700 reads a second fall straight on a large database that
+- **After:** When the cache restarts empty during the run, 29,700 reads a second fall straight on a large database that
   handles 10,000 reads a second. How many times its capacity is that?
 - **Answer:** 2.97 times (about 3×).
-- **Worked steps:** at 1:30 the traffic is 30,000 req/s; 30,000 × 99% = 29,700 reads; 29,700 ÷ 10,000 = 2.97× its
+- **Worked steps:** when the cache restarts the traffic is 30,000 req/s; 30,000 × 99% = 29,700 reads; 29,700 ÷ 10,000 = 2.97× its
   capacity.
 - **Takeaway:** about 3 databases' worth of reads at once, with the writes on top: the queue grows every second, refills
   wait behind the misses and even the popular items keep missing. That's the stampede: keep the misses off the database,
