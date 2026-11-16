@@ -140,6 +140,8 @@
   /* ---------------------------------------------------------------- space (4px grid) */
   /* Modal overlays sit above everything on the page, including the notebook's spiral binding. */
   --z-modal: 50;
+  /* A reference opened from inside a modal (the field guide from the napkin card) sits above it. */
+  --z-modal-raised: 60;
 
   --space-1: 4px;
   --space-2: 8px;

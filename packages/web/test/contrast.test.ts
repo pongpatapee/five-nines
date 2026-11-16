@@ -129,6 +129,17 @@ const TEXT: Audit[] = [
   { selector: '.numbers-box__row dt', on: ['var(--sticky)'], inheritsSize: 'var(--text-sm)' },
   { selector: '.numbers-box__row dd', on: ['var(--sticky)'], inheritsSize: 'var(--text-sm)' },
   { selector: '.numbers-box__during', on: ['var(--sticky)'] },
+  // The field guide. Its worked examples sit on a highlighter wash: checked against the full highlighter, the worst case.
+  { selector: '.field-guide__title', on: ['var(--paper-card)'] },
+  { selector: '.field-guide__jump', on: ['var(--paper-shade)', 'var(--surface-hover)'] },
+  { selector: '.field-guide__part', on: ['var(--paper-card)'] },
+  { selector: '.field-guide__entry', on: ['var(--paper-card)', 'var(--highlighter)'] },
+  { selector: '.field-guide__name', on: ['var(--paper-card)'] },
+  { selector: '.field-guide__label', on: ['var(--paper-card)', 'var(--highlighter)'] },
+  { selector: '.field-guide__table th', on: ['var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.field-guide__table td', on: ['var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
+  { selector: '.field-guide__table thead th', on: ['var(--paper-card)'], inheritsSize: 'var(--text-xs)', colors: ['var(--ink)'] },
+  { selector: '.guide-link', on: ['var(--paper-card)', 'var(--paper)', 'var(--paper-shade)'] },
 ];
 
 /**

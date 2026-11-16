@@ -11,7 +11,9 @@ import { DebriefPanel, ResultsView } from '../results/index.ts';
 import { navigate, routeHref } from '../routing.ts';
 import { formatDuration, isPassingGrade } from '../format.ts';
 import { progressStore, useBestGrade, useDraft, useEstimate } from '../state/index.ts';
-import { cast, marks, words } from '../theme/index.ts';
+import { FieldGuideProvider, useFieldGuide } from '../guide/FieldGuideProvider.tsx';
+import { cast, fieldGuide, marks, words } from '../theme/index.ts';
+import { useEscape } from './escape.ts';
 import { EstimateStep } from './EstimateStep.tsx';
 import { CostMeter } from './CostMeter.tsx';
 import { BriefingPanel } from './BriefingPanel.tsx';
@@ -22,8 +24,17 @@ export interface LevelScreenProps {
   level: Level;
 }
 
-/** `#/level/<id>`: briefing on the left, the current mode (build, run, result) on the stage. */
+/** `#/level/<id>`: briefing on the left, the current mode (build, run, result) on the stage; the field guide over it. */
 export function LevelScreen({ level }: LevelScreenProps) {
+  return (
+    <FieldGuideProvider>
+      <LevelPage level={level} />
+    </FieldGuideProvider>
+  );
+}
+
+function LevelPage({ level }: LevelScreenProps) {
+  const guide = useFieldGuide();
   const [mode, dispatch] = useReducer(levelModeReducer, INITIAL_MODE);
   const [briefingCollapsed, setBriefingCollapsed] = useState(false);
   const [debriefOpen, setDebriefOpen] = useState(false);
@@ -80,14 +91,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
   const canReviewEstimate = mode.kind === 'build' && level.estimate !== undefined && estimateRecord !== undefined;
 
   // Esc closes the debrief overlay over the editor.
-  useEffect(() => {
-    if (!debriefOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDebriefOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [debriefOpen]);
+  useEscape(() => setDebriefOpen(false), debriefOpen);
 
   // Evaluating: run the engine in the worker and feed the result back into the state machine.
   const evaluating = mode.kind === 'evaluating' ? mode : null;
@@ -126,6 +130,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
         onOpenDebrief={mode.kind === 'build' && bestGrade !== undefined ? () => setDebriefOpen(true) : null}
         onOpenEstimate={mode.kind === 'build' && level.estimate && !estimateOpen ? () => setEstimateOpen('ask') : null}
         estimateBonus={estimateRecord?.close ?? false}
+        onOpenGuide={guide ? () => guide.open() : null}
       />
       <div className="level-screen__body">
         <BriefingPanel
@@ -147,7 +152,7 @@ export function LevelScreen({ level }: LevelScreenProps) {
                 onRun={handleRun}
                 onReset={handleReset}
                 notice={mode.notice}
-                active={!debriefOpen && !estimateOpen}
+                active={!debriefOpen && !estimateOpen && !guide?.isOpen}
               />
               {estimateOpen && level.estimate && (
                 <EstimateStep
@@ -225,6 +230,7 @@ function TopBar({
   onOpenDebrief,
   onOpenEstimate,
   estimateBonus,
+  onOpenGuide,
 }: {
   level: Level;
   levelNumber: number;
@@ -236,6 +242,7 @@ function TopBar({
   onOpenEstimate: (() => void) | null;
   /** Whether the napkin-maths bonus is earned on this level. */
   estimateBonus: boolean;
+  onOpenGuide: (() => void) | null;
 }) {
   const active = mode.kind === 'evaluating' ? 'run' : mode.kind;
   return (
@@ -265,6 +272,11 @@ function TopBar({
           <button type="button" className="btn btn--sm btn--ghost topbar__estimate" onClick={onOpenEstimate}>
             Napkin maths
             {estimateBonus && <marks.Met label={cast.mentorEstimate.bonus} />}
+          </button>
+        )}
+        {onOpenGuide && (
+          <button type="button" className="btn btn--sm btn--ghost" onClick={onOpenGuide}>
+            {fieldGuide.title}
           </button>
         )}
         {onOpenDebrief && (

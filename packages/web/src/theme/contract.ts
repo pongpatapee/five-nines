@@ -21,6 +21,7 @@ import type {
 } from '@five-nines/sim';
 import type { ComponentType, ReactNode, Ref } from 'react';
 import type { GradedEvaluation } from '../engine/index.ts';
+import type { ConceptId, GuideEntryId, SpecTable } from '../guide/guide.ts';
 import type { BudgetUsage } from '../playback/series.ts';
 import type { BadgeId, ChapterAccess, EarnedBadges, LevelAccess, RunReward } from '../progression/index.ts';
 import type { RevealState } from '../results/reveal.ts';
@@ -198,6 +199,27 @@ export interface NumbersBoxProps {
   variant: 'briefing' | 'card';
 }
 
+/** The field guide's fixed words; the entries' own copy is the theme's. */
+export interface FieldGuideScript {
+  title: string;
+  /** The link from an inspector, a napkin working or a hint: "More in the field guide". */
+  more: string;
+  /** An entry's name, for links and the contents. */
+  entryName(id: GuideEntryId): string;
+}
+
+export interface FieldGuideProps {
+  /** The components the player has met, in the guide's order, each with its spec table from the catalog. */
+  components: readonly { kind: ComponentKind; table: SpecTable }[];
+  /** The concepts the player has met. */
+  concepts: readonly ConceptId[];
+  /** Entries still to meet: counted, never named. */
+  unmet: number;
+  /** The entry to open at, or null for the contents. */
+  focus: GuideEntryId | null;
+  onClose(): void;
+}
+
 export interface NapkinWorkingProps {
   /** The estimate worked step by step, with every number (`@five-nines/sim`'s `napkinSolution`). */
   solution: NapkinSolution;
@@ -356,6 +378,9 @@ export interface Theme {
   numbersText(numbers: LevelNumbers): NumbersText;
   /** The level's numbers, drawn: in the briefing and on the napkin-maths card. */
   NumbersBox: ComponentType<NumbersBoxProps>;
+  /** The field guide: components and concepts met so far, laid open over the page. */
+  FieldGuide: ComponentType<FieldGuideProps>;
+  fieldGuide: FieldGuideScript;
   /** The graded result. */
   GradeCard: ComponentType<GradeCardProps>;
   /** The campaign on the level select screen. */
