@@ -44,6 +44,7 @@
       "readShare": 0.96,
       "keys": {
         "count": 100000000,
+        "label": "profiles",
         "zipf": 0,
         "valueKb": 2
       }
@@ -54,7 +55,7 @@
     "budgetUsdPerMonth": 2800,
     "maxStalenessSec": 1
   },
-  "estimate": { "quantity": "readsAtPeak", "answer": 19200 },
+  "estimate": { "quantity": "secondsBetweenKeyReads", "answer": 5208.3 },
   "solutions": [
     {
       "name": "Three large read replicas",

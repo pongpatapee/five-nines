@@ -15,6 +15,7 @@ import type {
   FailureReason,
   Grade,
   Level,
+  LevelNumbers,
   NapkinSolution,
   SimEvent,
 } from '@five-nines/sim';
@@ -127,8 +128,11 @@ export interface EstimateResult {
 }
 
 export interface MentorEstimateScript {
-  /** The question for this level's estimate, and the unit the answer is typed in ("vCPUs", "%"). */
-  ask(working: EstimateWorking): { question: string; unit: string };
+  /**
+   * The question for this level's estimate, and the unit the answer is typed in ("vCPUs", "%"). Self-contained: with
+   * the level's numbers beside it, it gives every number the working starts from (docs/design.md, "Estimate step").
+   */
+  ask(working: EstimateWorking, level: Level): { question: string; unit: string };
   /** The mentor's reaction to an answer. */
   verdict(result: EstimateResult): { exclaim: string; line: string };
   /** The mentor's lead-in to the working after the player skips the question. */
@@ -178,6 +182,20 @@ export interface ComponentArtProps {
 
 export interface BudgetMeterProps {
   usage: BudgetUsage;
+}
+
+/** "The numbers", worded: groups of labelled values, and what will happen during the run (named, never timed). */
+export interface NumbersText {
+  title: string;
+  groups: readonly { heading: string; rows: readonly { label: string; value: string }[] }[];
+  during: { lead: string; items: readonly string[] } | null;
+}
+
+export interface NumbersBoxProps {
+  /** The level's numbers (`@five-nines/sim`'s `levelNumbers`). */
+  numbers: LevelNumbers;
+  /** In the briefing's margin, or on the napkin-maths card. */
+  variant: 'briefing' | 'card';
 }
 
 export interface NapkinWorkingProps {
@@ -334,6 +352,10 @@ export interface Theme {
   PostmortemCard: ComponentType<PostmortemCardProps>;
   /** The napkin-maths estimate worked step by step: numbered steps, each with its reason and arithmetic. */
   NapkinWorking: ComponentType<NapkinWorkingProps>;
+  /** The level's numbers, worded. */
+  numbersText(numbers: LevelNumbers): NumbersText;
+  /** The level's numbers, drawn: in the briefing and on the napkin-maths card. */
+  NumbersBox: ComponentType<NumbersBoxProps>;
   /** The graded result. */
   GradeCard: ComponentType<GradeCardProps>;
   /** The campaign on the level select screen. */

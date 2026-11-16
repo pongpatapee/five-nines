@@ -44,6 +44,7 @@
       "readShare": 0,
       "keys": {
         "count": 1000000000,
+        "label": "posts",
         "zipf": 0.9,
         "valueKb": 1
       },

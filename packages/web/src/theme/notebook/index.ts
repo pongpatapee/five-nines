@@ -13,6 +13,7 @@ import { ComponentDoodle } from './doodles.tsx';
 import { GradeCard } from './GradeCard.tsx';
 import { Cross, HandArrow, HandBox, NinesDots, RootCauseCircle, SpeakerMark, Tick } from './ink.tsx';
 import { NapkinWorking } from './NapkinWorking.tsx';
+import { NumbersBox, numbersText } from './numbers.tsx';
 import { PostmortemCard } from './PostmortemCard.tsx';
 import { Shell } from './Shell.tsx';
 import { NOTEBOOK_SOUNDS } from './sounds.ts';
@@ -43,6 +44,8 @@ export const notebookTheme: Theme = {
   BudgetMeter,
   PostmortemCard,
   NapkinWorking,
+  numbersText,
+  NumbersBox,
   GradeCard,
   CampaignMap,
   UtilizationGauge,

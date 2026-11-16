@@ -18,6 +18,8 @@ export const {
   BudgetMeter,
   PostmortemCard,
   NapkinWorking,
+  numbersText,
+  NumbersBox,
   GradeCard,
   CampaignMap,
   UtilizationGauge,

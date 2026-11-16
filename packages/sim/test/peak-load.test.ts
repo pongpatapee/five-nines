@@ -153,10 +153,12 @@ describe('estimates', () => {
       writeCost: 2.5,
       readsLeft: 6_750,
     });
-    expect(estimateWorking(level('05-cache-miss'))!.result).toBe(19_200);
-    expect(estimateWorking(level('06-bank-balance'))!.result).toBeCloseTo(3_800);
+    expect(estimateWorking(level('05-cache-miss'))).toMatchObject({ readsPerSec: 19_200, keys: 100_000_000 });
+    expect(estimateWorking(level('05-cache-miss'))!.result).toBeCloseTo(5_208.3, 1);
+    expect(estimateWorking(level('06-bank-balance'))).toMatchObject({ freshReadsPerSec: 3_800, writesPerSec: 1_000 });
+    expect(estimateWorking(level('06-bank-balance'))!.result).toBeCloseTo(63);
     expect(estimateWorking(level('07-the-write-wall'))!.result).toBe(3.75);
-    expect(estimateWorking(level('08-thundering-herd'))).toMatchObject({ atSec: 90, rps: 30_000, result: 304.5 });
+    expect(estimateWorking(level('08-thundering-herd'))).toMatchObject({ atSec: 90, rps: 30_000, readsPerSec: 29_700, result: 2.97 });
     expect(estimateWorking(level('09-stale-prices'))!.result).toBeCloseTo(79.6, 1);
     expect(estimateWorking(level('10-flash-sale'))).toMatchObject({ spikeSec: 30, deadlineSec: 120, result: 2_000 });
   });
@@ -184,8 +186,10 @@ describe('estimates', () => {
     const lvl = level('08-thundering-herd');
     const warm = peakLoad(lvl, anti('08-thundering-herd', 'A large database, unprotected'));
     expect(warm.nodes.db!.utilization).toBeLessThan(0.3);
-    // Every read misses: the napkin answer for a large database.
-    expect(warm.afterCacheRestart!.db!.utilization * 100).toBeCloseTo(estimateWorking(lvl)!.result, 0);
+    // Every read misses: the napkin's reads over the database's capacity, plus the writes on top.
+    const reads = estimateWorking(lvl)!.result;
+    expect(warm.afterCacheRestart!.db!.utilization).toBeGreaterThan(reads);
+    expect(warm.afterCacheRestart!.db!.utilization).toBeCloseTo(3.045, 3);
     expect(warm.afterCacheRestart!.cache!.hitRate).toBe(0);
     // A replicated cache keeps its contents, so the database never sees the burst.
     const replicated = peakLoad(lvl, solution('08-thundering-herd', 1));

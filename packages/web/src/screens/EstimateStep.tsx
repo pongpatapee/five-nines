@@ -1,11 +1,11 @@
-import { isCloseEstimate, solveEstimate, type Estimate, type Level } from '@five-nines/sim';
+import { isCloseEstimate, levelNumbers, solveEstimate, type Estimate, type Level } from '@five-nines/sim';
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { playCue } from '../audio/sfx.ts';
 import { formatEstimate } from '../format.ts';
 import type { BadgeId } from '../progression/index.ts';
 import type { EstimateRecord } from '../state/index.ts';
-import { cast, CastLine, marks, NapkinWorking } from '../theme/index.ts';
-import { parseEstimateInput } from './estimate.ts';
+import { cast, CastLine, marks, NapkinWorking, NumbersBox } from '../theme/index.ts';
+import { isDurationQuantity, parseEstimateInput } from './estimate.ts';
 
 export interface EstimateStepProps {
   level: Level;
@@ -35,7 +35,9 @@ type Phase =
  */
 export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClose, start = 'ask' }: EstimateStepProps) {
   const solution = useMemo(() => solveEstimate(level, estimate), [level, estimate]);
-  const { question, unit } = cast.mentorEstimate.ask(solution.working);
+  const { question, unit } = cast.mentorEstimate.ask(solution.working, level);
+  const numbers = useMemo(() => levelNumbers(level), [level]);
+  const duration = isDurationQuantity(estimate.quantity);
   const [phase, setPhase] = useState<Phase>(start === 'review' ? { kind: 'review', skipped: false } : { kind: 'ask' });
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -67,9 +69,9 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
 
   const check = (event: FormEvent) => {
     event.preventDefault();
-    const guess = parseEstimateInput(text);
+    const guess = parseEstimateInput(text, { duration });
     if (guess === null) {
-      setError('Type one number, like 12 or 3.5.');
+      setError(duration ? 'Type one number of seconds, like 90, or add a unit: 2 min, 1.5 h.' : 'Type one number, like 12 or 3.5.');
       return;
     }
     const close = isCloseEstimate(guess, estimate.answer);
@@ -93,6 +95,7 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
             <CastLine role="mentor" size={64} className="estimate-card__mentor">
               {question}
             </CastLine>
+            <NumbersBox numbers={numbers} variant="card" />
             <form className="estimate-form" onSubmit={check} noValidate>
               <label htmlFor={inputId} className="estimate-form__label">
                 Your estimate
@@ -171,7 +174,12 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
                   : null
             }
             answer={`${show(estimate.answer)} ${unit}`}
-            working={<NapkinWorking solution={solution} />}
+            working={
+              <>
+                <NapkinWorking solution={solution} />
+                <NumbersBox numbers={numbers} variant="card" />
+              </>
+            }
             badges={phase.kind === 'answered' ? phase.badges : []}
             doneLabel={phase.kind === 'review' && !phase.skipped ? 'Back to building' : 'Start building'}
             onDone={onClose}

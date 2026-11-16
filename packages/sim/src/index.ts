@@ -41,6 +41,7 @@ export {
   type UtilizationZone,
 } from './peak-load.ts';
 export {
+  bestCacheHitRate,
   ESTIMATE_TOLERANCE,
   estimateWorking,
   isCloseEstimate,
@@ -48,8 +49,20 @@ export {
   solveEstimate,
   workEstimate,
   type EstimateWorking,
+  type NapkinGiven,
+  type NapkinGivenUnit,
   type NapkinSolution,
   type NapkinStep,
   type NapkinTakeaway,
 } from './estimate.ts';
 export { totalRequests } from './peak-load.ts';
+export {
+  levelNumbers,
+  popularity,
+  trafficShape,
+  type LevelNumbers,
+  type Popularity,
+  type RunSurprise,
+  type ShardKeyNumbers,
+  type TrafficShape,
+} from './numbers.ts';
