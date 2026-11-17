@@ -15,7 +15,6 @@ export const DatabaseNode = memo(function DatabaseNode({ id, data, selected }: N
     <NodeShell
       id={id}
       kind="database"
-      kindLabel={COMPONENTS.database.label}
       config={COMPONENTS.database.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}

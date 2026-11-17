@@ -14,6 +14,7 @@ export const {
   cast,
   CastLine,
   words,
+  componentNames,
   ComponentArt,
   BudgetMeter,
   PostmortemCard,

@@ -25,7 +25,6 @@ export const QueueNode = memo(function QueueNode({ id, data, selected }: NodePro
     <NodeShell
       id={id}
       kind="queue"
-      kindLabel={COMPONENTS.queue.label}
       config={COMPONENTS.queue.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}

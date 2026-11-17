@@ -19,7 +19,6 @@ export const ReadReplicasNode = memo(function ReadReplicasNode({ id, data, selec
     <NodeShell
       id={id}
       kind="readReplicas"
-      kindLabel={COMPONENTS.readReplicas.label}
       config={COMPONENTS.readReplicas.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}

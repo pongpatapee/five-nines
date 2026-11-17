@@ -14,7 +14,6 @@ export const AppServerNode = memo(function AppServerNode({ id, data, selected }:
     <NodeShell
       id={id}
       kind="appServer"
-      kindLabel={COMPONENTS.appServer.label}
       config={COMPONENTS.appServer.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}

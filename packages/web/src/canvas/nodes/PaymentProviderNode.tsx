@@ -17,7 +17,6 @@ export const PaymentProviderNode = memo(function PaymentProviderNode({ id, data,
     <NodeShell
       id={id}
       kind="paymentProvider"
-      kindLabel={COMPONENTS.paymentProvider.label}
       config={COMPONENTS.paymentProvider.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}

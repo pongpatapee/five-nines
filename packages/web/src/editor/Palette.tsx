@@ -1,7 +1,7 @@
 import type { ComponentKind } from '@five-nines/sim';
 import type { DragEvent } from 'react';
 import { COMPONENTS } from '../components/registry.ts';
-import { ComponentArt } from '../theme/index.ts';
+import { ComponentArt, componentNames } from '../theme/index.ts';
 import { PALETTE_DRAG_TYPE } from './config.ts';
 
 export interface PaletteProps {
@@ -33,13 +33,14 @@ export function Palette({ components, onAdd }: PaletteProps) {
               title="Click to add, or drag onto the canvas"
             >
               <span className="palette-item__glyph" data-kind={kind} aria-hidden>
-                <ComponentArt kind={kind} size={34} />
+                <ComponentArt kind={kind} size={40} />
               </span>
               <span className="palette-item__text">
                 <span className="palette-item__name">
-                  {COMPONENTS[kind].label}
+                  {componentNames[kind].product}
                   <span className="palette-item__price num">{COMPONENTS[kind].priceLabel}/mo</span>
                 </span>
+                <span className="palette-item__concept">{componentNames[kind].concept}</span>
                 <span className="palette-item__hint">{COMPONENTS[kind].hint}</span>
               </span>
             </button>
