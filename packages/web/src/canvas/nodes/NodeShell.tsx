@@ -2,7 +2,7 @@ import type { ComponentKind } from '@five-nines/sim';
 import { Handle, Position } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { formatUsdPerMonth } from '../../format.ts';
-import { ComponentArt, marks as themeMarks, UtilizationGauge } from '../../theme/index.ts';
+import { ComponentArt, componentNames, marks as themeMarks, UtilizationGauge } from '../../theme/index.ts';
 import { useDecorations } from '../context.ts';
 import { isFailingRate } from '../types.ts';
 
@@ -10,8 +10,6 @@ export interface NodeShellProps {
   id: string;
   /** The component kind (or "clients"): picks the art and is exposed as `data-kind` so themes can style each kind. */
   kind: ComponentKind | 'clients';
-  /** Uppercase kind label, e.g. "App server". */
-  kindLabel: string;
   /** Key configuration in one line, e.g. "xlarge × 4". */
   config: string;
   /** Monthly cost; omitted for the clients. */
@@ -24,11 +22,12 @@ export interface NodeShellProps {
 }
 
 /** The frame every node shares: handles, header, marks, selection and the failing glow. */
-export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
+export function NodeShell({ id, kind, config, costUsdPerMonth, selected, hasTarget = true, children }: NodeShellProps) {
   const { live, marks, forecast } = useDecorations();
   const expected = live ? undefined : forecast?.[id];
   const failing = isFailingRate(live?.nodes[id]?.failedRps ?? 0);
   const mark = marks[id];
+  const name = componentNames[kind];
   const classes = ['design-node'];
   if (selected) classes.push('is-selected');
   if (failing) classes.push('is-failing');
@@ -39,13 +38,18 @@ export function NodeShell({ id, kind, kindLabel, config, costUsdPerMonth, select
       {mark === 'focus' && <themeMarks.RootCause />}
       {hasTarget && <Handle type="target" position={Position.Left} className="design-node__handle" />}
       <div className="design-node__header">
-        <span className="design-node__kind">
-          <ComponentArt kind={kind} size={20} />
-          {kindLabel}
+        <span className="design-node__art">
+          <ComponentArt kind={kind} size={34} />
         </span>
+        <span className="design-node__kind">
+          <span className="design-node__product">{name.product}</span>
+          <span className="design-node__concept">{name.concept}</span>
+        </span>
+      </div>
+      <div className="design-node__id-row">
+        <div className="design-node__id">{id}</div>
         {costUsdPerMonth !== undefined && <span className="design-node__cost num">{formatUsdPerMonth(costUsdPerMonth)}</span>}
       </div>
-      <div className="design-node__id">{id}</div>
       {expected === undefined ? (
         <div className="design-node__config">{config}</div>
       ) : (
