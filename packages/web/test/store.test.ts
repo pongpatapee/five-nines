@@ -82,7 +82,7 @@ describe('progress store', () => {
     expect(store.getState().badges.napkinWizard).toEqual({ levelId: 'c' });
   });
 
-  it('remembers napkin-maths answers: a bonus stays earned, a skip keeps the last guess', () => {
+  it('remembers napkin-math answers: a bonus stays earned, a skip keeps the last guess', () => {
     const store = createProgressStore({ storage: null });
     const { recordEstimate } = store.getState();
     recordEstimate(LEVEL, null, false);

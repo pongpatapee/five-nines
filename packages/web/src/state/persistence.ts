@@ -5,7 +5,7 @@
  * `BACKUP_KEY` before anything could overwrite it. A player's progress is never wiped.
  *
  * Versions:
- * - 1: drafts, best grades and napkin-maths estimates.
+ * - 1: drafts, best grades and napkin-math estimates.
  * - 2: adds earned badges. A version 1 save loads with none; the progress store then awards the badges its grades
  *   and estimates already earn (Five Nines Club, Napkin Wizard).
  * - 3: adds the levels whose solution was seen before passing (`peeked`) and the player's own designs kept aside
@@ -28,7 +28,7 @@ export interface SaveData {
   drafts: Record<string, Draft>;
   /** Best grade ever recorded per level id. */
   bestGrades: Record<string, Grade>;
-  /** The napkin-maths step per level id. Levels never asked have no entry. */
+  /** The napkin-math step per level id. Levels never asked have no entry. */
   estimates: Record<string, EstimateRecord>;
   /** Badges earned, by id. */
   badges: EarnedBadges;
@@ -38,7 +38,7 @@ export interface SaveData {
   stashedDrafts: Record<string, Draft>;
 }
 
-/** A level's napkin-maths answer. Kept for the "Napkin Wizard" badge (estimates within 10% on several levels). */
+/** A level's napkin-math answer. Kept for the "Napkin Wizard" badge (estimates within 10% on several levels). */
 export interface EstimateRecord {
   /** The latest guess, or null when the player skipped without ever answering. */
   guess: number | null;

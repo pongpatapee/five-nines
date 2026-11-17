@@ -1,5 +1,5 @@
 /**
- * "The numbers" box: read from each level's data, with everything the level's maths needs and nothing it doesn't.
+ * "The numbers" box: read from each level's data, with everything the level's math needs and nothing it doesn't.
  */
 import { describe, expect, it } from 'vitest';
 import { AVAILABILITY_TIERS } from '../src/catalog.ts';

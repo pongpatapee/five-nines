@@ -1,5 +1,5 @@
 /**
- * The maths the game explains: why p99 rose, what a crash cost, and the mentor's hint ladder for every level.
+ * The math the game explains: why p99 rose, what a crash cost, and the mentor's hint ladder for every level.
  */
 import { evaluateDesign, LEVELS, type Design, type Level } from '@five-nines/sim';
 import { describe, expect, it } from 'vitest';

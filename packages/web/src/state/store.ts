@@ -29,7 +29,7 @@ export interface ProgressState {
   drafts: Readonly<Record<string, Draft>>;
   /** Best grade per level id. Levels never graded have no entry. */
   bestGrades: Readonly<Record<string, Grade>>;
-  /** The napkin-maths step per level id. Levels never asked have no entry. */
+  /** The napkin-math step per level id. Levels never asked have no entry. */
   estimates: Readonly<Record<string, EstimateRecord>>;
   /** Badges earned. */
   badges: EarnedBadges;
@@ -49,7 +49,7 @@ export interface ProgressState {
    */
   recordRun(levelId: string, grade: Grade, earned: readonly BadgeId[]): RunReward;
   /**
-   * Records a napkin-maths answer (`guess` null for a skip). A skip never forgets an earlier guess, and a bonus once
+   * Records a napkin-math answer (`guess` null for a skip). A skip never forgets an earlier guess, and a bonus once
    * earned stays earned. Returns the badges this answer earned for the first time.
    */
   recordEstimate(levelId: string, guess: number | null, close: boolean): BadgeId[];

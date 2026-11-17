@@ -1,5 +1,5 @@
 /**
- * The napkin-maths step: the working behind each level's estimate question, from the level's own numbers. The
+ * The napkin-math step: the working behind each level's estimate question, from the level's own numbers. The
  * working carries every number in it, so the mentor can show the arithmetic after the player answers.
  */
 import {

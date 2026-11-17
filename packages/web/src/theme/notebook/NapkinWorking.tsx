@@ -4,7 +4,7 @@ import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { mainLine, workedSolution, type WorkedLine } from './hints.ts';
 
 /**
- * The napkin maths worked out on the page: numbered steps in ink, each with why it is taken and its arithmetic, the
+ * The napkin math worked out on the page: numbered steps in ink, each with why it is taken and its arithmetic, the
  * step's result run over with highlighter, and the answer boxed in red pen. What it means for the design follows as
  * a margin note.
  */

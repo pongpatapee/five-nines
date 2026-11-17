@@ -6,7 +6,7 @@ import type { CacheSpec, Design, Level } from '../src/schema.ts';
 import { simulate } from '../src/simulate.ts';
 import { dataDesign, dataLevel } from './fixtures.ts';
 
-describe('cache maths', () => {
+describe('cache math', () => {
   it('only counts a key as cached once its fetch has returned', () => {
     expect(keyHitProbability(0.01, 1000, 100, 6000, 0)).toBeGreaterThan(0.99);
     expect(keyHitProbability(0.01, 1000, 100, 6000, 1000)).toBe(0);

@@ -1,6 +1,6 @@
 /**
  * "The numbers": every figure a level gives the player to reason with, read straight from the level's data so it can
- * never disagree with what the simulation runs. The briefing and the napkin-maths card show it; a theme words it.
+ * never disagree with what the simulation runs. The briefing and the napkin-math card show it; a theme words it.
  *
  * Only what the level uses is included: key counts and item sizes only where a cache or shards make them matter, the
  * provider's limits only where there are payments. Scheduled events are named, never timed: the player learns that a

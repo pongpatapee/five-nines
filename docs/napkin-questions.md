@@ -1,6 +1,6 @@
 # Napkin questions: before and after
 
-The napkin-maths question on every page, before and after the rewrite, for review. Every number in the "after" column is
+The napkin-math question on every page, before and after the rewrite, for review. Every number in the "after" column is
 worked out from the level's data by the game (`napkinSolution` in `packages/sim/src/estimate.ts`), and worded by the
 notebook theme (`packages/web/src/theme/notebook/hints.ts`). The rules every question follows are in
 `docs/design.md`, "Estimate step": self-contained, an easy and relevant warm-up, and an answer that informs a design

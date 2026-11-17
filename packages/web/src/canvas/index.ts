@@ -3,7 +3,7 @@
  *
  * - `DesignCanvas`: the React Flow wrapper (read-only or editable, optional live stats and overlay).
  * - `useCanvasHandle` / `CanvasHandle`: viewport and geometry for overlays and drop targets.
- * - `geometry`: edge curve maths shared with the overlay (`pointOnEdge`, `flowToContainer`).
+ * - `geometry`: edge curve math shared with the overlay (`pointOnEdge`, `flowToContainer`).
  * - `layout`: `autoLayout`, `completeLayout`, `draftFromDesign`.
  * - `draft`: pure draft operations (`addNode`, `connect`, `removeElements`, …).
  */

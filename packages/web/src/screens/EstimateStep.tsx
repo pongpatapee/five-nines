@@ -32,7 +32,7 @@ type Phase =
   | { kind: 'review'; skipped: boolean };
 
 /**
- * The napkin-maths step before building (docs/design.md, "Estimate step"): the mentor asks one question worked out
+ * The napkin-math step before building (docs/design.md, "Estimate step"): the mentor asks one question worked out
  * from the level's numbers, the player answers or skips, and gets the worked solution either way. It can be reopened
  * on the question or straight on the working.
  */
@@ -85,7 +85,7 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
       <section className="estimate-card" role="dialog" aria-labelledby="estimate-title">
         <span className="tape tape--center" aria-hidden />
         <h2 ref={titleRef} id="estimate-title" className="estimate-card__title hand" tabIndex={-1}>
-          Napkin maths
+          Napkin math
         </h2>
 
         {phase.kind === 'ask' ? (
