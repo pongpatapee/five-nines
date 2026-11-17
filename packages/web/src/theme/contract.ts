@@ -203,6 +203,24 @@ export interface ThemeWords {
   tagline: string;
 }
 
+/**
+ * What players call a component kind: a real-world product, with the generic concept the game teaches kept beside it.
+ * The concept is the lesson; the product is what they'll meet at work and in interviews.
+ */
+export interface ComponentName {
+  /** The real-world example, on labels and headings: "EC2". */
+  product: string;
+  /** The generic concept, smaller beside the product, lower case: "app server". */
+  concept: string;
+  /** Both in running text, lower case where the product allows: "EC2 app server". */
+  phrase: string;
+  /** One line on the real product, where it is introduced (the field guide). */
+  about: string;
+}
+
+/** The kinds that get a name: every component, and the clients. */
+export type NamedKind = ComponentKind | 'clients';
+
 // ---------------------------------------------------------------------------- widgets
 
 export interface ComponentArtProps {
@@ -410,6 +428,8 @@ export interface Theme {
   /** A character saying a line. Must name the speaker in text. */
   CastLine: ComponentType<CastLineProps>;
   words: ThemeWords;
+  /** Each component kind's real-world name and concept, wherever players see components named. */
+  componentNames: Readonly<Record<NamedKind, ComponentName>>;
   /** Art for each component kind, on the palette and the canvas nodes. Decorative. */
   ComponentArt: ComponentType<ComponentArtProps>;
   /** The error budget during playback. */

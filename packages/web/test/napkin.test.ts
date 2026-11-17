@@ -159,11 +159,12 @@ describe('the napkin question is self-contained (docs/design.md, "Estimate step"
   it('names what happens during the run without saying when', () => {
     const during = (id: string) => numbersText(levelNumbers(LEVELS.find((level) => level.id === id)!)).during?.items ?? [];
     expect(during('01-hello-traffic')).toEqual([]);
-    expect(during('03-pull-the-plug')).toEqual(['an app server will crash']);
-    expect(during('08-thundering-herd')).toEqual(['the cache will restart']);
+    expect(during('03-pull-the-plug')).toEqual(['an EC2 app server will crash']);
+    expect(during('08-thundering-herd')).toEqual(['the ElastiCache Redis cache will restart']);
     expect(during('07-the-write-wall')).toEqual(["a hot key: a celebrity's post"]);
-    expect(during('10-flash-sale')).toEqual(['the payment provider refuses calls over its rate limit']);
-    for (const level of LEVELS) for (const item of during(level.id)) expect(item).not.toMatch(/\d/);
+    expect(during('10-flash-sale')).toEqual(['the Stripe payment provider refuses calls over its rate limit']);
+    // No number on its own; a digit inside a name ("EC2") says nothing about when.
+    for (const level of LEVELS) for (const item of during(level.id)) expect(item).not.toMatch(/\b\d/);
   });
 
   it('asks the approved questions', () => {

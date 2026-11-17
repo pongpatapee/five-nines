@@ -7,7 +7,7 @@
  * - Smudge, the ink-blot troublemaker: owns the level's stress (traffic surges, crashed servers, a rebooted cache, a
  *   post gone viral).
  */
-import { COMPONENT_LABELS, type FailureReason, type Grade } from '@five-nines/sim';
+import type { FailureReason, Grade } from '@five-nines/sim';
 import { formatAvailability, formatCount, formatMs, formatPercent, formatUsd } from '../../format.ts';
 import {
   NAPKIN_WIZARD_LEVELS,
@@ -19,6 +19,7 @@ import { tierPercent } from '../../results/grading.ts';
 import type { BadgeCopy, CastRole, CastScript } from '../contract.ts';
 import type { LevelStress, LockSituation, SavingsSituation, Verdict } from '../situations.ts';
 import { failoverLines, MENTOR_ESTIMATE, MENTOR_LADDER, mentorLatency } from './hints.ts';
+import { COMPONENT_NAMES } from './names.ts';
 
 const MEMBERS = {
   boss: { name: 'Ms. Tally', title: 'budget boss' },
@@ -38,9 +39,9 @@ export function roughly(sec: number): string {
 function troublemakerTease(stress: LevelStress): string {
   switch (stress.kind) {
     case 'crash':
-      return `heh. ${roughly(stress.atSec)} in, I unplug your busiest ${COMPONENT_LABELS.appServer.toLowerCase()}.`;
+      return `heh. ${roughly(stress.atSec)} in, I unplug your busiest ${COMPONENT_NAMES.appServer.phrase}.`;
     case 'cacheRestart':
-      return `heh. ${roughly(stress.atSec)} in, I reboot your cache. everything it remembered? gone.`;
+      return `heh. ${roughly(stress.atSec)} in, I reboot your ${COMPONENT_NAMES.cache.phrase}. everything it remembered? gone.`;
     case 'hotKey':
       return `heh. ${roughly(stress.atSec)} in, ${stress.label} goes viral: ${formatPercent(stress.share)} of all writes, one key.`;
     case 'readAfterWrite':

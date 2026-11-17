@@ -20,7 +20,6 @@ export const CacheNode = memo(function CacheNode({ id, data, selected }: NodePro
     <NodeShell
       id={id}
       kind="cache"
-      kindLabel={COMPONENTS.cache.label}
       config={COMPONENTS.cache.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}

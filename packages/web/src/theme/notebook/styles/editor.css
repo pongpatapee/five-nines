@@ -105,7 +105,17 @@
   color: var(--ink);
 }
 
+/* The concept under its real-world name: what the game teaches, so always on show. */
+.palette-item__concept {
+  font-family: var(--font-note);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
 .palette-item__price {
+  white-space: nowrap;
   font-size: var(--text-xs);
   font-weight: 500;
   color: var(--text-muted);
@@ -124,6 +134,23 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+.inspector__art {
+  flex: none;
+  color: var(--ink);
+}
+
+.inspector__names {
+  flex: 1;
+  min-width: 0;
+}
+
+.inspector__concept {
+  font-family: var(--font-note);
+  font-size: var(--text-md);
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 .inspector__title {

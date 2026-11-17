@@ -23,7 +23,6 @@ export const ShardsNode = memo(function ShardsNode({ id, data, selected }: NodeP
     <NodeShell
       id={id}
       kind="shards"
-      kindLabel={COMPONENTS.shards.label}
       config={COMPONENTS.shards.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}
