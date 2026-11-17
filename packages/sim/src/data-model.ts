@@ -1,5 +1,5 @@
 /**
- * The maths of the data tier: how reads spread over keys, what a cache of a given size hits, how far behind a
+ * The math of the data tier: how reads spread over keys, what a cache of a given size hits, how far behind a
  * replica falls, and how often a read sees out-of-date data. Pure functions, so each can be tested on its own.
  *
  * Every result is an exact expected fraction rather than a sample, like the rest of the engine's failure

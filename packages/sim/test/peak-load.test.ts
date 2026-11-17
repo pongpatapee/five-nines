@@ -134,7 +134,7 @@ describe('peak load', () => {
 });
 
 describe('estimates', () => {
-  it('gives every level a napkin-maths question', () => {
+  it('gives every level a napkin-math question', () => {
     for (const lvl of LEVELS) expect(lvl.estimate, lvl.id).toBeDefined();
   });
 

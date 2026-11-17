@@ -1,5 +1,5 @@
 /**
- * Path maths for the timeline strip's small charts. Charts are drawn in a coordinate space where x is simulated
+ * Path math for the timeline strip's small charts. Charts are drawn in a coordinate space where x is simulated
  * seconds (each frame plotted at the middle of its second) and y runs from 0 (top) to `height` (bottom), and are
  * stretched to the strip's width with `preserveAspectRatio="none"`.
  */

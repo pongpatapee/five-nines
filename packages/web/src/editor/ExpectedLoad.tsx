@@ -9,7 +9,7 @@ export interface ExpectedLoadProps {
 
 /**
  * The selected node's expected utilization at the level's peak, as a gauge with the arithmetic beside it, so the
- * player can check their napkin maths against the design. Never a predicted p99: that's what the run is for.
+ * player can check their napkin math against the design. Never a predicted p99: that's what the run is for.
  */
 export function ExpectedLoad({ nodeId, load }: ExpectedLoadProps) {
   const node = load.nodes[nodeId];

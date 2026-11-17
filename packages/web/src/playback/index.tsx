@@ -6,7 +6,7 @@
  * - `TimelineStrip`, the theme's `BudgetMeter` and `ControlBar` make up the dock under the canvas.
  * - On the freeze-frame (the error budget runs out) the root-cause node is highlighted and the theme's `PostmortemCard` shows.
  *
- * The maths (clock, interpolation, edge flows, spawn rates, budget) lives in pure modules with unit tests.
+ * The math (clock, interpolation, edge flows, spawn rates, budget) lives in pure modules with unit tests.
  */
 import { AVAILABILITY_TIERS, type Level } from '@five-nines/sim';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';

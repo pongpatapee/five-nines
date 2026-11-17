@@ -51,7 +51,7 @@ function LevelPage({ level }: LevelScreenProps) {
   const draft = useDraft(level.id);
   const bestGrade = useBestGrade(level.id);
   const estimateRecord = useEstimate(level.id);
-  // The napkin-maths step opens on its question before building, the first time a level with one is visited. Null
+  // The napkin-math step opens on its question before building, the first time a level with one is visited. Null
   // when closed; `review` opens it on the worked solution.
   const [estimateOpen, setEstimateOpen] = useState<'ask' | 'review' | null>(() =>
     level.estimate !== undefined && progressStore.getState().estimates[level.id] === undefined ? 'ask' : null,
@@ -313,9 +313,9 @@ function TopBar({
   solutionLabel: string;
   /** Back to the player's own design, while a solution is on the canvas. */
   onSwitchBack: (() => void) | null;
-  /** Reopens the napkin-maths step; null when the level has none or it can't open now. */
+  /** Reopens the napkin-math step; null when the level has none or it can't open now. */
   onOpenEstimate: (() => void) | null;
-  /** Whether the napkin-maths bonus is earned on this level. */
+  /** Whether the napkin-math bonus is earned on this level. */
   estimateBonus: boolean;
   onOpenGuide: (() => void) | null;
   /** Opens the hints: null when the level has none or they can't open now. */
@@ -348,7 +348,7 @@ function TopBar({
         )}
         {onOpenEstimate && (
           <button type="button" className="btn btn--sm btn--ghost topbar__estimate" onClick={onOpenEstimate}>
-            Napkin maths
+            Napkin math
             {estimateBonus && <marks.Met label={cast.mentorEstimate.bonus} />}
           </button>
         )}

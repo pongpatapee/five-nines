@@ -1,4 +1,4 @@
-/** Pure helpers for the napkin-maths step. */
+/** Pure helpers for the napkin-math step. */
 import type { EstimateQuantity } from '@five-nines/sim';
 
 /** Quantities answered in seconds, where the player may type minutes or hours instead ("87 min", "1.5 h"). */

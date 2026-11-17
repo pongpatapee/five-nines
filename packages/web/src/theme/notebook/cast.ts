@@ -142,7 +142,7 @@ const BADGES: Record<BadgeId, BadgeCopy> = {
   },
   napkinWizard: {
     name: 'Napkin Wizard',
-    how: `Get the napkin maths within 10% on ${NAPKIN_WIZARD_LEVELS} pages.`,
+    how: `Get the napkin math within 10% on ${NAPKIN_WIZARD_LEVELS} pages.`,
     role: 'mentor',
     line: `${NAPKIN_WIZARD_LEVELS} napkins, ${NAPKIN_WIZARD_LEVELS} bullseyes. No calculator? I'm impressed.`,
   },

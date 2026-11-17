@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isDurationQuantity, parseEstimateInput } from '../src/screens/estimate.ts';
 
-describe('napkin-maths input', () => {
+describe('napkin-math input', () => {
   it('reads the numbers people type', () => {
     expect(parseEstimateInput('3.5')).toBe(3.5);
     expect(parseEstimateInput(' 50 ')).toBe(50);

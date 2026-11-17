@@ -177,7 +177,7 @@ describe('persistence', () => {
     expect(save.bestGrades).toEqual({ good: 'pass' });
   });
 
-  it('keeps valid napkin-maths answers and drops broken ones', () => {
+  it('keeps valid napkin-math answers and drops broken ones', () => {
     const raw = JSON.stringify({
       version: 1,
       estimates: {

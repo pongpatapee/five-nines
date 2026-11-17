@@ -12,7 +12,7 @@ export interface BriefingPanelProps {
   design: Design;
   collapsed: boolean;
   onToggle(): void;
-  /** Opens the napkin-maths working again; null when there's none to show yet, or it can't open now. */
+  /** Opens the napkin-math working again; null when there's none to show yet, or it can't open now. */
   onShowEstimateWorking?: (() => void) | null;
 }
 

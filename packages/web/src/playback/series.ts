@@ -1,5 +1,5 @@
 /**
- * Maths over the simulation timeline: interpolated live frames, cumulative totals at any playhead, the error budget
+ * Math over the simulation timeline: interpolated live frames, cumulative totals at any playhead, the error budget
  * and availability so far.
  *
  * Time model: `timeline[i]` covers simulated second `[i, i + 1)`, and its values are totals over that second. A

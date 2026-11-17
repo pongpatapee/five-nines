@@ -11,7 +11,7 @@
  *   `N_PLUS_ONE_MAX_AFTER_CRASH` (the "hot" line) for the rest of the run: there was spare capacity to lose a machine.
  * - Penny Pincher: mastered while spending at most `PENNY_PINCHER_MAX_SPEND` of the budget.
  * - Five Nines Club: mastered every level of a chapter.
- * - Napkin Wizard: a napkin-maths estimate within 10% (the bonus mark) on `NAPKIN_WIZARD_LEVELS` levels.
+ * - Napkin Wizard: a napkin-math estimate within 10% (the bonus mark) on `NAPKIN_WIZARD_LEVELS` levels.
  */
 import {
   designCostUsdPerMonth,

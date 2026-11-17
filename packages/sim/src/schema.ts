@@ -300,7 +300,7 @@ const AntiSolutionSchema = z.strictObject({
 });
 
 /**
- * The napkin-maths question the mentor asks before the player builds. Each quantity is worked out from the level's
+ * The napkin-math question the mentor asks before the player builds. Each quantity is worked out from the level's
  * own numbers (`estimate.ts`); `answer` records the result in the unit the player answers in, and CI checks it
  * against that working, so the two can't drift apart.
  */
@@ -364,7 +364,7 @@ export const LevelSchema = z
        */
       processWithinSec: z.number().positive().optional(),
     }),
-    /** The napkin-maths step before building. Optional: a level without one goes straight to the editor. */
+    /** The napkin-math step before building. Optional: a level without one goes straight to the editor. */
     estimate: EstimateSchema.optional(),
     /** Reference designs shown to the player after an attempt. Any design that meets the requirements passes. */
     solutions: z.array(SolutionSchema).min(1),

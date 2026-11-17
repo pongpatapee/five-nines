@@ -1,5 +1,5 @@
 /**
- * The napkin-maths worked solution as the notebook words it: every level's steps end on the recorded answer, use no
+ * The napkin-math worked solution as the notebook words it: every level's steps end on the recorded answer, use no
  * shorthand that was never explained, and render with the answer boxed exactly once.
  */
 import { COMPONENT_LABELS, levelNumbers, LEVELS, solveEstimate, type Level, type NapkinGiven } from '@five-nines/sim';

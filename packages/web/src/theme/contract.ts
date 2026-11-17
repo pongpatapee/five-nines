@@ -86,7 +86,7 @@ export interface CastScript {
   mentorLatency(situation: LatencySituation): string;
   /** The failover around a crash as a few short lines: when it died, when the balancer noticed, what it cost. */
   failoverLines(situation: FailoverSituation): string[];
-  /** The napkin-maths step before building. */
+  /** The napkin-math step before building. */
   mentorEstimate: MentorEstimateScript;
   /** The boss on the money a design left under the budget: the second score. */
   bossSavings(situation: SavingsSituation): string;
@@ -224,7 +224,7 @@ export interface NumbersText {
 export interface NumbersBoxProps {
   /** The level's numbers (`@five-nines/sim`'s `levelNumbers`). */
   numbers: LevelNumbers;
-  /** In the briefing's margin, or on the napkin-maths card. */
+  /** In the briefing's margin, or on the napkin-math card. */
   variant: 'briefing' | 'card';
 }
 
@@ -416,11 +416,11 @@ export interface Theme {
   BudgetMeter: ComponentType<BudgetMeterProps>;
   /** The incident postmortem on the freeze-frame. */
   PostmortemCard: ComponentType<PostmortemCardProps>;
-  /** The napkin-maths estimate worked step by step: numbered steps, each with its reason and arithmetic. */
+  /** The napkin-math estimate worked step by step: numbered steps, each with its reason and arithmetic. */
   NapkinWorking: ComponentType<NapkinWorkingProps>;
   /** The level's numbers, worded. */
   numbersText(numbers: LevelNumbers): NumbersText;
-  /** The level's numbers, drawn: in the briefing and on the napkin-maths card. */
+  /** The level's numbers, drawn: in the briefing and on the napkin-math card. */
   NumbersBox: ComponentType<NumbersBoxProps>;
   /** The field guide: components and concepts met so far, laid open over the page. */
   FieldGuide: ComponentType<FieldGuideProps>;

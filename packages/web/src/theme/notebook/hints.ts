@@ -1,6 +1,6 @@
 /**
- * What Erasmus says when the maths matters: the hint ladders (before any failed run, and after one), the p99 explanation, the failover
- * arithmetic after a crash and the napkin-maths step. The game decides the situation and its numbers
+ * What Erasmus says when the math matters: the hint ladders (before any failed run, and after one), the p99 explanation, the failover
+ * arithmetic after a crash and the napkin-math step. The game decides the situation and its numbers
  * (`theme/situations.ts`, `@five-nines/sim`'s estimate working); this file only words them.
  *
  * The concept and fix rungs are written per level and per kind of failure, with a general line for each kind as
@@ -512,7 +512,7 @@ export const MENTOR_LADDER: MentorLadderScript = {
 /** The general lines, exported so tests can tell a level's own line from the fallback. */
 export const GENERAL_HINTS = GENERAL;
 
-// ---------------------------------------------------------------------------- napkin maths
+// ---------------------------------------------------------------------------- napkin math
 
 /** "1 hour", "2 minutes", "30 seconds", "90 seconds": a duration as said aloud, in whole hours or minutes when it is one. */
 function duration(sec: number): string {
