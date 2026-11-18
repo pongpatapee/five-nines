@@ -23,7 +23,7 @@ export function SoundToggle({ className }: { className?: string }) {
       title={on ? 'Sound effects are on: click to mute' : 'Sound effects are off: click to turn them on'}
     >
       <marks.Sound on={on} />
-      Sound
+      <span className="sound-toggle__label">Sound</span>
       <span className="sound-toggle__state" aria-hidden>
         {on ? 'on' : 'off'}
       </span>
