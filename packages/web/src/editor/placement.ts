@@ -8,8 +8,11 @@ import type { Draft, Rect, XY } from '../canvas/types.ts';
 
 /** Matches the canvas snap grid, so added nodes line up with dragged ones. */
 export const GRID = 10;
-/** Empty space kept around existing nodes when looking for a free spot. */
-export const PLACEMENT_MARGIN = 30;
+/**
+ * Empty space kept around existing nodes when looking for a free spot. Node rects don't include the cards stacked up
+ * and to the right of a node with several instances (up to about 20px), so this leaves room for them and a gap.
+ */
+export const PLACEMENT_MARGIN = 40;
 /** Distance between candidate positions. */
 const SEARCH_STEP = 20;
 
