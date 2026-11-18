@@ -2,7 +2,7 @@ import { designCostUsdPerMonth, levelNumbers, type Design, type Level } from '@f
 import { Fragment, useMemo } from 'react';
 import { COMPONENTS } from '../components/registry.ts';
 import { capitalize } from '../format.ts';
-import { cast, CastLine, NumbersBox, troublemakerTease, words } from '../theme/index.ts';
+import { cast, CastLine, componentNames, NumbersBox, troublemakerTease, words } from '../theme/index.ts';
 import { CostMeter } from './CostMeter.tsx';
 
 export interface BriefingPanelProps {
@@ -88,11 +88,15 @@ function ReferenceCard({ components }: { components: Level['components'] }) {
     <table className="reference-card">
       <tbody>
         {components.map((kind) => {
-          const { heading, rows } = COMPONENTS[kind].reference;
+          const { per, rows } = COMPONENTS[kind].reference;
+          const { product, concept } = componentNames[kind];
           return (
             <Fragment key={kind}>
               <tr className="reference-card__group">
-                <th colSpan={3}>{heading}</th>
+                <th colSpan={3}>
+                  {product} <span className="reference-card__concept">{concept}</span>
+                  {per && <span className="reference-card__per"> ({per})</span>}
+                </th>
               </tr>
               {rows.map(([option, capacity, price]) => (
                 <tr key={option}>

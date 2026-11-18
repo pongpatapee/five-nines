@@ -5,9 +5,10 @@
  */
 import {
   APP_SERVER_SIZES,
+  BLOB_STORAGE,
   CACHE,
   CACHE_SIZES,
-  ComponentKindSchema,
+  COMPONENTS_IN_CAMPAIGN,
   DATABASE_SIZES,
   LOAD_BALANCER,
   PAYMENT_PROVIDER,
@@ -17,7 +18,7 @@ import {
   type EstimateQuantity,
   type Level,
 } from '@five-nines/sim';
-import { formatCompact, formatCount, formatUsdPerMonth } from '../format.ts';
+import { formatCompact, formatCount, formatUsdCents, formatUsdPerMonth } from '../format.ts';
 import type { LevelAccess } from '../progression/index.ts';
 
 /** The ideas the guide explains besides the components. */
@@ -41,8 +42,12 @@ export const CONCEPT_INTRODUCED_AT: Readonly<Record<ConceptId, string>> = {
   errorBudget: '03-pull-the-plug',
 };
 
-/** Components in the order a design meets them, for the guide's table of contents. */
-export const COMPONENT_ORDER: readonly ComponentKind[] = ComponentKindSchema.options;
+/**
+ * Components in the order a design meets them, for the guide's table of contents: the ones some level offers. A kind
+ * in the catalog that no level uses yet (blob storage) has an entry, but no page leads to it, so it is neither shown
+ * nor counted as still to come.
+ */
+export const COMPONENT_ORDER: readonly ComponentKind[] = COMPONENTS_IN_CAMPAIGN;
 
 export interface MetEntries {
   components: readonly ComponentKind[];
@@ -128,6 +133,15 @@ export function specTable(kind: ComponentKind): SpecTable {
       return {
         columns: ['Option', 'Limit', 'Price'],
         rows: [['any', 'set by the level', perMonth(PAYMENT_PROVIDER.usdPerMonth)]],
+      };
+    case 'blobStorage':
+      return {
+        columns: ['Use', 'Per key prefix', 'Price'],
+        rows: [
+          ['reads', `${formatCount(BLOB_STORAGE.readsPerSecPerPrefix)}/s`, `${formatUsdCents(BLOB_STORAGE.usdPerMillionReads)} per million`],
+          ['writes', `${formatCount(BLOB_STORAGE.writesPerSecPerPrefix)}/s`, `${formatUsdCents(BLOB_STORAGE.usdPerMillionWrites)} per million`],
+          ['storage', 'unlimited', `${formatUsdCents(BLOB_STORAGE.usdPerGbMonth)} per GB a month`],
+        ],
       };
   }
 }

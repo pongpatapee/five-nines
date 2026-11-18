@@ -1,7 +1,7 @@
 import { nodeCostUsdPerMonth, REPLICATION } from '@five-nines/sim';
 import type { NodeProps } from '@xyflow/react';
 import { memo } from 'react';
-import { COMPONENTS } from '../../components/registry.ts';
+import { COMPONENTS, nodeCopies } from '../../components/registry.ts';
 import { formatRps, formatSeconds } from '../../format.ts';
 import { useDecorations } from '../context.ts';
 import type { ReadReplicasFlowNode } from '../flow.ts';
@@ -19,8 +19,8 @@ export const ReadReplicasNode = memo(function ReadReplicasNode({ id, data, selec
     <NodeShell
       id={id}
       kind="readReplicas"
-      kindLabel={COMPONENTS.readReplicas.label}
       config={COMPONENTS.readReplicas.summary(data.spec)}
+      copies={nodeCopies(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}
     >

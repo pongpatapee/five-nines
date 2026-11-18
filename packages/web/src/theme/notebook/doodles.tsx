@@ -1,5 +1,7 @@
 /**
- * Small ink doodles for each component kind: the palette and node headers use them. Decorative.
+ * Ink doodles for each component kind, game-icon style: the outline of the thing itself (a drum of disks, a rack
+ * tower, a chip struck by lightning, a fork, a conveyor of envelopes, a person with a phone), inked and washed with
+ * token colours. The palette, the inspector and the canvas nodes use them. Decorative.
  *
  * `DOODLES` is the notebook's art registry, keyed like the component registry (`components/registry.ts`): adding a
  * component kind there makes TypeScript ask for its doodle here.
@@ -11,101 +13,171 @@ import { paint } from './ink.tsx';
 export type DoodleKind = ComponentKind | 'clients';
 
 const STROKE = paint(null, 'currentColor', 1.8);
-/** The far copy behind a replica: a lighter line, as if sketched first. */
-const STROKE_BACK = paint(null, 'currentColor', 1.4);
+/** Detail lines and far copies: a lighter line, as if sketched first. */
+const STROKE_BACK = paint(null, 'currentColor', 1.3);
 const FILL = paint('currentColor');
 
-/** Each kind's drawing, in a 28 × 28 box. */
+/** A shape inked and washed with a highlighter or watercolour token, the way the notebook colours its doodles in. */
+const washed = (token: string, strokeWidth = 1.8) => paint(`var(${token})`, 'currentColor', strokeWidth);
+/** A wash with no outline, under strokes drawn separately. */
+const wash = (token: string) => paint(`var(${token})`);
+/** Card stock inside a drawing: blank paper that hides what's behind it. */
+const PAPER = washed('--paper-card');
+
+/**
+ * A drum (the database cylinder): its lid's centre line at `top`, `width` wide from `x`, `height` from lid to base.
+ * The sides wobble a little, as drawn by hand.
+ */
+function drum(x: number, top: number, width: number, height: number, body: string, back = false): ReactNode {
+  const right = x + width;
+  const bottom = top + height;
+  const rim = Math.max(1.6, width * 0.16);
+  const line = back ? STROKE_BACK : STROKE;
+  return (
+    <>
+      <path
+        d={`M${x},${top} L${right},${top} L${right},${bottom} C${right},${bottom + rim} ${x},${bottom + rim} ${x},${bottom} Z`}
+        style={wash(body)}
+      />
+      <path
+        d={`M${x},${top} C${x - 0.2},${top + height * 0.4} ${x - 0.1},${top + height * 0.75} ${x + 0.1},${bottom} C${x + 0.6},${bottom + rim * 1.05} ${right - 0.6},${bottom + rim * 1.1} ${right - 0.1},${bottom} C${right + 0.2},${top + height * 0.75} ${right + 0.1},${top + height * 0.4} ${right},${top}`}
+        style={line}
+      />
+      <path
+        d={`M${x},${top} C${x},${top - rim} ${right},${top - rim - 0.1} ${right},${top} C${right},${top + rim} ${x},${top + rim + 0.1} ${x},${top} Z`}
+        style={{ ...wash('--paper-card'), ...line }}
+      />
+    </>
+  );
+}
+
+/** Each kind's drawing, in a 28 × 28 box: the outline of the thing itself, inked, with a wash of colour. */
 const DOODLES: Record<DoodleKind, ReactNode> = {
-  // A laptop: the users on the internet.
+  // A person and a phone: the users out on the internet.
   clients: (
     <>
-      <path d="M5,6 C10,5.5 17,5.5 22,6 C22.5,10 22.5,14 22,17 C17,17.5 10,17.5 5,17 C4.6,13 4.6,9.5 5,6 Z" style={STROKE} />
-      <path d="M2,21 L26,21 L23,24 L5,24 Z" style={STROKE} />
-      <path d="M9,11 L12,11 M15,13 L19,13" style={STROKE} />
+      <path d="M2.6,25 C2.4,19 5.4,15.6 9.4,15.6 C13.4,15.6 16.4,19 16.2,25 Z" style={washed('--wash-yellow')} />
+      <circle cx="9.4" cy="9" r="4" style={washed('--wash-peach')} />
+      <path
+        d="M18.8,6.6 L24.6,6.7 C25.5,6.7 25.9,7.2 25.9,8 L25.8,22.4 C25.8,23.2 25.3,23.6 24.5,23.6 L18.9,23.5 C18.1,23.5 17.6,23 17.6,22.2 L17.7,7.9 C17.7,7.1 18.1,6.6 18.8,6.6 Z"
+        style={PAPER}
+      />
+      <path d="M19.2,9.2 L24.3,9.2 L24.3,19.6 L19.2,19.6 Z" style={washed('--wash-blue', 1.3)} />
+      <circle cx="21.75" cy="21.6" r="0.9" style={FILL} />
     </>
   ),
 
-  // A server chassis in three-quarter view: top, side, and a front with two drive bays and a power light. Drawn as
-  // a box with depth so it reads as a machine, not as a list or a menu icon.
+  // A tower of three rack units, each with drive bays and a status light.
   appServer: (
     <>
-      <path d="M3.5,10.5 C9.5,10.1 15.5,10.1 21.5,10.5 L21.5,25 C15.5,25.4 9.5,25.4 3.5,25 Z" style={STROKE} />
-      <path d="M3.5,10.5 L9,5 C15,4.6 20.5,4.6 26.5,5 L21.5,10.5" style={STROKE} />
-      <path d="M21.5,10.5 L26.5,5 L26.5,19.8 L21.5,25" style={STROKE} />
-      <path d="M6.5,13.5 L14.5,13.5 L14.5,16.5 L6.5,16.5 Z M6.5,19 L14.5,19 L14.5,22 L6.5,22 Z" style={STROKE_BACK} />
-      <circle cx="18.2" cy="15" r="1.4" style={FILL} />
-      <path d="M16.8,19.6 L19.6,19.6 M16.8,21.8 L19.6,21.8" style={STROKE_BACK} />
+      <path d="M8,24.6 L8,26.6 M20,24.6 L20,26.6" style={STROKE} />
+      <path
+        d="M5,3 C11,2.6 17,2.6 23,3 C23.3,10 23.3,17.5 23,24.6 C17,25 11,25 5,24.6 C4.7,17.5 4.7,10 5,3 Z"
+        style={washed('--wash-blue')}
+      />
+      <path d="M5,10.2 C11,10.5 17,10.5 23,10.2 M5,17.4 C11,17.7 17,17.7 23,17.4" style={STROKE} />
+      <path
+        d="M7.8,5.1 L7.8,8.1 M10.2,5.1 L10.2,8.1 M12.6,5.1 L12.6,8.1 M7.8,12.3 L7.8,15.3 M10.2,12.3 L10.2,15.3 M12.6,12.3 L12.6,15.3 M7.8,19.5 L7.8,22.5 M10.2,19.5 L10.2,22.5 M12.6,19.5 L12.6,22.5"
+        style={STROKE_BACK}
+      />
+      <circle cx="19.4" cy="6.6" r="1.5" style={paint('var(--green-pen)')} />
+      <circle cx="19.4" cy="13.8" r="1.5" style={paint('var(--green-pen)')} />
+      <circle cx="19.4" cy="21" r="1.5" style={paint('var(--amber-pen)')} />
     </>
   ),
 
-  // One line in, a box, three arrows out.
+  // A fork in the road: one line in, a hub, three arrows fanning out.
   loadBalancer: (
     <>
-      <path d="M2,14 L9,14" style={STROKE} />
-      <path d="M9,8 C11.5,7.6 13.5,7.6 15,8 C15.4,12 15.4,16 15,20 C13.5,20.4 11.5,20.4 9,20 C8.6,16 8.6,12 9,8 Z" style={STROKE} />
-      <path d="M15,11 C19,8 21,5 25,4.5 M15,14 L25,14 M15,17 C19,20 21,23 25,23.5" style={STROKE} />
-      <path d="M22.5,2.5 L25.5,4.5 L23,7 M22.5,11.5 L25.5,14 L22.5,16.5 M23,21 L25.5,23.5 L22.5,25.5" style={STROKE} />
+      <path d="M1.8,14 L7.4,14" style={STROKE} />
+      <path d="M14.2,12.2 C17.4,9.2 19.6,6.4 24.6,5.8 M14.8,14 L24.6,14 M14.2,15.8 C17.4,18.8 19.6,21.6 24.6,22.2" style={STROKE} />
+      <path d="M22.2,3.6 L25.3,5.8 L22.6,8.3 M22.2,11.5 L25.1,14 L22.2,16.5 M22.6,19.7 L25.3,22.2 L22.2,24.4" style={STROKE} />
+      <circle cx="11" cy="14" r="3.9" style={washed('--highlighter')} />
     </>
   ),
 
-  // A memory stick with a lightning bolt: fast, and forgetful.
+  // A memory chip struck by a lightning bolt: fast, and forgetful.
   cache: (
     <>
-      <path d="M3,8 C10,7.4 18,7.4 25,8 C25.3,11.4 25.3,14.6 25,18 C18,18.5 10,18.5 3,18 C2.7,14.6 2.7,11.4 3,8 Z" style={STROKE} />
-      <path d="M6.5,18.4 L6.4,22 M10.5,18.5 L10.6,22 M14,18.5 L14,22 M17.5,18.5 L17.4,22 M21.5,18.4 L21.6,22" style={STROKE} />
-      <path d="M15.6,9.4 L10.6,13.8 L13.8,13.8 L12.4,17.2 L17.6,12.3 L14.3,12.3 Z" style={FILL} />
+      <path d="M2.8,9 L6.4,9 M2.8,14 L6.4,14 M2.8,19 L6.4,19 M21.6,9 L25.2,9 M21.6,14 L25.2,14 M21.6,19 L25.2,19" style={STROKE} />
+      <path
+        d="M6.5,5 C11.5,4.7 16.5,4.7 21.5,5 C21.8,11 21.8,17 21.5,23 C16.5,23.3 11.5,23.3 6.5,23 C6.2,17 6.2,11 6.5,5 Z"
+        style={washed('--wash-pink')}
+      />
+      <path d="M16.4,6.6 L9.8,15.2 L13.6,15.2 L11.8,21.6 L18.4,12.6 L14.6,12.6 Z" style={washed('--highlighter', 1.4)} />
     </>
   ),
 
-  // The classic cylinder, banded once.
+  // A stack of disks: the classic database drum, banded.
   database: (
     <>
-      <path d="M6,6.8 C6,4.3 22,4.2 22,6.8 C22,9.3 6,9.4 6,6.8 Z" style={STROKE} />
-      <path d="M6,6.8 C5.8,11.5 5.9,16.5 6.1,21.2 C6.6,24 21.4,24.1 21.9,21.2 C22.2,16.5 22.1,11.5 22,6.8" style={STROKE} />
-      <path d="M6,14 C6.6,16.7 21.4,16.8 22,14" style={STROKE} />
+      {drum(5.5, 6.5, 17, 15.6, '--wash-blue')}
+      <path d="M5.5,11.8 C6.2,14.6 21.8,14.7 22.5,11.8 M5.5,17 C6.2,19.8 21.8,19.9 22.5,17" style={STROKE} />
     </>
   ),
 
-  // Two cylinders: a copy peeking out behind the front one.
+  // Two drums: a copy peeking out behind the primary.
   readReplicas: (
     <>
-      <path d="M11,4.6 C11,2.4 25,2.3 25,4.6 C25,6.8 11,6.9 11,4.6 Z" style={STROKE_BACK} />
-      <path d="M11,4.6 L11.1,9 M25,4.6 C25.2,8.7 25.1,13 25,17 C24.8,18.9 21,19.6 17.4,19.6" style={STROKE_BACK} />
-      <path d="M3,11.6 C3,9.2 17,9.1 17,11.6 C17,14 3,14.1 3,11.6 Z" style={STROKE} />
-      <path d="M3,11.6 C2.8,15.4 2.9,19.4 3.1,23 C3.5,25.6 16.6,25.7 16.9,23 C17.2,19.4 17.1,15.4 17,11.6" style={STROKE} />
-      <path d="M3.1,17.4 C3.6,19.8 16.5,19.9 17,17.4" style={STROKE} />
+      {drum(11, 5, 14, 12, '--paper-card', true)}
+      {drum(3, 12, 14, 11.4, '--wash-blue')}
+      <path d="M3,17.6 C3.6,20 16.4,20.1 17,17.6" style={STROKE} />
     </>
   ),
 
-  // Three short cylinders side by side: one database cut into pieces.
+  // Three short drums side by side: one database cut into pieces.
   shards: (
     <>
-      <path d="M2,9.5 C2,7.6 9,7.5 9,9.5 C9,11.4 2,11.5 2,9.5 Z" style={STROKE} />
-      <path d="M2,9.5 C1.9,13.5 1.9,17.5 2.1,21.4 C2.4,23.4 8.7,23.5 8.9,21.4 C9.1,17.5 9.1,13.5 9,9.5" style={STROKE} />
-      <path d="M10.5,6.5 C10.5,4.6 17.5,4.5 17.5,6.5 C17.5,8.4 10.5,8.5 10.5,6.5 Z" style={STROKE} />
-      <path d="M10.5,6.5 C10.4,10.5 10.4,14.5 10.6,18.4 C10.9,20.4 17.2,20.5 17.4,18.4 C17.6,14.5 17.6,10.5 17.5,6.5" style={STROKE} />
-      <path d="M19,11.5 C19,9.6 26,9.5 26,11.5 C26,13.4 19,13.5 19,11.5 Z" style={STROKE} />
-      <path d="M19,11.5 C18.9,15.5 18.9,19.5 19.1,23.4 C19.4,25.4 25.7,25.5 25.9,23.4 C26.1,19.5 26.1,15.5 26,11.5" style={STROKE} />
+      {drum(1.8, 10, 7.6, 12, '--wash-blue')}
+      {drum(10.2, 6.5, 7.6, 12, '--wash-green')}
+      {drum(18.6, 11, 7.6, 12, '--wash-peach')}
     </>
   ),
 
-  // A tray of letters waiting in line, and an arrow out the far end.
+  // A conveyor belt carrying envelopes, moving to the right.
   queue: (
     <>
-      <path d="M2,9 C8,8.6 15,8.6 21,9 M2,19 C8,19.4 15,19.4 21,19" style={STROKE} />
-      <path d="M3.5,11 L7.5,11 L7.5,17 L3.5,17 Z M9.5,11 L13.5,11 L13.5,17 L9.5,17 Z M15.5,11 L19.5,11 L19.5,17 L15.5,17 Z" style={STROKE_BACK} />
-      <path d="M21.5,14 L26,14 M23.5,11.5 L26,14 L23.5,16.5" style={STROKE} />
+      <path d="M12,5.4 L20,5.4 M17.8,3.2 L20.3,5.4 L17.8,7.6" style={STROKE_BACK} />
+      <path
+        d="M3.6,10.4 L9.8,10.4 L9.8,16.4 L3.6,16.4 Z M11,10.2 L17.2,10.2 L17.2,16.4 L11,16.4 Z M18.4,10.4 L24.6,10.4 L24.6,16.4 L18.4,16.4 Z"
+        style={washed('--wash-yellow')}
+      />
+      <path d="M3.6,10.4 L6.7,13.2 L9.8,10.4 M11,10.2 L14.1,13 L17.2,10.2 M18.4,10.4 L21.5,13.2 L24.6,10.4" style={STROKE_BACK} />
+      <path
+        d="M3.6,17.8 C10,17.4 18,17.4 24.4,17.8 C26.8,18 26.8,24 24.4,24.2 C18,24.6 10,24.6 3.6,24.2 C1.2,24 1.2,18 3.6,17.8 Z"
+        style={PAPER}
+      />
+      <circle cx="5" cy="21" r="1.5" style={STROKE_BACK} />
+      <circle cx="10.6" cy="21" r="1.5" style={STROKE_BACK} />
+      <circle cx="16.2" cy="21" r="1.5" style={STROKE_BACK} />
+      <circle cx="21.8" cy="21" r="1.5" style={STROKE_BACK} />
     </>
   ),
 
-  // A bank card: a magnetic stripe and a chip.
+  // A bank card: a magnetic stripe, a gold chip and the card number.
   paymentProvider: (
     <>
-      <path d="M2.5,7 C10,6.5 18,6.5 25.5,7 C25.9,11.5 25.9,16.5 25.5,21 C18,21.5 10,21.5 2.5,21 C2.1,16.5 2.1,11.5 2.5,7 Z" style={STROKE} />
-      <path d="M2.4,10.5 L25.6,10.5" style={STROKE} />
-      <path d="M5.5,13.5 L10,13.5 L10,17 L5.5,17 Z" style={STROKE_BACK} />
-      <path d="M15,17.5 L22.5,17.5" style={STROKE} />
+      <path
+        d="M2.5,6.6 C10,6.1 18,6.1 25.5,6.6 C25.9,11.3 25.9,16.7 25.5,21.4 C18,21.9 10,21.9 2.5,21.4 C2.1,16.7 2.1,11.3 2.5,6.6 Z"
+        style={washed('--wash-green')}
+      />
+      <path d="M2.3,9.4 L25.7,9.4 L25.7,12.2 L2.3,12.2 Z" style={FILL} />
+      <path d="M5.4,14.4 L10.2,14.4 L10.2,18.2 L5.4,18.2 Z" style={washed('--star-gold', 1.3)} />
+      <path d="M13.6,17.6 L22.6,17.6" style={STROKE} />
+    </>
+  ),
+
+  // A bucket on a handle, with a file sticking out of the top: blobs kept by key.
+  blobStorage: (
+    <>
+      <path d="M4.6,9.6 C4.4,1.2 23.6,1.2 23.4,9.6" style={STROKE_BACK} />
+      <path d="M11,9 L11.2,3.4 L15.6,3.3 L17.4,5.1 L17.2,9" style={washed('--paper-card', 1.3)} />
+      <path
+        d="M4,9 C4,11.6 24,11.6 24,9 L20.8,23.4 C20.4,25.6 7.6,25.6 7.2,23.4 Z"
+        style={washed('--wash-peach')}
+      />
+      <path d="M4,9 C4,6.6 24,6.6 24,9 C24,11.5 4,11.5 4,9 Z" style={{ ...wash('--paper-card'), ...STROKE }} />
+      <path d="M5.7,16.2 C10,18.6 18,18.6 22.3,16.2" style={STROKE_BACK} />
     </>
   ),
 };

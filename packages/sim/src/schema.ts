@@ -19,6 +19,7 @@ export const ComponentKindSchema = z.enum([
   'shards',
   'queue',
   'paymentProvider',
+  'blobStorage',
 ]);
 export type ComponentKind = z.output<typeof ComponentKindSchema>;
 
@@ -116,6 +117,16 @@ export const PaymentProviderSpecSchema = z.strictObject({
 });
 export type PaymentProviderSpec = z.output<typeof PaymentProviderSpecSchema>;
 
+/**
+ * Blob storage (S3-like): objects kept by key, paid for by use rather than by machine. In the catalog but not yet in
+ * any level (`COMPONENTS_IN_CAMPAIGN`), so validation turns it away everywhere and the engine never runs it.
+ */
+export const BlobStorageSpecSchema = z.strictObject({
+  id: NodeIdSchema,
+  kind: z.literal('blobStorage'),
+});
+export type BlobStorageSpec = z.output<typeof BlobStorageSpecSchema>;
+
 export const NodeSpecSchema = z.discriminatedUnion('kind', [
   AppServerSpecSchema,
   LoadBalancerSpecSchema,
@@ -125,6 +136,7 @@ export const NodeSpecSchema = z.discriminatedUnion('kind', [
   ShardsSpecSchema,
   QueueSpecSchema,
   PaymentProviderSpecSchema,
+  BlobStorageSpecSchema,
 ]);
 export type NodeSpec = z.output<typeof NodeSpecSchema>;
 

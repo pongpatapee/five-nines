@@ -1,8 +1,8 @@
 import { CLIENTS_ID, nodeCostUsdPerMonth, type Edge, type Level, type NodeSpec, type PeakLoad } from '@five-nines/sim';
 import type { CanvasSelection, Draft } from '../canvas/types.ts';
-import { COMPONENTS } from '../components/registry.ts';
 import { formatUsdPerMonth } from '../format.ts';
 import { GuideLink } from '../guide/FieldGuideProvider.tsx';
+import { ComponentArt, componentNames, type NamedKind } from '../theme/index.ts';
 import { ExpectedLoad } from './ExpectedLoad.tsx';
 import { NodeFields } from './fields.tsx';
 
@@ -28,7 +28,7 @@ export function Inspector({ level, draft, load, selection, onNodeChange, onDelet
   if (!node) return <HowTo />;
   return (
     <section className="editor-section inspector" aria-label={`Inspector: ${node.id}`}>
-      <InspectorHeader kind={COMPONENTS[node.kind].label} title={node.id} onDelete={onDelete} />
+      <InspectorHeader kind={node.kind} title={node.id} onDelete={onDelete} />
       <NodeFields key={node.id} spec={node} onChange={onNodeChange} level={level} />
       <div className="inspector__cost">
         <span className="muted">Monthly cost</span>
@@ -40,11 +40,21 @@ export function Inspector({ level, draft, load, selection, onNodeChange, onDelet
   );
 }
 
-function InspectorHeader({ kind, title, onDelete }: { kind: string; title: string; onDelete?: () => void }) {
+/** The selected thing: its kind (a real-world name with the concept beside it, or "Connection") and its id. */
+function InspectorHeader({ kind, title, onDelete }: { kind: NamedKind | null; title: string; onDelete?: () => void }) {
+  const name = kind && componentNames[kind];
   return (
     <header className="inspector__header">
-      <div>
-        <div className="editor-section__title">{kind}</div>
+      {kind && (
+        <span className="inspector__art" aria-hidden>
+          <ComponentArt kind={kind} size={40} />
+        </span>
+      )}
+      <div className="inspector__names">
+        <div className="editor-section__title">
+          {name ? name.product : 'Connection'}
+          {name && <span className="inspector__concept"> {name.concept}</span>}
+        </div>
         <div className="inspector__title num">{title}</div>
       </div>
       {onDelete && (
@@ -59,7 +69,7 @@ function InspectorHeader({ kind, title, onDelete }: { kind: string; title: strin
 function EdgeInspector({ edge, onDelete }: { edge: Edge; onDelete(): void }) {
   return (
     <section className="editor-section inspector" aria-label="Inspector: connection">
-      <InspectorHeader kind="Connection" title={`${edge.from} → ${edge.to}`} onDelete={onDelete} />
+      <InspectorHeader kind={null} title={`${edge.from} → ${edge.to}`} onDelete={onDelete} />
       <p className="field__help">Requests flow from {edge.from} to {edge.to}. Connections are free.</p>
     </section>
   );
@@ -68,7 +78,7 @@ function EdgeInspector({ edge, onDelete }: { edge: Edge; onDelete(): void }) {
 function ClientsInspector() {
   return (
     <section className="editor-section inspector" aria-label="Inspector: clients">
-      <InspectorHeader kind="Traffic" title={CLIENTS_ID} />
+      <InspectorHeader kind="clients" title={CLIENTS_ID} />
       <p className="field__help">
         Your users on the internet. They send the level's traffic to whichever component you connect them to, and
         every request that fails or times out counts against your availability. They can't be deleted, and they can

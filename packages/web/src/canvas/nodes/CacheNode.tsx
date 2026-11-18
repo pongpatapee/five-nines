@@ -1,7 +1,7 @@
 import { nodeCostUsdPerMonth } from '@five-nines/sim';
 import type { NodeProps } from '@xyflow/react';
 import { memo } from 'react';
-import { COMPONENTS } from '../../components/registry.ts';
+import { COMPONENTS, nodeCopies } from '../../components/registry.ts';
 import { formatCompact, formatPercent, formatRps } from '../../format.ts';
 import { useDecorations } from '../context.ts';
 import type { CacheFlowNode } from '../flow.ts';
@@ -20,8 +20,8 @@ export const CacheNode = memo(function CacheNode({ id, data, selected }: NodePro
     <NodeShell
       id={id}
       kind="cache"
-      kindLabel={COMPONENTS.cache.label}
       config={COMPONENTS.cache.summary(data.spec)}
+      copies={nodeCopies(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}
     >

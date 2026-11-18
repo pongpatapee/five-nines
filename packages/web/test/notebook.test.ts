@@ -24,7 +24,7 @@ describe('notebook cast lines', () => {
   });
 
   it("Smudge teases the level's scripted crash, else its traffic surge", () => {
-    expect(tease(level3)).toBe('heh. about a minute in, I unplug your busiest app server.');
+    expect(tease(level3)).toBe('heh. about a minute in, I unplug your busiest EC2 app server.');
     expect(tease(level1)).toBe('heh. traffic climbs from 100 to 350 req/s. hope you sized up.');
     expect(tease(level2)).toMatch(/1,000 to 5,000 req\/s/);
   });

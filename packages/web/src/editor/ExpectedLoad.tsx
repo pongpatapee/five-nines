@@ -114,5 +114,8 @@ export function working(node: NodeLoad): string {
     }
     case 'paymentProvider':
       return `${n(node.load)} calls/s ÷ ${n(node.capacity)} calls/s allowed`;
+    case 'blobStorage':
+      // No level offers it yet, so the engine never loads it.
+      return '';
   }
 }

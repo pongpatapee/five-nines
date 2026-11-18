@@ -7,6 +7,7 @@ import { useId } from 'react';
 import { formatCount, formatDuration, formatMs, formatPercent, formatUsdPerMonth, GRADE_LABELS } from '../../format.ts';
 import { tierPercent } from '../../results/grading.ts';
 import type { NumbersBoxProps, NumbersText } from '../contract.ts';
+import { COMPONENT_NAMES } from './names.ts';
 
 /** "100 million", "2 million", "1 billion", "50,000": big round counts the way people say them. */
 export function bigCount(n: number): string {
@@ -33,13 +34,13 @@ function shardKey(key: ShardKeyNumbers): { label: string; value: string } {
 function surprise(s: RunSurprise): string {
   switch (s.kind) {
     case 'crash':
-      return 'an app server will crash';
+      return `an ${COMPONENT_NAMES.appServer.phrase} will crash`;
     case 'cacheRestart':
-      return 'the cache will restart';
+      return `the ${COMPONENT_NAMES.cache.phrase} will restart`;
     case 'hotKey':
       return `a hot key: ${s.label}`;
     case 'rateLimit':
-      return 'the payment provider refuses calls over its rate limit';
+      return `the ${COMPONENT_NAMES.paymentProvider.phrase} refuses calls over its rate limit`;
   }
 }
 
@@ -78,7 +79,7 @@ export function numbersText(n: LevelNumbers): NumbersText {
   }
   if (n.payments) {
     data.push({
-      label: 'Payment provider',
+      label: `${COMPONENT_NAMES.paymentProvider.product} (${COMPONENT_NAMES.paymentProvider.concept})`,
       value: `at most ${formatCount(n.payments.rateLimitRps)} charges a second, ${formatMs(n.payments.latencyMs)} each`,
     });
   }

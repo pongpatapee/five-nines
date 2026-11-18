@@ -4,7 +4,7 @@ import type { Draft, XY } from './types.ts';
 /** Width of every node on the canvas, in flow units. Matches `--node-width` and the node CSS. */
 export const NODE_WIDTH = 200;
 /** Typical node height (without live stats), used to centre columns. */
-export const NODE_HEIGHT = 84;
+export const NODE_HEIGHT = 100;
 /** Horizontal distance between the left edges of adjacent layers. */
 export const COLUMN_GAP = NODE_WIDTH + 90;
 /** Vertical distance between the top edges of nodes in the same layer. */

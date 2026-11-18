@@ -8,6 +8,11 @@ export function formatUsd(usd: number): string {
   return `$${integer.format(usd)}`;
 }
 
+/** "$0.40", "$0.023": a per-use price, which whole dollars would round away. */
+export function formatUsdCents(usd: number): string {
+  return `$${usd.toFixed(usd < 0.1 ? 3 : 2)}`;
+}
+
 /** "$1,920/mo" */
 export function formatUsdPerMonth(usd: number): string {
   return `${formatUsd(usd)}/mo`;

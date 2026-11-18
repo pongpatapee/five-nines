@@ -1,7 +1,7 @@
 import { nodeCostUsdPerMonth } from '@five-nines/sim';
 import type { NodeProps } from '@xyflow/react';
 import { memo } from 'react';
-import { COMPONENTS } from '../../components/registry.ts';
+import { COMPONENTS, nodeCopies } from '../../components/registry.ts';
 import { formatCompact, formatPercent } from '../../format.ts';
 import { hottestShard } from '../../theme/index.ts';
 import { useDecorations } from '../context.ts';
@@ -23,8 +23,8 @@ export const ShardsNode = memo(function ShardsNode({ id, data, selected }: NodeP
     <NodeShell
       id={id}
       kind="shards"
-      kindLabel={COMPONENTS.shards.label}
       config={COMPONENTS.shards.summary(data.spec)}
+      copies={nodeCopies(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}
     >
