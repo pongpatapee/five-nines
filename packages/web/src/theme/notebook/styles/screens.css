@@ -451,18 +451,30 @@
   background: var(--paper);
 }
 
-/* Title and actions share the space either side equally, so the mode steps stay centred. */
+/*
+ * Title and actions share the space either side equally, so the mode steps stay centered while there's room. The
+ * actions never shrink below their buttons (no min-width: 0), so when space runs short the title gives way and
+ * truncates, rather than the buttons spilling over the mode steps.
+ */
 .topbar__title,
 .topbar__actions {
   flex: 1 1 0;
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.topbar__title {
   min-width: 0;
 }
 
 .topbar__actions {
   justify-content: flex-end;
+}
+
+.topbar__actions > * {
+  flex: none;
+  white-space: nowrap;
 }
 
 .topbar__back {
@@ -505,15 +517,41 @@
 
 .topbar__level {
   overflow: hidden;
+  min-width: 0;
+  /* Room for the hand font's tall capitals, descenders and slanted last letter, which overflow: hidden would clip. */
+  padding-block: 4px;
+  padding-inline-end: 0.25em;
   font-size: var(--text-hand-lg);
+  line-height: 1.2;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/*
+ * Narrower screens give the page title and the buttons room, in steps: first the logo alone leads back to the contents
+ * and the sound toggle is just its speaker (both keep their title for the name), then the mode steps go, since the
+ * right panel already shows the mode. The title truncates only as a last resort.
+ */
+@media (max-width: 1500px) {
+  .topbar__wordmark,
+  .topbar__back-hint,
+  .topbar .sound-toggle__label,
+  .topbar .sound-toggle__state {
+    display: none;
+  }
+}
+
+@media (max-width: 1250px) {
+  .topbar .mode-steps {
+    display: none;
+  }
 }
 
 .mode-steps {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex: none;
   margin: 0;
   padding: 0;
   list-style: none;
