@@ -1,6 +1,7 @@
 /**
- * Everything the UI knows about each component kind, in one place: names, palette text, default settings, the
- * one-line summary on its canvas node, where it sits in the flow, and its rows on the briefing's reference card.
+ * Everything the UI knows about each component kind, in one place: palette text, default settings, the one-line
+ * summary on its canvas node, where it sits in the flow, and its rows on the briefing's reference card. What players
+ * call each kind (a real-world product beside the concept) is presentation, so it is the theme's: `componentNames`.
  *
  * Pure data and functions, no React, so the draft operations and tests can use it. The React pieces per kind (canvas
  * node, inspector fields) are registered next to their components: `canvas/nodes/index.ts`, `editor/fields.tsx`.
@@ -8,9 +9,9 @@
  */
 import {
   APP_SERVER_SIZES,
+  BLOB_STORAGE,
   CACHE,
   CACHE_SIZES,
-  COMPONENT_LABELS,
   DATABASE_SIZES,
   LOAD_BALANCER,
   PAYMENT_PROVIDER,
@@ -23,25 +24,28 @@ import {
   type Level,
   type NodeSpec,
 } from '@five-nines/sim';
-import { formatCompact, formatDurationShort, formatMs, formatUsd, formatUsdPerMonth } from '../format.ts';
+import { formatCompact, formatDurationShort, formatMs, formatUsd, formatUsdCents, formatUsdPerMonth } from '../format.ts';
 
 /** The spec type of one component kind. */
 export type SpecOf<K extends ComponentKind> = Extract<NodeSpec, { kind: K }>;
 
 export interface ComponentMeta<K extends ComponentKind> {
-  /** "App server". */
-  label: string;
   /** New ids are `${idPrefix}-1`, `${idPrefix}-2`, … */
   idPrefix: string;
   /** One-line palette hint. */
   hint: string;
-  /** Palette price, e.g. "from $60". */
+  /** Palette price, e.g. "from $60/mo". */
   priceLabel: string;
   /**
    * A new component with the engine's defaults. `level`, when given, fills settings that only make sense against a
    * level's workload (a sharded database's shard key).
    */
   create(id: string, level?: Level): SpecOf<K>;
+  /**
+   * How many of the thing the node stands for: instances, replicas, shards, or a cache with its standby. More than one
+   * draws the node as a stack.
+   */
+  copies(spec: SpecOf<K>): number;
   /** The node's one-line summary under its name, e.g. "xlarge × 4 · 64 vCPU". */
   summary(spec: SpecOf<K>): string;
   /**
@@ -49,8 +53,11 @@ export interface ComponentMeta<K extends ComponentKind> {
    * right of the rightmost of them, or of the clients when there are none.
    */
   follows: readonly ComponentKind[];
-  /** The briefing's reference card: a heading and rows of [option, capacity, monthly price]. */
-  reference: { heading: string; rows: readonly (readonly [string, string, string])[] };
+  /**
+   * The briefing's reference card: what its figures are per (shown after the theme's name for the kind), or null, and
+   * rows of [option, capacity, monthly price].
+   */
+  reference: { per: string | null; rows: readonly (readonly [string, string, string])[] };
 }
 
 type Registry = { [K in ComponentKind]: ComponentMeta<K> };
@@ -59,15 +66,15 @@ const sizes = <S extends string>(table: Record<S, unknown>) => Object.keys(table
 
 export const COMPONENTS: Registry = {
   appServer: {
-    label: COMPONENT_LABELS.appServer,
     idPrefix: 'app',
     hint: 'Runs your code. Choose a size and how many instances.',
-    priceLabel: `from ${formatUsd(APP_SERVER_SIZES.small.usdPerMonth)}`,
+    priceLabel: `from ${formatUsd(APP_SERVER_SIZES.small.usdPerMonth)}/mo`,
     create: (id) => ({ id, kind: 'appServer', size: 'small', instances: 1 }),
     summary: (spec) => `${spec.size} × ${spec.instances} · ${APP_SERVER_SIZES[spec.size].vcpu * spec.instances} vCPU`,
+    copies: (spec) => spec.instances,
     follows: ['loadBalancer'],
     reference: {
-      heading: `${COMPONENT_LABELS.appServer} (per instance)`,
+      per: 'per instance',
       rows: sizes(APP_SERVER_SIZES).map((size) => [
         size,
         `${APP_SERVER_SIZES[size].vcpu} vCPU`,
@@ -77,24 +84,23 @@ export const COMPONENTS: Registry = {
   },
 
   loadBalancer: {
-    label: COMPONENT_LABELS.loadBalancer,
     idPrefix: 'lb',
     hint: 'Spreads requests across app server instances.',
-    priceLabel: formatUsd(LOAD_BALANCER.usdPerMonth),
+    priceLabel: `${formatUsd(LOAD_BALANCER.usdPerMonth)}/mo`,
     create: (id) => ({ id, kind: 'loadBalancer', healthCheckIntervalSec: 30, retryOnConnectFailure: false }),
-    summary: (spec) => `LB · checks ${spec.healthCheckIntervalSec}s · retries ${spec.retryOnConnectFailure ? 'on' : 'off'}`,
+    summary: (spec) => `checks ${spec.healthCheckIntervalSec}s · retries ${spec.retryOnConnectFailure ? 'on' : 'off'}`,
+    copies: () => 1,
     follows: [],
     reference: {
-      heading: COMPONENT_LABELS.loadBalancer,
+      per: null,
       rows: [['any', `${formatMs(LOAD_BALANCER.latencyMs)} added`, formatUsdPerMonth(LOAD_BALANCER.usdPerMonth)]],
     },
   },
 
   cache: {
-    label: COMPONENT_LABELS.cache,
     idPrefix: 'cache',
     hint: 'Keeps popular data in memory. App servers check it before the database.',
-    priceLabel: `from ${formatUsd(CACHE_SIZES.small.usdPerMonth)}`,
+    priceLabel: `from ${formatUsd(CACHE_SIZES.small.usdPerMonth)}/mo`,
     create: (id) => ({ id, kind: 'cache', size: 'small', ttlSec: 60 }),
     summary: (spec) =>
       [
@@ -105,9 +111,10 @@ export const COMPONENTS: Registry = {
       ]
         .filter(Boolean)
         .join(' · '),
+    copies: (spec) => (spec.replicated ? 2 : 1),
     follows: ['appServer'],
     reference: {
-      heading: `${COMPONENT_LABELS.cache} (${formatCompact(CACHE.opsPerSec)} lookups/s)`,
+      per: `${formatCompact(CACHE.opsPerSec)} lookups/s`,
       rows: sizes(CACHE_SIZES).map((size) => [
         size,
         `${CACHE_SIZES[size].memoryGb} GB`,
@@ -117,15 +124,15 @@ export const COMPONENTS: Registry = {
   },
 
   database: {
-    label: COMPONENT_LABELS.database,
     idPrefix: 'db',
     hint: 'The primary: every write goes here, and any read not sent elsewhere.',
-    priceLabel: `from ${formatUsd(DATABASE_SIZES.small.usdPerMonth)}`,
+    priceLabel: `from ${formatUsd(DATABASE_SIZES.small.usdPerMonth)}/mo`,
     create: (id) => ({ id, kind: 'database', size: 'small' }),
     summary: (spec) => `${spec.size} · ${databaseCapacity(spec.size)}`,
+    copies: () => 1,
     follows: ['appServer'],
     reference: {
-      heading: `${COMPONENT_LABELS.database} (reads or writes per second)`,
+      per: 'reads or writes per second',
       rows: sizes(DATABASE_SIZES).map((size) => [
         size,
         databaseCapacity(size),
@@ -135,16 +142,16 @@ export const COMPONENTS: Registry = {
   },
 
   readReplicas: {
-    label: COMPONENT_LABELS.readReplicas,
     idPrefix: 'replicas',
     hint: 'Copies of the database that serve reads, a little behind it.',
-    priceLabel: `from ${formatUsd(DATABASE_SIZES.small.usdPerMonth)}`,
+    priceLabel: `from ${formatUsd(DATABASE_SIZES.small.usdPerMonth)}/mo`,
     create: (id) => ({ id, kind: 'readReplicas', size: 'small', count: 2, readYourWritesSec: 0 }),
     summary: (spec) =>
       `${spec.size} × ${spec.count} · ${spec.readYourWritesSec > 0 ? `pin ${formatDurationShort(spec.readYourWritesSec)}` : 'no pinning'}`,
+    copies: (spec) => spec.count,
     follows: ['database'],
     reference: {
-      heading: `${COMPONENT_LABELS.readReplicas} (per replica)`,
+      per: 'per replica',
       rows: [
         ['any', 'same sizes as the database', 'same price'],
         ['lag', `${REPLICATION.baseLagSec} s ÷ (1 − busy)`, ''],
@@ -153,10 +160,9 @@ export const COMPONENTS: Registry = {
   },
 
   shards: {
-    label: COMPONENT_LABELS.shards,
     idPrefix: 'shards',
     hint: 'Splits the data across several databases by a shard key. Each shard takes its own writes.',
-    priceLabel: `from ${formatUsd(DATABASE_SIZES.small.usdPerMonth * SHARDING.minCount)}`,
+    priceLabel: `from ${formatUsd(DATABASE_SIZES.small.usdPerMonth * SHARDING.minCount)}/mo`,
     create: (id, level) => ({
       id,
       kind: 'shards',
@@ -165,9 +171,10 @@ export const COMPONENTS: Registry = {
       shardKey: level?.workload.data?.shardKeys?.[0]?.id ?? '',
     }),
     summary: (spec) => `${spec.size} × ${spec.count} · by ${spec.shardKey || '?'}`,
+    copies: (spec) => spec.count,
     follows: ['appServer'],
     reference: {
-      heading: `${COMPONENT_LABELS.shards} (per shard)`,
+      per: 'per shard',
       rows: [
         ['any', 'same sizes as the database', 'same price'],
         ['count', `${SHARDING.minCount} to ${SHARDING.maxCount} shards`, ''],
@@ -176,15 +183,15 @@ export const COMPONENTS: Registry = {
   },
 
   queue: {
-    label: COMPONENT_LABELS.queue,
     idPrefix: 'queue',
     hint: 'Holds orders so app servers answer at once; workers charge them at the provider later.',
-    priceLabel: `from ${formatUsd(QUEUE_SIZES.small.usdPerMonth)}`,
+    priceLabel: `from ${formatUsd(QUEUE_SIZES.small.usdPerMonth)}/mo`,
     create: (id) => ({ id, kind: 'queue', size: 'small', workers: 4 }),
     summary: (spec) => `holds ${formatCompact(QUEUE_SIZES[spec.size].maxDepth)} · ${spec.workers} workers`,
+    copies: () => 1,
     follows: ['appServer'],
     reference: {
-      heading: `${COMPONENT_LABELS.queue} (messages it holds)`,
+      per: 'messages it holds',
       rows: [
         ...sizes(QUEUE_SIZES).map(
           (size) =>
@@ -200,16 +207,34 @@ export const COMPONENTS: Registry = {
   },
 
   paymentProvider: {
-    label: COMPONENT_LABELS.paymentProvider,
     idPrefix: 'payments',
     hint: 'The outside service that charges cards. It refuses calls over its rate limit.',
-    priceLabel: formatUsd(PAYMENT_PROVIDER.usdPerMonth),
+    priceLabel: `${formatUsd(PAYMENT_PROVIDER.usdPerMonth)}/mo`,
     create: (id) => ({ id, kind: 'paymentProvider' }),
     summary: () => 'external · rate limited',
+    copies: () => 1,
     follows: ['queue', 'appServer'],
     reference: {
-      heading: COMPONENT_LABELS.paymentProvider,
+      per: null,
       rows: [['any', 'rate limit set by the level', formatUsdPerMonth(PAYMENT_PROVIDER.usdPerMonth)]],
+    },
+  },
+
+  blobStorage: {
+    idPrefix: 'bucket',
+    hint: 'Keeps files and other blobs by key, as many as you like. Billed by what you store and fetch.',
+    priceLabel: 'pay per use',
+    create: (id) => ({ id, kind: 'blobStorage' }),
+    summary: () => `${formatCompact(BLOB_STORAGE.readsPerSecPerPrefix)} reads/s per prefix · ${formatMs(BLOB_STORAGE.firstByteMs)}`,
+    copies: () => 1,
+    follows: ['appServer'],
+    reference: {
+      per: null,
+      rows: [
+        ['reads', `${formatCompact(BLOB_STORAGE.readsPerSecPerPrefix)}/s per prefix`, `${formatUsdCents(BLOB_STORAGE.usdPerMillionReads)} per million`],
+        ['writes', `${formatCompact(BLOB_STORAGE.writesPerSecPerPrefix)}/s per prefix`, `${formatUsdCents(BLOB_STORAGE.usdPerMillionWrites)} per million`],
+        ['stored', 'unlimited', `${formatUsdCents(BLOB_STORAGE.usdPerGbMonth)} per GB/mo`],
+      ],
     },
   },
 };
@@ -228,6 +253,11 @@ function databaseCapacity(size: keyof typeof DATABASE_SIZES): string {
 
 export function componentMeta<K extends ComponentKind>(kind: K): ComponentMeta<K> {
   return COMPONENTS[kind];
+}
+
+/** How many copies any node spec stands for. */
+export function nodeCopies(spec: NodeSpec): number {
+  return (COMPONENTS[spec.kind].copies as (spec: NodeSpec) => number)(spec);
 }
 
 /** The summary line of any node spec. */

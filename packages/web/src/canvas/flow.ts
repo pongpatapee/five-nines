@@ -5,6 +5,7 @@
 import {
   CLIENTS_ID,
   type AppServerSpec,
+  type BlobStorageSpec,
   type CacheSpec,
   type DatabaseSpec,
   type Edge,
@@ -34,6 +35,7 @@ export type ReadReplicasNodeData = { kind: 'readReplicas'; spec: ReadReplicasSpe
 export type ShardsNodeData = { kind: 'shards'; spec: ShardsSpec };
 export type QueueNodeData = { kind: 'queue'; spec: QueueSpec };
 export type PaymentProviderNodeData = { kind: 'paymentProvider'; spec: PaymentProviderSpec };
+export type BlobStorageNodeData = { kind: 'blobStorage'; spec: BlobStorageSpec };
 
 export type ClientsFlowNode = RFNode<ClientsNodeData, 'clients'>;
 export type AppServerFlowNode = RFNode<AppServerNodeData, 'appServer'>;
@@ -44,6 +46,7 @@ export type ReadReplicasFlowNode = RFNode<ReadReplicasNodeData, 'readReplicas'>;
 export type ShardsFlowNode = RFNode<ShardsNodeData, 'shards'>;
 export type QueueFlowNode = RFNode<QueueNodeData, 'queue'>;
 export type PaymentProviderFlowNode = RFNode<PaymentProviderNodeData, 'paymentProvider'>;
+export type BlobStorageFlowNode = RFNode<BlobStorageNodeData, 'blobStorage'>;
 export type DesignFlowNode =
   | ClientsFlowNode
   | AppServerFlowNode
@@ -53,7 +56,8 @@ export type DesignFlowNode =
   | ReadReplicasFlowNode
   | ShardsFlowNode
   | QueueFlowNode
-  | PaymentProviderFlowNode;
+  | PaymentProviderFlowNode
+  | BlobStorageFlowNode;
 
 export type FlowEdgeData = {
   from: string;
@@ -121,6 +125,8 @@ function componentNode(
       return { ...base, type: 'queue', data: { kind: 'queue', spec } };
     case 'paymentProvider':
       return { ...base, type: 'paymentProvider', data: { kind: 'paymentProvider', spec } };
+    case 'blobStorage':
+      return { ...base, type: 'blobStorage', data: { kind: 'blobStorage', spec } };
   }
 }
 

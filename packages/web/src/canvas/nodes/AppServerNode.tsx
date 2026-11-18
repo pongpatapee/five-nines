@@ -1,7 +1,7 @@
 import { nodeCostUsdPerMonth } from '@five-nines/sim';
 import type { NodeProps } from '@xyflow/react';
 import { memo } from 'react';
-import { COMPONENTS } from '../../components/registry.ts';
+import { COMPONENTS, nodeCopies } from '../../components/registry.ts';
 import { formatRps } from '../../format.ts';
 import { useDecorations } from '../context.ts';
 import type { AppServerFlowNode } from '../flow.ts';
@@ -14,8 +14,8 @@ export const AppServerNode = memo(function AppServerNode({ id, data, selected }:
     <NodeShell
       id={id}
       kind="appServer"
-      kindLabel={COMPONENTS.appServer.label}
       config={COMPONENTS.appServer.summary(data.spec)}
+      copies={nodeCopies(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}
     >

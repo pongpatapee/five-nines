@@ -18,7 +18,6 @@ export const LoadBalancerNode = memo(function LoadBalancerNode({ id, data, selec
     <NodeShell
       id={id}
       kind="loadBalancer"
-      kindLabel={COMPONENTS.loadBalancer.label}
       config={COMPONENTS.loadBalancer.summary(data.spec)}
       costUsdPerMonth={nodeCostUsdPerMonth(data.spec)}
       selected={selected}

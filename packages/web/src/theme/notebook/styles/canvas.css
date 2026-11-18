@@ -70,10 +70,14 @@
 }
 
 .design-node {
+  /* The frame's stroke, top-and-bottom and sides: the stacked cards behind a node line up with it. */
+  --frame-y: 2.4px;
+  --frame-x: 2.4px;
   position: relative;
   width: var(--node-width);
   padding: var(--space-2) var(--space-3) var(--space-3);
   border: 2.4px solid var(--ink);
+  border-width: var(--frame-y) var(--frame-x);
   border-radius: var(--radius-hand-alt);
   background: var(--paper-card);
   color: var(--ink);
@@ -96,27 +100,52 @@
 
 .design-node__header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  column-gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-2);
 }
 
+.design-node__art {
+  flex: none;
+  display: flex;
+  color: var(--ink);
+}
+
+/* The real-world name, with the concept it stands for in smaller pencil underneath. */
 .design-node__kind {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.design-node__product {
   font-family: var(--font-note);
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--ink);
 }
 
+.design-node__concept {
+  font-family: var(--font-note);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.design-node__id-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
 .design-node__cost {
-  /* Right-aligned, and onto its own line when a long kind label needs the room. */
-  margin-left: auto;
+  flex: none;
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .design-node__id {
+  min-width: 0;
   font-family: var(--font-sans);
   font-size: var(--text-lg);
   font-weight: 700;
@@ -172,6 +201,174 @@
   border-color: var(--red-pen);
   background: var(--red-wash);
   box-shadow: 3px 3px 0 var(--red-pen);
+}
+
+/* ------------------------------------------------------------------ silhouettes: each frame follows its doodle */
+
+/*
+ * Each kind's frame takes the outline of the thing itself. The extra strokes are pseudo-elements that inherit the
+ * frame's border colour and style, so the selected, marked and failing states recolour the whole silhouette. Handles
+ * stay on the left and right edges at mid-height, which every outline keeps.
+ */
+
+/* An app server: a rack unit, square-cornered, with a thick rack ear down either side. Ears stay solid when a mark
+   dashes the frame: thick dashes read as a broken drawing, not a warning. */
+.design-node[data-kind='appServer'] {
+  --frame-x: 7px;
+  border-right-style: solid;
+  border-left-style: solid;
+  border-radius: 5px 4px 6px 4px;
+}
+
+/* A database: a cylinder. Rounded top and bottom, and the lid's front rim drawn across the top. */
+.design-node:is([data-kind='database'], [data-kind='readReplicas'], [data-kind='shards']) {
+  padding-top: 24px;
+  padding-bottom: 14px;
+  border-radius: 50% 50% 50% 50% / 11px 12px 13px 12px;
+}
+
+/*
+ * Blob storage: a bucket on a pencil handle. Its rim is a lip wider than the body, and the body rounds in hard toward
+ * the base, so it reads as a pail rather than the database's straight-sided drum.
+ */
+.design-node[data-kind='blobStorage'] {
+  padding-top: 24px;
+  padding-bottom: var(--space-4);
+  border-radius: 12px 12px 64px 64px / 12px 12px 44px 44px;
+}
+
+.design-node[data-kind='blobStorage']::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -22px;
+  right: 26px;
+  left: 26px;
+  height: 44px;
+  border: 2px solid var(--pencil-line);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.design-node:is([data-kind='database'], [data-kind='readReplicas'], [data-kind='shards'], [data-kind='blobStorage'])::before,
+.design-node:is([data-kind='database'], [data-kind='readReplicas'], [data-kind='shards']) .design-node__stack-card::before {
+  content: '';
+  position: absolute;
+  top: -2.4px;
+  right: -2.4px;
+  left: -2.4px;
+  height: 24px;
+  border-width: 2.4px;
+  border-style: inherit;
+  border-color: inherit;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* The bucket's lip overhangs its body, in the node's own paper. */
+.design-node[data-kind='blobStorage']::before {
+  right: -10px;
+  left: -10px;
+  background: inherit;
+}
+
+/* A cache: a memory chip, with a row of pins along the top and bottom. */
+.design-node[data-kind='cache'] {
+  border-radius: 6px 5px 7px 5px;
+}
+
+.design-node[data-kind='cache']::before,
+.design-node[data-kind='cache']::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  left: 18px;
+  height: 7px;
+  background: repeating-linear-gradient(90deg, var(--ink) 0 3px, transparent 3px 12px);
+  pointer-events: none;
+}
+
+.design-node[data-kind='cache']::before {
+  top: -9.4px;
+}
+
+.design-node[data-kind='cache']::after {
+  bottom: -9.4px;
+}
+
+/* A load balancer: one rounded end where traffic comes in, a flat face where it fans out. */
+.design-node[data-kind='loadBalancer'] {
+  padding-left: var(--space-5);
+  border-radius: 48px 9px 11px 48px / 50% 10px 9px 50%;
+}
+
+/* A queue: a conveyor belt, rounded at both ends, on a row of rollers. */
+.design-node[data-kind='queue'] {
+  padding-right: var(--space-4);
+  padding-left: var(--space-4);
+  border-radius: 28px 26px 27px 29px;
+}
+
+.design-node[data-kind='queue']::after {
+  content: '';
+  position: absolute;
+  right: 22px;
+  bottom: -12px;
+  left: 22px;
+  height: 10px;
+  background: radial-gradient(circle, var(--paper-card) 0 2px, var(--ink) 2.3px 3.8px, transparent 4.2px) 0 0 / 16px 10px
+    space no-repeat;
+  pointer-events: none;
+}
+
+/* The payment provider: a bank card, with its rounded corners. */
+.design-node[data-kind='paymentProvider'] {
+  border-radius: 13px 12px 14px 12px;
+}
+
+/* The clients: a rounded bubble, the outside world rather than a machine. */
+.design-node[data-kind='clients'] {
+  border-radius: 24px 30px 26px 28px / 28px 24px 30px 26px;
+}
+
+/* ------------------------------------------------------------------ more than one: a stack of cards */
+
+/*
+ * A node with more than one instance (app servers, replicas, shards, a replicated cache) has copies of its own frame
+ * stacked behind it, up and to the right: one for two, two for three or more. They inherit the frame's stroke, shape,
+ * paper and state colours, so they follow the silhouette and every state; the count itself stays in the summary.
+ * They sit behind the node and take no clicks. A band at handle height is left out, so outgoing edges stay visible
+ * where they leave the node.
+ */
+.design-node__stack-card {
+  --stack-dx: 9px;
+  --stack-dy: -9px;
+  position: absolute;
+  z-index: -1;
+  top: calc(-1 * var(--frame-y));
+  right: calc(-1 * var(--frame-x));
+  bottom: calc(-1 * var(--frame-y));
+  left: calc(-1 * var(--frame-x));
+  border-width: inherit;
+  border-style: inherit;
+  border-color: inherit;
+  border-radius: inherit;
+  background: inherit;
+  box-shadow: var(--shadow-node);
+  transform: translate(var(--stack-dx), var(--stack-dy));
+  pointer-events: none;
+  /* The card's mid-height sits --stack-dy above the handles. */
+  mask-image: linear-gradient(
+    to bottom,
+    var(--ink) calc(50% - var(--stack-dy) - 9px),
+    transparent calc(50% - var(--stack-dy) - 9px) calc(50% - var(--stack-dy) + 9px),
+    var(--ink) calc(50% - var(--stack-dy) + 9px)
+  );
+}
+
+.design-node__stack-card[data-depth='2'] {
+  --stack-dx: 18px;
+  --stack-dy: -18px;
 }
 
 /* ------------------------------------------------------------------ root cause, circled in red pen */
@@ -355,14 +552,6 @@
 
 .queue-bar__fill[data-level='overloaded'] {
   --cell-ink: var(--red-pen);
-}
-
-.design-node__kind {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  /* "Read replicas" is the longest kind; keep it on one line beside the cost. */
-  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------ utilization gauge: a pressure dial in ink */

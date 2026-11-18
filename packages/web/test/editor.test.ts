@@ -104,7 +104,7 @@ describe('revealing a new node', () => {
 
 describe('placement geometry', () => {
   it('centres a dropped node on the drop point, snapped to the grid', () => {
-    expect(centeredAt({ x: 403, y: 98 })).toEqual({ x: 300, y: 60 });
+    expect(centeredAt({ x: 403, y: 98 })).toEqual({ x: 300, y: 50 });
   });
 
   it('maps the viewport to the visible flow rectangle', () => {

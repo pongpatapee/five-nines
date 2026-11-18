@@ -14,6 +14,7 @@ import { FIELD_GUIDE_SCRIPT, FieldGuide } from './FieldGuide.tsx';
 import { GradeCard, HintLadderView } from './GradeCard.tsx';
 import { Cross, HandArrow, HandBox, NinesDots, RootCauseCircle, SpeakerMark, Tick } from './ink.tsx';
 import { StickyGradeLogo } from './Logo.tsx';
+import { COMPONENT_NAMES } from './names.ts';
 import { NapkinWorking } from './NapkinWorking.tsx';
 import { NumbersBox, numbersText } from './numbers.tsx';
 import { PostmortemCard } from './PostmortemCard.tsx';
@@ -42,6 +43,7 @@ export const notebookTheme: Theme = {
     homeLong: 'table of contents',
     tagline: "an engineer's field notebook",
   },
+  componentNames: COMPONENT_NAMES,
   ComponentArt: ComponentDoodle,
   BudgetMeter,
   PostmortemCard,

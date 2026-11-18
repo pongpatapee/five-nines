@@ -1,4 +1,4 @@
-import { LevelSchema, type Level } from '../schema.ts';
+import { ComponentKindSchema, LevelSchema, type ComponentKind, type Level } from '../schema.ts';
 import helloTraffic from './01-hello-traffic.json' with { type: 'json' };
 import scaleOut from './02-scale-out.json' with { type: 'json' };
 import pullThePlug from './03-pull-the-plug.json' with { type: 'json' };
@@ -27,3 +27,12 @@ export const LEVELS: readonly Level[] = [
 export function getLevel(id: string): Level | undefined {
   return LEVELS.find((level) => level.id === id);
 }
+
+/**
+ * The component kinds some level offers, in catalog order. The catalog can hold a kind before any level uses it
+ * (blob storage, for now): it is real, priced and drawn, but nothing in the campaign teaches it yet, so the field
+ * guide leaves it out instead of promising it.
+ */
+export const COMPONENTS_IN_CAMPAIGN: readonly ComponentKind[] = ComponentKindSchema.options.filter((kind) =>
+  LEVELS.some((level) => level.components.includes(kind)),
+);

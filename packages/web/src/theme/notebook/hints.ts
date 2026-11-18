@@ -10,7 +10,6 @@ import {
   APP_SERVER_SIZES,
   AVAILABILITY_TIERS,
   COMFORTABLE_UTILIZATION,
-  COMPONENT_LABELS,
   HOT_UTILIZATION,
   utilizationZone,
   type EstimateWorking,
@@ -20,6 +19,7 @@ import {
 } from '@five-nines/sim';
 import { capitalize, formatCount, formatEstimate, formatMs, formatPercent, formatSeconds, formatSimTime, formatUsd } from '../../format.ts';
 import type { EstimateResult, MentorEstimateScript, MentorLadderScript } from '../contract.ts';
+import { COMPONENT_NAMES } from './names.ts';
 import { bigCount } from './numbers.tsx';
 import type { FailoverSituation, FailureStory, HintTopic, LatencySituation, LevelTrap } from '../situations.ts';
 
@@ -111,7 +111,7 @@ function where(story: FailureStory): string {
       if (story.hotShard) {
         return `Look at ${story.nodeId}, shard ${story.hotShard.index + 1} of ${story.hotShard.count}: from ${formatSimTime(story.firstAtSec)} its requests started failing.`;
       }
-      return `Look at ${story.nodeId}, the ${COMPONENT_LABELS[story.kind].toLowerCase()}: from ${formatSimTime(story.firstAtSec)} its requests started failing.`;
+      return `Look at ${story.nodeId}, the ${COMPONENT_NAMES[story.kind].phrase}: from ${formatSimTime(story.firstAtSec)} its requests started failing.`;
     case 'rateLimit':
       return `Look at ${story.nodeId}: from ${formatSimTime(story.firstAtSec)} it refused payments.`;
     case 'queueFull':

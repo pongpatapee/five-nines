@@ -5,6 +5,7 @@
 import type { ComponentKind } from '@five-nines/sim';
 import type { NodeTypes } from '@xyflow/react';
 import { AppServerNode } from './AppServerNode.tsx';
+import { BlobStorageNode } from './BlobStorageNode.tsx';
 import { CacheNode } from './CacheNode.tsx';
 import { ClientsNode } from './ClientsNode.tsx';
 import { DatabaseNode } from './DatabaseNode.tsx';
@@ -23,6 +24,7 @@ const COMPONENT_NODES = {
   shards: ShardsNode,
   queue: QueueNode,
   paymentProvider: PaymentProviderNode,
+  blobStorage: BlobStorageNode,
 } satisfies Record<ComponentKind, unknown>;
 
 export const NODE_TYPES: NodeTypes = { clients: ClientsNode, ...COMPONENT_NODES };

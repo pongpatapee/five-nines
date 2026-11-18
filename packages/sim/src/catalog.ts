@@ -56,6 +56,7 @@ export const COMPONENT_LABELS = {
   shards: 'Shards',
   queue: 'Queue',
   paymentProvider: 'Payment provider',
+  blobStorage: 'Blob storage',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -163,5 +164,35 @@ export const QUEUE = {
 
 /** An external payment provider. It bills per charge, outside the infrastructure budget. */
 export const PAYMENT_PROVIDER = {
+  usdPerMonth: 0,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Blob storage
+// ---------------------------------------------------------------------------
+
+/**
+ * Blob storage (S3-like object storage): objects of any size kept by key, replicated across zones by the provider.
+ * Nothing to size or count: it scales by key prefix and bills by use. Figures follow S3 Standard's published numbers.
+ *
+ * In the catalog, but no level offers it yet. A level that does will need, in the engine: a request-latency model
+ * (first byte, plus transfer time for large objects), a per-prefix rate limit that refuses or slows requests over it
+ * (the way the payment provider's limit does), and a usage-based cost taken from the level's workload (objects
+ * stored, reads and writes a month) instead of a monthly machine price.
+ */
+export const BLOB_STORAGE = {
+  /** GETs a second one key prefix serves before the store starts slowing requests down. */
+  readsPerSecPerPrefix: 5_500,
+  /** PUTs a second one key prefix serves. */
+  writesPerSecPerPrefix: 3_500,
+  /** Time to the first byte of a small object, typical. */
+  firstByteMs: 30,
+  /** Stored data, per GB a month. */
+  usdPerGbMonth: 0.023,
+  /** Per million GETs. */
+  usdPerMillionReads: 0.4,
+  /** Per million PUTs. */
+  usdPerMillionWrites: 5,
+  /** Billed by use, so nothing per month before any is used. */
   usdPerMonth: 0,
 } as const;

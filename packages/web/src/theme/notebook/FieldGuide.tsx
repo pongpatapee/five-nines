@@ -7,11 +7,11 @@
 import {
   APP_SERVER_SIZES,
   AVAILABILITY_TIERS,
+  BLOB_STORAGE,
   CACHE,
   CACHE_SIZES,
   cacheCapacityKeys,
   COMFORTABLE_UTILIZATION,
-  COMPONENT_LABELS,
   DATABASE_SIZES,
   HEALTH_CHECK,
   HOT_UTILIZATION,
@@ -24,9 +24,11 @@ import {
 } from '@five-nines/sim';
 import { useEffect, useId, useRef } from 'react';
 import { formatCount, formatPercent } from '../../format.ts';
-import type { ConceptId, GuideEntryId } from '../../guide/guide.ts';
+import { isConceptId, type ConceptId, type GuideEntryId } from '../../guide/guide.ts';
 import type { FieldGuideProps, FieldGuideScript } from '../contract.ts';
 import { CastLine } from './Characters.tsx';
+import { ComponentDoodle } from './doodles.tsx';
+import { COMPONENT_NAMES } from './names.ts';
 
 const n = formatCount;
 const pct = (fraction: number) => formatPercent(fraction);
@@ -173,6 +175,20 @@ function componentCopy(kind: ComponentKind): ComponentCopy {
         example: ['A limit of 2,500 a second, sent 10,000 a second: 7,500 refused, every second.'],
         gotchas: ['Calling it while the customer waits adds its whole latency to every request.'],
       };
+    case 'blobStorage': {
+      const { readsPerSecPerPrefix, firstByteMs } = BLOB_STORAGE;
+      const reads = 20_000;
+      const prefixes = Math.ceil(reads / readsPerSecPerPrefix);
+      return {
+        does: 'Keeps files and other blobs (images, uploads, backups) by key, as many as you like.',
+        capacity: `Nothing to size or count. Each key prefix (the path before the file name) serves about ${n(readsPerSecPerPrefix)} reads a second, and more prefixes spread the load further. The first byte of an object takes about ${firstByteMs} ms. You pay for what you store and for every read and write.`,
+        example: [`${n(reads)} image reads a second: ${n(reads)} ÷ ${n(readsPerSecPerPrefix)} = ${fig(reads / readsPerSecPerPrefix)}, so keys spread over at least ${prefixes} prefixes.`],
+        gotchas: [
+          `Slower than a cache: about ${firstByteMs} ms to the first byte, against well under a millisecond from memory.`,
+          "Every key under one prefix shares that prefix's limit, so a hot folder slows down while the rest idles.",
+        ],
+      };
+    }
   }
 }
 
@@ -220,7 +236,7 @@ export const FIELD_GUIDE_SCRIPT: FieldGuideScript = {
   title: 'Field guide',
   more: 'More in the field guide',
   entryName: (id: GuideEntryId) =>
-    id in COMPONENT_LABELS ? COMPONENT_LABELS[id as ComponentKind] : conceptCopy(id as ConceptId).name,
+    isConceptId(id) ? conceptCopy(id).name : COMPONENT_NAMES[id].phrase,
 };
 
 const anchor = (id: GuideEntryId) => `field-guide-${id}`;
@@ -286,9 +302,14 @@ export function FieldGuide({ components, concepts, unmet, focus, onClose }: Fiel
           return (
             <article key={kind} id={anchor(kind)} tabIndex={-1} className="field-guide__entry" aria-labelledby={`${anchor(kind)}-name`}>
               <h4 id={`${anchor(kind)}-name`} className="field-guide__name">
-                {COMPONENT_LABELS[kind]}
+                <span className="field-guide__art" aria-hidden>
+                  <ComponentDoodle kind={kind} size={36} />
+                </span>
+                {COMPONENT_NAMES[kind].product}
+                <span className="field-guide__concept">{COMPONENT_NAMES[kind].concept}</span>
               </h4>
               <p className="field-guide__does">{copy.does}</p>
+              <p className="field-guide__real">{COMPONENT_NAMES[kind].about}</p>
               <p>{copy.capacity}</p>
               <div className="field-guide__example">
                 <b className="field-guide__label">Worked example</b>
