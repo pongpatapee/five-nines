@@ -70,10 +70,14 @@
 }
 
 .design-node {
+  /* The frame's stroke, top-and-bottom and sides: the stacked cards behind a node line up with it. */
+  --frame-y: 2.4px;
+  --frame-x: 2.4px;
   position: relative;
   width: var(--node-width);
   padding: var(--space-2) var(--space-3) var(--space-3);
   border: 2.4px solid var(--ink);
+  border-width: var(--frame-y) var(--frame-x);
   border-radius: var(--radius-hand-alt);
   background: var(--paper-card);
   color: var(--ink);
@@ -210,7 +214,7 @@
 /* An app server: a rack unit, square-cornered, with a thick rack ear down either side. Ears stay solid when a mark
    dashes the frame: thick dashes read as a broken drawing, not a warning. */
 .design-node[data-kind='appServer'] {
-  border-width: 2.4px 7px;
+  --frame-x: 7px;
   border-right-style: solid;
   border-left-style: solid;
   border-radius: 5px 4px 6px 4px;
@@ -223,7 +227,31 @@
   border-radius: 50% 50% 50% 50% / 11px 12px 13px 12px;
 }
 
-.design-node:is([data-kind='database'], [data-kind='readReplicas'], [data-kind='shards'])::before {
+/*
+ * Blob storage: a bucket on a pencil handle. Its rim is a lip wider than the body, and the body rounds in hard toward
+ * the base, so it reads as a pail rather than the database's straight-sided drum.
+ */
+.design-node[data-kind='blobStorage'] {
+  padding-top: 24px;
+  padding-bottom: var(--space-4);
+  border-radius: 12px 12px 64px 64px / 12px 12px 44px 44px;
+}
+
+.design-node[data-kind='blobStorage']::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -22px;
+  right: 26px;
+  left: 26px;
+  height: 44px;
+  border: 2px solid var(--pencil-line);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.design-node:is([data-kind='database'], [data-kind='readReplicas'], [data-kind='shards'], [data-kind='blobStorage'])::before,
+.design-node:is([data-kind='database'], [data-kind='readReplicas'], [data-kind='shards']) .design-node__stack-card::before {
   content: '';
   position: absolute;
   top: -2.4px;
@@ -237,22 +265,11 @@
   pointer-events: none;
 }
 
-/* Read replicas and shards: more drums peeking out behind, in pencil. */
-.design-node:is([data-kind='readReplicas'], [data-kind='shards'])::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: -2.4px;
-  border: 2px solid var(--pencil-line);
-  border-radius: inherit;
-  background: var(--paper-card);
-  transform: translate(9px, -9px);
-  pointer-events: none;
-}
-
-/* Shards sit side by side rather than behind: the second drum peeks out to the left. */
-.design-node[data-kind='shards']::after {
-  transform: translate(-9px, -9px);
+/* The bucket's lip overhangs its body, in the node's own paper. */
+.design-node[data-kind='blobStorage']::before {
+  right: -10px;
+  left: -10px;
+  background: inherit;
 }
 
 /* A cache: a memory chip, with a row of pins along the top and bottom. */
@@ -312,6 +329,46 @@
 /* The clients: a rounded bubble, the outside world rather than a machine. */
 .design-node[data-kind='clients'] {
   border-radius: 24px 30px 26px 28px / 28px 24px 30px 26px;
+}
+
+/* ------------------------------------------------------------------ more than one: a stack of cards */
+
+/*
+ * A node with more than one instance (app servers, replicas, shards, a replicated cache) has copies of its own frame
+ * stacked behind it, up and to the right: one for two, two for three or more. They inherit the frame's stroke, shape,
+ * paper and state colours, so they follow the silhouette and every state; the count itself stays in the summary.
+ * They sit behind the node and take no clicks. A band at handle height is left out, so outgoing edges stay visible
+ * where they leave the node.
+ */
+.design-node__stack-card {
+  --stack-dx: 9px;
+  --stack-dy: -9px;
+  position: absolute;
+  z-index: -1;
+  top: calc(-1 * var(--frame-y));
+  right: calc(-1 * var(--frame-x));
+  bottom: calc(-1 * var(--frame-y));
+  left: calc(-1 * var(--frame-x));
+  border-width: inherit;
+  border-style: inherit;
+  border-color: inherit;
+  border-radius: inherit;
+  background: inherit;
+  box-shadow: var(--shadow-node);
+  transform: translate(var(--stack-dx), var(--stack-dy));
+  pointer-events: none;
+  /* The card's mid-height sits --stack-dy above the handles. */
+  mask-image: linear-gradient(
+    to bottom,
+    var(--ink) calc(50% - var(--stack-dy) - 9px),
+    transparent calc(50% - var(--stack-dy) - 9px) calc(50% - var(--stack-dy) + 9px),
+    var(--ink) calc(50% - var(--stack-dy) + 9px)
+  );
+}
+
+.design-node__stack-card[data-depth='2'] {
+  --stack-dx: 18px;
+  --stack-dy: -18px;
 }
 
 /* ------------------------------------------------------------------ root cause, circled in red pen */

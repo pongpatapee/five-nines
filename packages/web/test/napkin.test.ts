@@ -200,4 +200,5 @@ const SPEC_NOUNS: Record<keyof typeof COMPONENT_LABELS, string[]> = {
   shards: ['shard'],
   queue: ['queue'],
   paymentProvider: ['provider'],
+  blobStorage: ['storage', 'bucket'],
 };

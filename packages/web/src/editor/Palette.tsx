@@ -38,7 +38,7 @@ export function Palette({ components, onAdd }: PaletteProps) {
               <span className="palette-item__text">
                 <span className="palette-item__name">
                   {componentNames[kind].product}
-                  <span className="palette-item__price num">{COMPONENTS[kind].priceLabel}/mo</span>
+                  <span className="palette-item__price num">{COMPONENTS[kind].priceLabel}</span>
                 </span>
                 <span className="palette-item__concept">{componentNames[kind].concept}</span>
                 <span className="palette-item__hint">{COMPONENTS[kind].hint}</span>

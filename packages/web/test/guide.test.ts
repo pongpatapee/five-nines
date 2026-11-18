@@ -1,5 +1,13 @@
 /** The field guide: never spoils ahead, every figure from the catalog, and words for every entry. */
-import { APP_SERVER_SIZES, CACHE_SIZES, ComponentKindSchema, DATABASE_SIZES, LEVELS, type Grade } from '@five-nines/sim';
+import {
+  APP_SERVER_SIZES,
+  CACHE_SIZES,
+  ComponentKindSchema,
+  COMPONENTS_IN_CAMPAIGN,
+  DATABASE_SIZES,
+  LEVELS,
+  type Grade,
+} from '@five-nines/sim';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -23,7 +31,7 @@ describe('which entries the guide shows', () => {
     const fresh = met({});
     expect(fresh.components).toEqual(['appServer']);
     expect(fresh.concepts).toEqual(['nines', 'p99', 'utilization']);
-    expect(fresh.unmet).toBe(ComponentKindSchema.options.length + CONCEPT_IDS.length - 4);
+    expect(fresh.unmet).toBe(COMPONENTS_IN_CAMPAIGN.length + CONCEPT_IDS.length - 4);
   });
 
   it('adds what each newly opened page uses', () => {
@@ -35,9 +43,14 @@ describe('which entries the guide shows', () => {
 
   it('shows everything when every page is open', () => {
     const all = met({}, true);
-    expect(all.components).toEqual(ComponentKindSchema.options);
+    expect(all.components).toEqual(COMPONENTS_IN_CAMPAIGN);
     expect(all.concepts).toEqual(CONCEPT_IDS);
     expect(all.unmet).toBe(0);
+  });
+
+  it('leaves out a catalog kind no page offers yet, rather than promising it', () => {
+    expect(met({}, true).components).not.toContain('blobStorage');
+    expect(met({}).unmet).toBe(met({}, true).components.length + CONCEPT_IDS.length - 4);
   });
 
   it('introduces each concept on a real page', () => {
@@ -83,9 +96,10 @@ describe('spec tables', () => {
 describe('the guide, drawn', () => {
   const render = (focus: null | 'cache') => {
     const all = met({}, true);
+    // Every catalog kind, including any no page offers yet: each must have its words ready for its first level.
     return renderToStaticMarkup(
       createElement(FieldGuide, {
-        components: all.components.map((kind) => ({ kind, table: specTable(kind) })),
+        components: ComponentKindSchema.options.map((kind) => ({ kind, table: specTable(kind) })),
         concepts: all.concepts,
         unmet: 0,
         focus,
