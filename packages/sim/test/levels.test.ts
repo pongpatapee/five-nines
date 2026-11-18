@@ -6,10 +6,26 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateDesign } from '../src/evaluate.ts';
 import { CHAPTERS, isWritten } from '../src/levels/chapters.ts';
-import { LEVELS } from '../src/levels/index.ts';
+import { COMPONENTS_IN_CAMPAIGN, LEVELS } from '../src/levels/index.ts';
+import { ComponentKindSchema } from '../src/schema.ts';
 import { validateDesign } from '../src/validate.ts';
 
 describe('level catalogue', () => {
+  it('offers every catalog kind in some level, except blob storage, which waits for its first level', () => {
+    const unused = ComponentKindSchema.options.filter((kind) => !COMPONENTS_IN_CAMPAIGN.includes(kind));
+    expect(unused).toEqual(['blobStorage']);
+  });
+
+  it('turns blob storage away in every level', () => {
+    for (const level of LEVELS) {
+      const issues = validateDesign(
+        { nodes: [{ id: 'bucket', kind: 'blobStorage' }], edges: [{ from: 'clients', to: 'bucket' }] },
+        level,
+      );
+      expect(issues.map((issue) => issue.code), level.id).toContain('component_not_allowed');
+    }
+  });
+
   it('has unique ids in play order', () => {
     const ids = LEVELS.map((level) => level.id);
     expect(new Set(ids).size).toBe(ids.length);

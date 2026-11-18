@@ -7,6 +7,7 @@
 import {
   APP_SERVER_SIZES,
   AVAILABILITY_TIERS,
+  BLOB_STORAGE,
   CACHE,
   CACHE_SIZES,
   cacheCapacityKeys,
@@ -174,6 +175,20 @@ function componentCopy(kind: ComponentKind): ComponentCopy {
         example: ['A limit of 2,500 a second, sent 10,000 a second: 7,500 refused, every second.'],
         gotchas: ['Calling it while the customer waits adds its whole latency to every request.'],
       };
+    case 'blobStorage': {
+      const { readsPerSecPerPrefix, firstByteMs } = BLOB_STORAGE;
+      const reads = 20_000;
+      const prefixes = Math.ceil(reads / readsPerSecPerPrefix);
+      return {
+        does: 'Keeps files and other blobs (images, uploads, backups) by key, as many as you like.',
+        capacity: `Nothing to size or count. Each key prefix (the path before the file name) serves about ${n(readsPerSecPerPrefix)} reads a second, and more prefixes spread the load further. The first byte of an object takes about ${firstByteMs} ms. You pay for what you store and for every read and write.`,
+        example: [`${n(reads)} image reads a second: ${n(reads)} ÷ ${n(readsPerSecPerPrefix)} = ${fig(reads / readsPerSecPerPrefix)}, so keys spread over at least ${prefixes} prefixes.`],
+        gotchas: [
+          `Slower than a cache: about ${firstByteMs} ms to the first byte, against well under a millisecond from memory.`,
+          "Every key under one prefix shares that prefix's limit, so a hot folder slows down while the rest idles.",
+        ],
+      };
+    }
   }
 }
 

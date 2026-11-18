@@ -166,6 +166,20 @@ const DOODLES: Record<DoodleKind, ReactNode> = {
       <path d="M13.6,17.6 L22.6,17.6" style={STROKE} />
     </>
   ),
+
+  // A bucket on a handle, with a file sticking out of the top: blobs kept by key.
+  blobStorage: (
+    <>
+      <path d="M4.6,9.6 C4.4,1.2 23.6,1.2 23.4,9.6" style={STROKE_BACK} />
+      <path d="M11,9 L11.2,3.4 L15.6,3.3 L17.4,5.1 L17.2,9" style={washed('--paper-card', 1.3)} />
+      <path
+        d="M4,9 C4,11.6 24,11.6 24,9 L20.8,23.4 C20.4,25.6 7.6,25.6 7.2,23.4 Z"
+        style={washed('--wash-peach')}
+      />
+      <path d="M4,9 C4,6.6 24,6.6 24,9 C24,11.5 4,11.5 4,9 Z" style={{ ...wash('--paper-card'), ...STROKE }} />
+      <path d="M5.7,16.2 C10,18.6 18,18.6 22.3,16.2" style={STROKE_BACK} />
+    </>
+  ),
 };
 
 export function ComponentDoodle({ kind, size = 24 }: { kind: DoodleKind; size?: number }) {

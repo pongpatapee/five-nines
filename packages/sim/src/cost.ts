@@ -1,5 +1,6 @@
 import {
   APP_SERVER_SIZES,
+  BLOB_STORAGE,
   CACHE,
   CACHE_SIZES,
   DATABASE_SIZES,
@@ -28,6 +29,9 @@ export function nodeCostUsdPerMonth(node: NodeSpec): number {
       return QUEUE_SIZES[node.size].usdPerMonth + QUEUE.workerUsdPerMonth * node.workers;
     case 'paymentProvider':
       return PAYMENT_PROVIDER.usdPerMonth;
+    case 'blobStorage':
+      // Billed by use: a level that offers it will price it from its workload (`BLOB_STORAGE`).
+      return BLOB_STORAGE.usdPerMonth;
   }
 }
 

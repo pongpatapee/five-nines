@@ -401,6 +401,18 @@ function PaymentProviderFields({ level }: FieldsProps<'paymentProvider'>) {
   );
 }
 
+function BlobStorageFields(_props: FieldsProps<'blobStorage'>) {
+  return (
+    <div className="field">
+      <div className="field__label">Blob storage</div>
+      <p className="field__help">
+        Nothing to size: it holds as much as you put in and spreads requests over key prefixes. You pay for what you
+        store and for each read and write.
+      </p>
+    </div>
+  );
+}
+
 const FIELDS: { [K in ComponentKind]: ComponentType<FieldsProps<K>> } = {
   appServer: AppServerFields,
   loadBalancer: LoadBalancerFields,
@@ -410,4 +422,5 @@ const FIELDS: { [K in ComponentKind]: ComponentType<FieldsProps<K>> } = {
   shards: ShardsFields,
   queue: QueueFields,
   paymentProvider: PaymentProviderFields,
+  blobStorage: BlobStorageFields,
 };

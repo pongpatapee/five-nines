@@ -60,4 +60,10 @@ export const COMPONENT_NAMES: Readonly<Record<NamedKind, ComponentName>> = {
     phrase: 'Stripe payment provider',
     about: "Not AWS: a payment provider like Stripe, someone else's API that charges the cards and rate-limits your calls.",
   },
+  blobStorage: {
+    product: 'S3',
+    concept: 'blob storage',
+    phrase: 'S3 bucket',
+    about: 'On AWS, this is S3 (Simple Storage Service): object storage in buckets, keyed by path, billed by the GB and the request.',
+  },
 };
