@@ -25,32 +25,34 @@ export function chapterLabelWidth(title: string): number {
   return 84 + title.length * 13;
 }
 
-/** Where each real level sits, in play order. */
+/** Where each real level sits, in play order. A chapter's capstone (its last stop) is drawn larger. */
 export const LEVEL_SLOTS: readonly XYPoint[] = [
-  { x: 90, y: 150 },
-  { x: 250, y: 110 },
-  { x: 420, y: 180 },
-  { x: 610, y: 130 },
-  { x: 790, y: 180 },
-  { x: 760, y: 400 },
-  { x: 600, y: 350 },
-  { x: 440, y: 420 },
-  { x: 280, y: 370 },
-  { x: 110, y: 440 },
+  { x: 80, y: 160 },
+  { x: 220, y: 110 },
+  { x: 360, y: 175 },
+  { x: 510, y: 130 },
+  { x: 665, y: 180 },
+  { x: 805, y: 225 },
+  { x: 770, y: 410 },
+  { x: 610, y: 360 },
+  { x: 450, y: 420 },
+  { x: 290, y: 370 },
+  { x: 120, y: 430 },
 ];
 
 /** `TRAIL_SEGMENTS[i]` runs from level slot i to slot i + 1; the last one continues into the planned chapters. */
 export const TRAIL_SEGMENTS: readonly string[] = [
-  'M90,150 C150,110 190,100 250,110',
-  'M250,110 C320,120 350,170 420,180',
-  'M420,180 C500,190 540,130 610,130',
-  'M610,130 C690,130 740,150 790,180',
-  'M790,180 C850,230 840,360 760,400',
-  'M760,400 C700,430 650,350 600,350',
-  'M600,350 C540,350 500,420 440,420',
-  'M440,420 C370,420 340,370 280,370',
-  'M280,370 C200,370 130,390 110,440',
-  'M110,440 C100,530 180,595 260,595 C330,595 350,650 420,650 C470,650 490,610 530,610 C580,610 600,640 640,640',
+  'M80,160 C130,120 170,100 220,110',
+  'M220,110 C290,120 300,170 360,175',
+  'M360,175 C430,180 450,130 510,130',
+  'M510,130 C580,130 610,175 665,180',
+  'M665,180 C725,185 775,195 805,225',
+  'M805,225 C855,280 845,370 770,410',
+  'M770,410 C710,440 660,360 610,360',
+  'M610,360 C550,360 510,420 450,420',
+  'M450,420 C380,420 350,370 290,370',
+  'M290,370 C210,370 140,380 120,430',
+  'M120,430 C100,530 180,595 260,595 C330,595 350,650 420,650 C470,650 490,610 530,610 C580,610 600,640 640,640',
 ];
 
 /** Placeholder pages for the planned chapters, in order: where the "coming soon" note and the locked pages go. */

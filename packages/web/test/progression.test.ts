@@ -95,11 +95,11 @@ describe('unlocks', () => {
   });
 
   it("opens a chapter's first level only with the previous level passed and enough nines", () => {
-    const passes = { a: 'pass', b: 'pass', c: 'pass' } as const;
-    // 9 nines: one short of chapter 2's 10.
-    expect(levelAccess(CAMPAIGN, { best: passes }, 'd')).toEqual({ kind: 'chapter', chapterId: 'growing-pains', needed: 10, have: 9 });
-    expect(chapterAccess(CAMPAIGN, { best: passes }, 'growing-pains')).toEqual({ kind: 'locked', needed: 10, have: 9 });
-    expect(levelAccess(CAMPAIGN, { best: { ...passes, a: 'star' } }, 'd').kind).toBe('open');
+    const stars = { a: 'star', b: 'star', c: 'star' } as const;
+    // 12 nines: one short of chapter 2's 13.
+    expect(levelAccess(CAMPAIGN, { best: stars }, 'd')).toEqual({ kind: 'chapter', chapterId: 'growing-pains', needed: 13, have: 12 });
+    expect(chapterAccess(CAMPAIGN, { best: stars }, 'growing-pains')).toEqual({ kind: 'locked', needed: 13, have: 12 });
+    expect(levelAccess(CAMPAIGN, { best: { ...stars, a: 'mastered' } }, 'd').kind).toBe('open');
     // Enough nines, but the level before it isn't passed.
     expect(levelAccess(CAMPAIGN, { best: { a: 'mastered', b: 'mastered', c: 'fail' } }, 'd')).toEqual({
       kind: 'previousLevel',
@@ -239,12 +239,12 @@ describe('run rewards', () => {
   });
 
   it('reports the nines, badges and chapters a run paid out', () => {
-    const before = { best: { a: 'star', b: 'pass' } as Record<string, Grade>, badges: {} };
-    const after = { best: { a: 'star', b: 'pass', c: 'mastered' } as Record<string, Grade>, badges: { rightSized: { levelId: 'c' } } };
+    const before = { best: { a: 'mastered', b: 'star' } as Record<string, Grade>, badges: {} };
+    const after = { best: { a: 'mastered', b: 'star', c: 'mastered' } as Record<string, Grade>, badges: { rightSized: { levelId: 'c' } } };
     expect(runReward(CAMPAIGN, 'c', before, after)).toEqual({
       levelId: 'c',
       levelNines: { before: 0, after: 5 },
-      totalNines: { before: 7, after: 12, total: 25 },
+      totalNines: { before: 9, after: 14, total: 25 },
       newBadges: ['rightSized'],
       openedChapterIds: ['growing-pains'],
       capped: false,

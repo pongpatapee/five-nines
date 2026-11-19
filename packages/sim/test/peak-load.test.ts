@@ -24,7 +24,7 @@ describe('utilization zones', () => {
 
 describe('peak load', () => {
   it('uses the highest traffic point as the peak', () => {
-    expect(LEVELS.map(peakRps)).toEqual([350, 5000, 5000, 26000, 20000, 20000, 15000, 30000, 24000, 10000]);
+    expect(LEVELS.map(peakRps)).toEqual([350, 5000, 5000, 3000, 26000, 20000, 20000, 15000, 30000, 24000, 10000]);
   });
 
   it('counts the requests in a run like the simulation does', () => {

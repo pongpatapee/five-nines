@@ -28,7 +28,7 @@ export {
 } from './data-model.ts';
 export { evaluateDesign, availabilityGrade, type Checks, type Evaluation } from './evaluate.ts';
 export { COMPONENTS_IN_CAMPAIGN, LEVELS, getLevel } from './levels/index.ts';
-export { CHAPTERS, isWritten, type Chapter } from './levels/chapters.ts';
+export { CHAPTERS, isCapstone, isWritten, type Chapter } from './levels/chapters.ts';
 export {
   COMFORTABLE_UTILIZATION,
   HOT_UTILIZATION,

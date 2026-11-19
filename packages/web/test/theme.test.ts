@@ -2,7 +2,7 @@
  * The theme contract, checked against whichever theme `theme/index.ts` selects: every role, situation and component
  * kind the game can ask for has an answer, and the game reaches the theme only through `theme/index.ts`.
  */
-import { CHAPTERS, ComponentKindSchema, evaluateDesign, LEVELS, type SimEvent } from '@five-nines/sim';
+import { CHAPTERS, ComponentKindSchema, evaluateDesign, getLevel, LEVELS, type SimEvent } from '@five-nines/sim';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { createElement } from 'react';
@@ -89,6 +89,7 @@ describe('situations', () => {
       'surge',
       'surge',
       'crash',
+      'crash',
       'spike',
       'staleness',
       'readAfterWrite',
@@ -106,7 +107,7 @@ describe('situations', () => {
       if (evaluation.status !== 'graded') continue;
       expect(verdictFor(evaluation).kind).toBe(evaluation.failedChecks[0]);
     }
-    const level6 = LEVELS[5]!;
+    const level6 = getLevel('06-bank-balance')!;
     const stale = evaluateDesign(level6, level6.antiSolutions.find((anti) => anti.name === 'Pinned for 1 second')!.design);
     if (stale.status !== 'graded') throw new Error('anti-solution should grade');
     expect(verdictFor(stale)).toMatchObject({ kind: 'availability', staleReads: true, lostOrders: false });

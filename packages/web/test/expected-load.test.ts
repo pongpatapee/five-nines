@@ -1,11 +1,11 @@
-import { LEVELS, peakLoad } from '@five-nines/sim';
+import { getLevel, LEVELS, peakLoad } from '@five-nines/sim';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ExpectedLoad, working } from '../src/editor/ExpectedLoad.tsx';
 
 type L = (typeof LEVELS)[number];
-const [level1, , level3, level4, level5] = LEVELS as unknown as [L, L, L, L, L];
+const [level1, level3, level4, level5] = ['01-hello-traffic', '03-pull-the-plug', '04-read-all-about-it', '05-cache-miss'].map((id) => getLevel(id)!) as [L, L, L, L];
 
 describe('expected load in the inspector', () => {
   it('shows the sum behind each gauge', () => {

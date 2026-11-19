@@ -587,6 +587,7 @@ export const LEVEL_TRAPS: Readonly<Record<string, { topic: HintTopic; guide: Gui
   '01-hello-traffic': { topic: 'overload', guide: 'appServer' },
   '02-scale-out': { topic: 'overload', guide: 'loadBalancer' },
   '03-pull-the-plug': { topic: 'crash', guide: 'loadBalancer' },
+  '11-everything-links': { topic: 'overload', guide: 'database' },
   '04-read-all-about-it': { topic: 'overload', guide: 'cache' },
   '05-cache-miss': { topic: 'overload', guide: 'readReplicas' },
   '06-bank-balance': { topic: 'stale', guide: 'readReplicas' },

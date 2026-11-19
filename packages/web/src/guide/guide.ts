@@ -153,6 +153,7 @@ export const ESTIMATE_GUIDE_ENTRY: Readonly<Record<EstimateQuantity, GuideEntryI
   cacheHitRateNeeded: 'cache',
   secondsBetweenKeyReads: 'cache',
   pinnedPrimaryLoad: 'database',
+  databaseBusyAtPeak: 'database',
   shardsAtFullLoad: 'shards',
   coldCacheOverload: 'cache',
   queueDrainRateNeeded: 'queue',

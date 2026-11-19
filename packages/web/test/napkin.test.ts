@@ -2,7 +2,7 @@
  * The napkin-math worked solution as the notebook words it: every level's steps end on the recorded answer, use no
  * shorthand that was never explained, and render with the answer boxed exactly once.
  */
-import { COMPONENT_LABELS, levelNumbers, LEVELS, solveEstimate, type Level, type NapkinGiven } from '@five-nines/sim';
+import { COMPONENT_LABELS, getLevel, levelNumbers, LEVELS, solveEstimate, type Level, type NapkinGiven } from '@five-nines/sim';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -69,7 +69,7 @@ describe('the worked napkin solution', () => {
   });
 
   it('shows the working when the step reopens on it', () => {
-    const level = LEVELS[3]!;
+    const level = getLevel('04-read-all-about-it')!;
     const props = {
       level,
       estimate: level.estimate!,

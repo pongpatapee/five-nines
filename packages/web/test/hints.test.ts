@@ -1,7 +1,7 @@
 /**
  * The math the game explains: why p99 rose, what a crash cost, and the mentor's hint ladder for every level.
  */
-import { evaluateDesign, LEVELS, type Design, type Level } from '@five-nines/sim';
+import { type Design, evaluateDesign, getLevel, type Level, LEVELS } from '@five-nines/sim';
 import { describe, expect, it } from 'vitest';
 import type { GradedEvaluation } from '../src/engine/index.ts';
 import { litTiers } from '../src/results/grading.ts';
@@ -20,7 +20,7 @@ import {
 } from '../src/theme/situations.ts';
 
 type L = (typeof LEVELS)[number];
-const [level1, , level3, , level5, level6] = LEVELS as unknown as [L, L, L, L, L, L];
+const [level1, level3, level5, level6] = ['01-hello-traffic', '03-pull-the-plug', '05-cache-miss', '06-bank-balance'].map((id) => getLevel(id)!) as [L, L, L, L];
 
 function graded(level: Level, design: Design): GradedEvaluation {
   const evaluation = evaluateDesign(level, design);
@@ -231,7 +231,7 @@ describe('the hints before any failed run', () => {
   });
 
   it('works out each trap from the level', () => {
-    expect(levelTrap(LEVELS[2]!)).toMatchObject({ topic: 'crash', stress: { kind: 'crash' } });
-    expect(levelTrap(LEVELS[5]!)?.numbers.data?.readAfterWrite).not.toBeNull();
+    expect(levelTrap(level3)).toMatchObject({ topic: 'crash', stress: { kind: 'crash' } });
+    expect(levelTrap(level6)?.numbers.data?.readAfterWrite).not.toBeNull();
   });
 });

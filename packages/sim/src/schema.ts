@@ -333,6 +333,11 @@ export const EstimateSchema = z.discriminatedUnion('quantity', [
    * it sees the reader's own write) plus every write.
    */
   z.strictObject({ quantity: z.literal('pinnedPrimaryLoad'), databaseSize: SizeSchema, answer: z.number().positive() }),
+  /**
+   * How busy a database of one size is, in percent, at the peak, serving every read and every write on its own: (reads
+   * + writes × what one write costs in reads) ÷ its read capacity.
+   */
+  z.strictObject({ quantity: z.literal('databaseBusyAtPeak'), databaseSize: SizeSchema, answer: z.number().positive() }),
   /** Shards of one size that the peak writes fill completely: writes ÷ one shard's write capacity, before headroom. */
   z.strictObject({ quantity: z.literal('shardsAtFullLoad'), size: SizeSchema, answer: z.number().positive() }),
   /**

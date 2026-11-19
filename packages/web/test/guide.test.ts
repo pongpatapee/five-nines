@@ -37,8 +37,10 @@ describe('which entries the guide shows', () => {
   it('adds what each newly opened page uses', () => {
     expect(met(passedThrough(1)).components).toEqual(['appServer', 'loadBalancer']);
     expect(met(passedThrough(2)).concepts).toContain('errorBudget');
-    expect(met(passedThrough(3)).components).toEqual(expect.arrayContaining(['cache', 'database']));
-    expect(met(passedThrough(3)).components).not.toContain('readReplicas');
+    // The chapter 1 capstone brings the database, before any cache.
+    expect(met(passedThrough(3)).components).toEqual(['appServer', 'loadBalancer', 'database']);
+    expect(met(passedThrough(4)).components).toEqual(expect.arrayContaining(['cache', 'database']));
+    expect(met(passedThrough(4)).components).not.toContain('readReplicas');
   });
 
   it('shows everything when every page is open', () => {

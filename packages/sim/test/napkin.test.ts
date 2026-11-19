@@ -83,6 +83,16 @@ describe('the worked napkin solution', () => {
     expect(takeaway).toEqual({ kind: 'primaryHeadroom', size: 'large', utilization: 0.63, smaller: { size: 'medium', utilization: 1.26 } });
   });
 
+  it('works how busy one database is with every read and write on it (Everything Links)', () => {
+    const { steps, takeaway } = napkinSolution(level('11-everything-links'))!;
+    expect(steps.map((step) => step.kind)).toEqual(['peak', 'splitTraffic', 'writeCost', 'totalWork', 'databaseBusy']);
+    expect(steps[1]).toMatchObject({ result: 2_850, writes: 150 });
+    expect(steps[2]).toMatchObject({ databaseReadsPerSec: 5_000, databaseWritesPerSec: 2_000, result: 2.5 });
+    expect(steps[3]).toMatchObject({ writeWork: 375, result: 3_225, context: 'database' });
+    expect(steps[4]!.result).toBeCloseTo(64.5, 5);
+    expect(takeaway).toEqual({ kind: 'databaseHeadroom', size: 'medium', utilization: 0.645, smaller: { size: 'small', utilization: 1.29 } });
+  });
+
   it("says a TTL short enough for fresh prices can't reach the hit rate (level 9)", () => {
     const { takeaway } = napkinSolution(level('09-stale-prices'))!;
     if (takeaway.kind !== 'ttlCeiling') throw new Error('unexpected takeaway');

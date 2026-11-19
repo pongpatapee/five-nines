@@ -2,6 +2,7 @@ import { ComponentKindSchema, LevelSchema, type ComponentKind, type Level } from
 import helloTraffic from './01-hello-traffic.json' with { type: 'json' };
 import scaleOut from './02-scale-out.json' with { type: 'json' };
 import pullThePlug from './03-pull-the-plug.json' with { type: 'json' };
+import everythingLinks from './11-everything-links.json' with { type: 'json' };
 import readAllAboutIt from './04-read-all-about-it.json' with { type: 'json' };
 import cacheMiss from './05-cache-miss.json' with { type: 'json' };
 import bankBalance from './06-bank-balance.json' with { type: 'json' };
@@ -10,11 +11,18 @@ import thunderingHerd from './08-thundering-herd.json' with { type: 'json' };
 import stalePrices from './09-stale-prices.json' with { type: 'json' };
 import flashSale from './10-flash-sale.json' with { type: 'json' };
 
-/** Every level in play order. Parsed at import, so a malformed level fails fast. */
+/**
+ * Every level in play order. Parsed at import, so a malformed level fails fast.
+ *
+ * A level's id is permanent: saves key grades, drafts and estimates by it. Ids are numbered in the order the levels
+ * were written, not the order they're played; the game numbers pages by play order. So Everything Links, written
+ * eleventh, keeps `11-everything-links` while it plays fourth.
+ */
 export const LEVELS: readonly Level[] = [
   helloTraffic,
   scaleOut,
   pullThePlug,
+  everythingLinks,
   readAllAboutIt,
   cacheMiss,
   bankBalance,

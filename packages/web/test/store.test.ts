@@ -46,7 +46,7 @@ describe('progress store', () => {
     const { recordRun } = store.getState();
     expect(recordRun('01-hello-traffic', 'pass', [])).toMatchObject({
       levelNines: { before: 0, after: 3 },
-      totalNines: { before: 0, after: 3, total: 50 },
+      totalNines: { before: 0, after: 3, total: 55 },
       newBadges: [],
     });
     recordRun('02-scale-out', 'pass', ['rightSized']);
@@ -57,13 +57,15 @@ describe('progress store', () => {
       totalNines: { before: 6, after: 6 },
       newBadges: [],
     });
-    // 6 + 5 = 11 nines: chapter 2 (10) opens.
     expect(recordRun('03-pull-the-plug', 'mastered', ['nPlusOne'])).toMatchObject({
       newBadges: ['nPlusOne'],
-      openedChapterIds: ['growing-pains'],
+      openedChapterIds: [],
     });
+    // 6 + 5 + 3 = 14 nines: chapter 2 (13) opens.
+    expect(recordRun('11-everything-links', 'pass', [])).toMatchObject({ openedChapterIds: ['growing-pains'] });
     // Mastering every page of chapter 1 earns the Five Nines Club.
     recordRun('01-hello-traffic', 'mastered', []);
+    recordRun('11-everything-links', 'mastered', []);
     expect(recordRun('02-scale-out', 'mastered', [])).toMatchObject({
       levelNines: { before: 3, after: 5 },
       newBadges: ['fiveNinesClub'],
@@ -116,7 +118,13 @@ describe('progress store', () => {
     const v1 = {
       version: 1,
       drafts: { [LEVEL]: edited },
-      bestGrades: { '01-hello-traffic': 'mastered', '02-scale-out': 'mastered', '03-pull-the-plug': 'mastered', '07-the-write-wall': 'fail' },
+      bestGrades: {
+        '01-hello-traffic': 'mastered',
+        '02-scale-out': 'mastered',
+        '03-pull-the-plug': 'mastered',
+        '11-everything-links': 'mastered',
+        '07-the-write-wall': 'fail',
+      },
       estimates: { a: { guess: 1, close: true }, b: { guess: 2, close: true }, c: { guess: 3, close: true } },
     };
     storage.data.set(STORAGE_KEY, JSON.stringify(v1));

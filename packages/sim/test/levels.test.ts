@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { evaluateDesign } from '../src/evaluate.ts';
-import { CHAPTERS, isWritten } from '../src/levels/chapters.ts';
+import { CHAPTERS, isCapstone, isWritten } from '../src/levels/chapters.ts';
 import { COMPONENTS_IN_CAMPAIGN, LEVELS } from '../src/levels/index.ts';
 import { ComponentKindSchema } from '../src/schema.ts';
 import { validateDesign } from '../src/validate.ts';
@@ -26,10 +26,20 @@ describe('level catalogue', () => {
     }
   });
 
-  it('has unique ids in play order', () => {
+  it('has unique ids', () => {
+    // Ids are permanent save keys, numbered in the order levels were written; play order is the chapters' order.
     const ids = LEVELS.map((level) => level.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect([...ids].sort()).toEqual(ids);
+  });
+
+  it('ends a chapter on its capstone, when it has one', () => {
+    const withCapstone = CHAPTERS.filter((chapter) => chapter.capstoneId !== undefined);
+    expect(withCapstone.map((chapter) => chapter.id)).toEqual(['getting-online']);
+    for (const chapter of withCapstone) {
+      expect(chapter.levelIds.at(-1)).toBe(chapter.capstoneId);
+      expect(isCapstone(CHAPTERS, chapter.capstoneId!)).toBe(true);
+    }
+    expect(isCapstone(CHAPTERS, '03-pull-the-plug')).toBe(false);
   });
 
   it('groups every level into exactly one chapter, in play order, before the planned chapters', () => {

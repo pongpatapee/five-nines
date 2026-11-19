@@ -76,6 +76,19 @@ export type EstimateWorking =
       result: number;
     }
   | {
+      quantity: 'databaseBusyAtPeak';
+      databaseSize: DatabaseSize;
+      peakRps: number;
+      readShare: number;
+      readsPerSec: number;
+      writesPerSec: number;
+      writeCost: number;
+      databaseReadsPerSec: number;
+      databaseWritesPerSec: number;
+      /** Percent. */
+      result: number;
+    }
+  | {
       quantity: 'shardsAtFullLoad';
       size: DatabaseSize;
       peakRps: number;
@@ -190,6 +203,24 @@ export function workEstimate(level: Level, estimate: Estimate): EstimateWorking 
         writeCost,
         databaseReadsPerSec: db.readsPerSec,
         result: ((freshReadsPerSec + writesPerSec * writeCost) / db.readsPerSec) * 100,
+      };
+    }
+    case 'databaseBusyAtPeak': {
+      const db = DATABASE_SIZES[estimate.databaseSize];
+      const readsPerSec = peak * readShare;
+      const writesPerSec = peak - readsPerSec;
+      const writeCost = db.readsPerSec / db.writesPerSec;
+      return {
+        quantity: estimate.quantity,
+        databaseSize: estimate.databaseSize,
+        peakRps: peak,
+        readShare,
+        readsPerSec,
+        writesPerSec,
+        writeCost,
+        databaseReadsPerSec: db.readsPerSec,
+        databaseWritesPerSec: db.writesPerSec,
+        result: ((readsPerSec + writesPerSec * writeCost) / db.readsPerSec) * 100,
       };
     }
     case 'shardsAtFullLoad': {
@@ -310,8 +341,8 @@ export type NapkinStep =
       writes: number;
       writeCost: number;
       writeWork: number;
-      /** What the work is for: one shard among many, or a primary that also takes the pinned reads. */
-      context: 'shards' | 'pinnedPrimary';
+      /** What the work is for: one shard among many, a primary that also takes the pinned reads, or a lone database. */
+      context: 'shards' | 'pinnedPrimary' | 'database';
       result: number;
     }
   /** Work ÷ one shard's capacity, if the work spreads evenly over the shards. */
@@ -348,6 +379,13 @@ export type NapkinTakeaway =
   /** How busy the primary is against the comfortable line, and the next size down. */
   | {
       kind: 'primaryHeadroom';
+      size: DatabaseSize;
+      utilization: number;
+      smaller: { size: DatabaseSize; utilization: number } | null;
+    }
+  /** How busy a lone database is against the comfortable line, and the next size down. */
+  | {
+      kind: 'databaseHeadroom';
       size: DatabaseSize;
       utilization: number;
       smaller: { size: DatabaseSize; utilization: number } | null;
@@ -539,8 +577,7 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
     case 'pinnedPrimaryLoad': {
       const writeWork = working.writesPerSec * working.writeCost;
       const work = working.freshReadsPerSec + writeWork;
-      const index = ORDERED_DATABASE_SIZES.indexOf(working.databaseSize);
-      const smallerSize = index > 0 ? ORDERED_DATABASE_SIZES[index - 1]! : null;
+      const smallerSize = smallerDatabase(working.databaseSize);
       return {
         working,
         givens: [
@@ -573,6 +610,46 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
             ? {
                 size: smallerSize,
                 utilization: (working.freshReadsPerSec + working.writesPerSec * writeCostOf(smallerSize)) / DATABASE_SIZES[smallerSize].readsPerSec,
+              }
+            : null,
+        },
+      };
+    }
+    case 'databaseBusyAtPeak': {
+      const writeWork = working.writesPerSec * working.writeCost;
+      const work = working.readsPerSec + writeWork;
+      const smallerSize = smallerDatabase(working.databaseSize);
+      return {
+        working,
+        givens: [
+          count(working.peakRps),
+          percent(working.readShare),
+          database(working.databaseSize, working.databaseReadsPerSec),
+          database(working.databaseSize, working.databaseWritesPerSec),
+        ],
+        steps: [
+          peak,
+          split(working.peakRps, working.readsPerSec, working.writesPerSec),
+          writeCost(working.databaseSize),
+          {
+            kind: 'totalWork',
+            reads: working.readsPerSec,
+            writes: working.writesPerSec,
+            writeCost: working.writeCost,
+            writeWork,
+            context: 'database',
+            result: work,
+          },
+          { kind: 'databaseBusy', work, databaseReadsPerSec: working.databaseReadsPerSec, result: working.result },
+        ],
+        takeaway: {
+          kind: 'databaseHeadroom',
+          size: working.databaseSize,
+          utilization: working.result / 100,
+          smaller: smallerSize
+            ? {
+                size: smallerSize,
+                utilization: (working.readsPerSec + working.writesPerSec * writeCostOf(smallerSize)) / DATABASE_SIZES[smallerSize].readsPerSec,
               }
             : null,
         },
@@ -676,6 +753,12 @@ export function solveEstimate(level: Level, estimate: Estimate): NapkinSolution 
       };
     }
   }
+}
+
+/** The next database size down, or null for the smallest. */
+function smallerDatabase(size: DatabaseSize): DatabaseSize | null {
+  const index = ORDERED_DATABASE_SIZES.indexOf(size);
+  return index > 0 ? ORDERED_DATABASE_SIZES[index - 1]! : null;
 }
 
 function writeCostOf(size: DatabaseSize): number {

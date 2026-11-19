@@ -14,19 +14,20 @@ import { ninesTotal } from './nines.ts';
 
 /**
  * Nines needed to open each chapter, by chapter id. A pass on every level pays 3 each, so the bar asks for a few
- * stars or masteries on top: chapter 1 pays at most 15 (9 for passes), chapters 1–2 at most 30 (18), chapters 1–3 at
- * most 50 (30).
+ * stars or masteries on top: chapter 1 (four pages, with its capstone) pays at most 20 (12 for passes), chapters 1–2
+ * at most 35 (21), chapters 1–3 at most 55 (33). Each bar is the passes before it plus a fixed number of tiers above
+ * a pass, so a chapter that gains a page moves its later bars by 3.
  *
  * - Getting Online: open from the start.
- * - Growing Pains: 10, every chapter 1 page passed plus one star.
- * - Hypergrowth: 22, every page so far passed plus four tiers above a pass.
- * - Worldwide: 36, every page so far passed plus six tiers above a pass.
+ * - Growing Pains: 13, every chapter 1 page passed plus one star.
+ * - Hypergrowth: 25, every page so far passed plus four tiers above a pass.
+ * - Worldwide: 39, every page so far passed plus six tiers above a pass.
  */
 export const CHAPTER_UNLOCK_NINES: Readonly<Record<string, number>> = {
   'getting-online': 0,
-  'growing-pains': 10,
-  hypergrowth: 22,
-  worldwide: 36,
+  'growing-pains': 13,
+  hypergrowth: 25,
+  worldwide: 39,
 };
 
 export interface Progress {

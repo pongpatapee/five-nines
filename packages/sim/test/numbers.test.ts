@@ -58,7 +58,7 @@ describe('the numbers box', () => {
 
   it('names what happens during the run, without saying when', () => {
     const surprises = LEVELS.map((level) => levelNumbers(level).surprises.map((surprise) => surprise.kind));
-    expect(surprises).toEqual([[], [], ['crash'], [], [], [], ['hotKey'], ['cacheRestart'], [], ['rateLimit']]);
+    expect(surprises).toEqual([[], [], ['crash'], ['crash'], [], [], [], ['hotKey'], ['cacheRestart'], [], ['rateLimit']]);
     for (const level of LEVELS) {
       for (const surprise of levelNumbers(level).surprises) expect(surprise).not.toHaveProperty('atSec');
     }

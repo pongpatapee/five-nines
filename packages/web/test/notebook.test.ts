@@ -1,5 +1,5 @@
 /** The notebook theme's own wording, art helpers, map layout and stylesheets. */
-import { CHAPTERS, isWritten, LEVELS } from '@five-nines/sim';
+import { CHAPTERS, getLevel, isWritten, LEVELS } from '@five-nines/sim';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -15,7 +15,14 @@ import { TALLY_STROKES, tallyState } from '../src/theme/notebook/tally.ts';
 import { levelStress } from '../src/theme/situations.ts';
 
 type L = (typeof LEVELS)[number];
-const [level1, level2, level3, level4, level5, level6] = LEVELS as unknown as [L, L, L, L, L, L];
+const [level1, level2, level3, level4, level5, level6] = [
+  '01-hello-traffic',
+  '02-scale-out',
+  '03-pull-the-plug',
+  '04-read-all-about-it',
+  '05-cache-miss',
+  '06-bank-balance',
+].map((id) => getLevel(id)!) as [L, L, L, L, L, L];
 const tease = (level: L) => NOTEBOOK_SCRIPT.troublemakerTease(levelStress(level)!);
 
 describe('notebook cast lines', () => {

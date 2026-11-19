@@ -1,0 +1,142 @@
+{
+  "id": "11-everything-links",
+  "title": "Everything Links",
+  "concept": "Launch day: a URL shortener",
+  "briefing": [
+    "Launch day for a link shortener. Traffic climbs from 1,000 to 3,000 requests per second over the first 30 seconds and stays there. Every request needs 5ms of CPU on an app server, then one trip to the database: 95% look up a short link to redirect it, the rest create a new one.",
+    "This is your first database. It's one machine, and every request needs it. It does a fixed number of reads a second, and a write is more work than a read. The rule of thumb from page 1 still holds: keep it under about 70% busy at the peak.",
+    "At some point during the run, one of your app servers will crash. Everything from this chapter applies."
+  ],
+  "debrief": [
+    "Launch day takes the whole chapter plus one new machine. The app tier is pages 1 to 3: 3,000 requests a second × 5ms is 15 vCPUs of work. Six medium servers have 24 vCPUs, 63% busy. When one crashes, the other five run at 75%, and retries hide the crash until the health checks take it out of rotation.",
+    "The database is the new part. At the peak it sees 2,850 reads and 150 writes a second. A medium database does 5,000 reads or 2,000 writes, so one write costs as much as 2.5 reads: the 150 writes are 375 reads' worth of work. That's 3,225 reads' worth in all, 65% of a medium database.",
+    "A small database does half as much, so the same work needs 129% of it. It falls behind as soon as traffic peaks, its queue grows, and requests time out. A large one would be 32% busy, at twice the price of a medium one, which the budget doesn't allow.",
+    "Same 70% rule, different machine. Every box has a capacity; work it out from the peak, and leave headroom.",
+    "A URL shortener is the classic first system design question, and the numbers here are why: redirects far outnumber new links, so it's read-heavy, and a few links get most of the clicks. In an interview, also say how you make the short codes: a counter encoded in base 62 never collides, while random codes need a check that the code is free. The next chapter takes load off the database."
+  ],
+  "components": ["appServer", "loadBalancer", "database"],
+  "durationSec": 180,
+  "seed": 1101,
+  "workload": {
+    "cpuMsPerRequest": 5,
+    "timeoutMs": 1000,
+    "traffic": [
+      { "atSec": 0, "rps": 1000 },
+      { "atSec": 30, "rps": 3000 },
+      { "atSec": 180, "rps": 3000 }
+    ],
+    "data": {
+      "readShare": 0.95,
+      "keys": { "count": 20000000, "label": "short links", "zipf": 1, "valueKb": 1 }
+    }
+  },
+  "events": [{ "atSec": 90, "kind": "instanceFailure", "target": { "kind": "appServer", "pick": "busiest" } }],
+  "requirements": { "p99Ms": 40, "budgetUsdPerMonth": 1300 },
+  "estimate": { "quantity": "databaseBusyAtPeak", "databaseSize": "medium", "answer": 64.5 },
+  "solutions": [
+    {
+      "name": "Six medium servers and a medium database",
+      "explanation": "24 vCPUs for 15 vCPUs of work: 63% busy, and 75% after the crash. Retries cover the dead server. The medium database is 65% busy with every redirect and every new link.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "medium", "instances": 6 },
+          { "id": "db", "kind": "database", "size": "medium" }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" },
+          { "from": "app", "to": "db" }
+        ]
+      },
+      "expectedGrade": "mastered"
+    },
+    {
+      "name": "Four large servers and a medium database",
+      "explanation": "More headroom on the app tier: 47% busy, 63% after the crash, for $240 a month more. The database is the same medium one, 65% busy.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "healthCheckIntervalSec": 5, "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "large", "instances": 4 },
+          { "id": "db", "kind": "database", "size": "medium" }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" },
+          { "from": "app", "to": "db" }
+        ]
+      },
+      "expectedGrade": "mastered"
+    }
+  ],
+  "antiSolutions": [
+    {
+      "name": "A small database",
+      "explanation": "The app tier is fine, but 3,225 reads' worth of work a second is 129% of a small database. It falls behind from the peak on, and requests time out waiting for it.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "large", "instances": 4 },
+          { "id": "db", "kind": "database", "size": "small" }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" },
+          { "from": "app", "to": "db" }
+        ]
+      },
+      "expectedFailure": ["availability", "latency"]
+    },
+    {
+      "name": "No retries",
+      "explanation": "A spare server, but no retry at the load balancer. With the default 30-second health checks, a quarter of all requests go to the dead server for almost a minute.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer" },
+          { "id": "app", "kind": "appServer", "size": "large", "instances": 4 },
+          { "id": "db", "kind": "database", "size": "medium" }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" },
+          { "from": "app", "to": "db" }
+        ]
+      },
+      "expectedFailure": ["availability"]
+    },
+    {
+      "name": "No spare server",
+      "explanation": "Three large servers carry the peak at 63% until one crashes. Then two of them do 15 vCPUs of work on 16 vCPUs, 94% busy, and p99 climbs past the limit.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "large", "instances": 3 },
+          { "id": "db", "kind": "database", "size": "medium" }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" },
+          { "from": "app", "to": "db" }
+        ]
+      },
+      "expectedFailure": ["latency"]
+    },
+    {
+      "name": "A large database",
+      "explanation": "It works, at 32% busy, but it costs twice a medium one: $1,585 a month against $1,300.",
+      "design": {
+        "nodes": [
+          { "id": "lb", "kind": "loadBalancer", "retryOnConnectFailure": true },
+          { "id": "app", "kind": "appServer", "size": "large", "instances": 4 },
+          { "id": "db", "kind": "database", "size": "large" }
+        ],
+        "edges": [
+          { "from": "clients", "to": "lb" },
+          { "from": "lb", "to": "app" },
+          { "from": "app", "to": "db" }
+        ]
+      },
+      "expectedFailure": ["budget"]
+    }
+  ]
+}

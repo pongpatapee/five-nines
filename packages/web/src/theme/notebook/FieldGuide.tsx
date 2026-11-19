@@ -106,14 +106,14 @@ function componentCopy(kind: ComponentKind): ComponentCopy {
       const cost = large.readsPerSec / large.writesPerSec;
       const writes = 1_000;
       return {
-        does: 'The primary: every write goes here, and any read not sent elsewhere.',
+        does: 'Keeps the data. Every write goes here, and every read nothing else answers. Once it has copies, it is called the primary.',
         capacity: `Each size does a fixed number of reads a second, or of writes. Reads and writes share the machine, so a write costs reads/s ÷ writes/s reads: ${n(large.readsPerSec)} ÷ ${n(large.writesPerSec)} = ${fig(cost)} for a large one.`,
         example: [
           `A large database taking ${n(writes)} writes a second: ${n(writes)} × ${fig(cost)} = ${n(writes * cost)} reads' worth of work.`,
           `That leaves ${n(large.readsPerSec)} − ${n(writes * cost)} = ${n(large.readsPerSec - writes * cost)} reads a second for reads.`,
         ],
         gotchas: [
-          'Past its capacity, requests queue and time out. No size takes everything.',
+          `The same rule as an app server: keep it under about ${pct(COMFORTABLE_UTILIZATION)} busy at the peak. Past its capacity, requests queue and time out, and no size takes everything.`,
           'Read replicas add read capacity; only shards add write capacity.',
         ],
       };

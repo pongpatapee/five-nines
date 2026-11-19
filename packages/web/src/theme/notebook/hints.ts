@@ -287,6 +287,27 @@ export const LEVEL_HINTS: Readonly<Record<string, LevelHints>> = {
       fix: 'Compare five xlarge servers with ten large ones: the same spare capacity, a different bill.',
     },
   },
+  '11-everything-links': {
+    overload: {
+      concept:
+        "A database does a fixed number of reads a second, and a write costs as much as reads/s ÷ writes/s reads. At the peak that's 2,850 reads plus 150 writes × 2.5 = 3,225 reads' worth a second: 129% of a small database, 65% of a medium one.",
+      fix: 'Size the database the way you sized the servers: under about 70% busy at the peak. The inspector gauge on the database does the arithmetic.',
+    },
+    crash: {
+      concept:
+        'Page 3 again: until health checks notice, the load balancer keeps sending the crashed server its share, and every one of those requests fails unless something retries it.',
+      fix: "Keep a spare server, and turn on 'Retry on connection failure' at the load balancer.",
+    },
+    latency: {
+      concept:
+        "After the crash the survivors carry all 15 vCPUs of work. With exactly enough servers, they run over 90% busy, and p99 climbs for the rest of the run.",
+      fix: "Run one more server than the peak needs. The inspector's 'after the crash' reading shows what the survivors face; keep it under about 80%.",
+    },
+    budget: {
+      concept: 'A large database costs twice a medium one, and here it would sit about a third busy.',
+      fix: 'Size the database for the peak with headroom, not more: then the app tier, with its spare, fits in what is left.',
+    },
+  },
   '04-read-all-about-it': {
     overload: {
       concept:
@@ -452,6 +473,12 @@ const BEFORE_RUN: Readonly<Record<string, { where(trap: LevelTrap): string; why(
     why: () =>
       'Two things go wrong at once: the balancer keeps sending the dead server its share until health checks notice, and the survivors must carry the whole load without it.',
   },
+  '11-everything-links': {
+    where: (t) =>
+      `The database at the peak: ${formatCount(peakOf(t))} requests a second, and every one reads or writes it once.`,
+    why: (t) =>
+      `That's ${formatCount(readsAtPeak(t))} reads and ${formatCount(writesAtPeak(t))} writes a second on one machine, and a write is more work than a read. Meanwhile the app tier still has to survive losing a server.`,
+  },
   '04-read-all-about-it': {
     where: (t) => `The database at the spike: ${formatCount(peakOf(t))} requests a second, ${formatPercent(t.numbers.data?.readShare ?? 0)} of them reads.`,
     why: (t) =>
@@ -568,6 +595,11 @@ function ask(w: EstimateWorking, level: Level): { question: string; unit: string
         unit: '%',
       };
     }
+    case 'databaseBusyAtPeak':
+      return {
+        question: `Napkin first. At the peak, ${formatCount(w.peakRps)} requests a second each read or write the database once, and ${formatPercent(w.readShare)} of them are reads. ${capitalize(a(w.databaseSize))} database does ${formatCount(w.databaseReadsPerSec)} reads a second, or ${formatCount(w.databaseWritesPerSec)} writes. How busy is it?`,
+        unit: '%',
+      };
     case 'shardsAtFullLoad':
       return {
         question: `Napkin first. A ${w.size} database takes ${formatCount(w.shardWritesPerSec)} writes a second. How many ${w.size} shards' worth of work do ${formatCount(w.writesPerSec)} writes a second make, if they spread evenly?`,
@@ -740,7 +772,9 @@ function workedStep(step: NapkinStep): WorkedStep {
         reason:
           step.context === 'pinnedPrimary'
             ? `Those reads go to the primary, and so does every write. A write is as much work as ${est(step.writeCost)} reads, so add it all up in reads.`
-            : "Each shard serves reads and writes. Add up the work, counting each write as the reads it's worth.",
+            : step.context === 'database'
+              ? `Every read and every write lands on the one database. A write is as much work as ${est(step.writeCost)} reads, so add it all up in reads.`
+              : "Each shard serves reads and writes. Add up the work, counting each write as the reads it's worth.",
         lines: [
           { sum: `${n(step.writes)} writes × ${est(step.writeCost)}`, result: `${n(step.writeWork)} reads' worth`, note: 'for the writes' },
           { sum: `${n(step.reads)} reads + ${n(step.writeWork)}`, result: `${n(step.result)} reads' worth`, note: 'of work a second' },
@@ -803,6 +837,14 @@ function takeaway(solution: NapkinSolution): string {
       return t.utilization < COMFORTABLE_UTILIZATION
         ? `${pct(t.utilization)} is under the ${pct(COMFORTABLE_UTILIZATION)} line, so ${a(t.size)} primary is enough for the fresh reads and the writes.${smaller}`
         : `${pct(t.utilization)} is ${zoneWords(t.utilization)}: ${a(t.size)} primary is too small for the fresh reads and the writes.${smaller}`;
+    }
+    case 'databaseHeadroom': {
+      const smaller = t.smaller
+        ? ` ${capitalize(a(t.smaller.size))} one would be ${pct(t.smaller.utilization)} busy: ${zoneWords(t.smaller.utilization)}.`
+        : '';
+      return t.utilization < COMFORTABLE_UTILIZATION
+        ? `${pct(t.utilization)} is under the ${pct(COMFORTABLE_UTILIZATION)} line: ${a(t.size)} database has the headroom. The same rule as an app server, on a different machine.${smaller}`
+        : `${pct(t.utilization)} is ${zoneWords(t.utilization)}: ${a(t.size)} database is too small for this traffic.${smaller}`;
     }
     case 'wholeShards':
       return t.roundedUp === t.shards
