@@ -93,6 +93,8 @@ Every level ships with **reference solutions that must pass** and **anti-solutio
 
 Grading is by outcome, so any design that meets the requirements passes. The reference solution only appears in the debrief.
 
+Levels are listed here by id. Ids are permanent (saves key on them) and numbered in the order levels were written, so play order (`LEVELS`, and the page numbers players see) can differ: Everything Links, id 11, is played fourth, as page 4. Each chapter can end in a **capstone**, its launch day (`Chapter.capstoneId`, which must be the chapter's last level): a product in the story that combines the chapter's lessons, marked "launch day" on the map and on its page.
+
 1. **Hello, Traffic** (vertical scaling, utilization)
    - Requirements: traffic climbs to 350 req/s, p99 < 75ms, $250/month.
    - Intended solution: one large server (44% busy). Each wrong size fails a different check: small overloads, medium is never overloaded but fails latency at about 88% utilization, and xlarge blows the budget. Introduces the latency curve.
@@ -103,6 +105,13 @@ Grading is by outcome, so any design that meets the requirements passes. The ref
    - Scenario: an app server dies at t=60s.
    - The trap: N+1 servers alone still fail. Even with a 5-second health check, a fifth of the traffic goes to the dead node for about 9 seconds: roughly 1% errors over the run, so 99.0% availability.
    - Intended solution: N+1 servers **plus retry-on-failure at the load balancer**. The debrief shows the arithmetic: health checks alone don't get you nines.
+**Capstone, chapter 1: Everything Links** (id `11-everything-links`, page 4; a URL shortener on launch day)
+   - Workload: 1k climbing to 3k req/s by 30 s, held for a 3-minute run; 5 ms of CPU each, then one database request: 95% redirects (reads), 5% new links (writes) over 20M links, Zipf 1. At some point the busiest app server crashes. p99 ≤ 40 ms, $1,300/month.
+   - It introduces the database ("same 70% rule, different machine") before chapter 2 builds on it. No engine change.
+   - Estimate (`databaseBusyAtPeak`, new): 2,850 reads + 150 writes × 2.5 = 3,225 read-equivalents, 64.5% of a medium database (5,000), 129% of a small.
+   - The traps: a small database (overloaded: 79.9% available); no retries at the load balancer (95.6%); no spare app server (three large, fine until the crash, then p99 48.7 ms); a large database (32% busy, but $1,585).
+   - Intended solutions, both mastered: six medium app servers (63% busy, 75% after the crash) behind an ALB with retries and a medium database, $1,045, p99 32 ms; or four large app servers, $1,285, p99 27 ms. The six-medium design is the cheapest reference, so it earns Right-sized, and N+1. Penny Pincher's line is $1,040, $5 under it, so that badge is out of reach here, on purpose: the budget leaves room for the four-large answer.
+   - The debrief's interview tip: short codes from a base-62 counter versus random codes and collisions (not modeled).
 4. **Read All About It** (caching)
    - Workload: 6k climbing to 20k req/s over the first minute, a breaking-news spike to 26k at 125–150 s; 95% reads over 2M articles of 100 KB, Zipf 1. p99 ≤ 50 ms, $1,400/month.
    - The biggest database the budget allows (large) does 10k reads/s, about half the reads.
@@ -140,7 +149,7 @@ Grading is by outcome, so any design that meets the requirements passes. The ref
 12. **Around the World** (CDNs)
     - Scenario: global users, 70% static assets, p99 < 100ms.
     - Intended solution: a CDN in front of the servers. The origin can't meet the latency from far away.
-13. **Capstone: URL Shortener** (multi-region, post-MVP)
+13. **Everything Links Worldwide** (multi-region, post-MVP; was the URL-shortener capstone, before Everything Links took chapter 1)
     - Scenario: first a whole region fails, then the link between two regions breaks while both stay up (a network partition).
     - Intended solution: 99.9% is achievable in one region, but the five-nines grade requires active-active across regions.
     - The consistency choice during the partition: keep accepting writes in both regions and accept conflicts, or reject writes on one side and lose availability. Short links tolerate the first. A follow-up level with a payments ledger requires the second. This is the CAP theorem made concrete.
@@ -187,8 +196,8 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 
 Pure functions in `packages/web/src/progression/`, over saved progress and run results; the theme only words and draws them.
 
-- **Nines are the currency.** A level pays the nines of its best grade: 3 for a pass, 4 for a star, 5 for mastered (50 across the ten built levels; each new level adds 5). Replaying never pays twice, only a better grade pays the difference. The contents page shows the running total; the grade card ticks it up one nine at a time.
-- **Unlocks.** A level opens when the one before it is passed. A chapter also needs enough nines in total: Growing Pains 10, Hypergrowth 22, Worldwide 36 (every earlier page passed plus one, four and six tiers above a pass). A level the player already has a grade on always stays open, so older saves (from builds where everything was open) lose nothing. Locked pages show on the map with a padlock and say what opens them. `?unlock=all` before the `#` opens everything for testing, without touching the save.
+- **Nines are the currency.** A level pays the nines of its best grade: 3 for a pass, 4 for a star, 5 for mastered (55 across the eleven built levels; each new level adds 5). Replaying never pays twice, only a better grade pays the difference. The contents page shows the running total; the grade card ticks it up one nine at a time.
+- **Unlocks.** A level opens when the one before it is passed. A chapter also needs enough nines in total: Growing Pains 13, Hypergrowth 25, Worldwide 39 (every earlier page passed plus one, four and six tiers above a pass; they rose by 3, 3 and 3 when Everything Links joined chapter 1). A level the player already has a grade on always stays open, so older saves (from builds where everything was open) lose nothing. Locked pages show on the map with a padlock and say what opens them. `?unlock=all` before the `#` opens everything for testing, without touching the save.
 - **Badges** (once earned, kept):
   - *Right-sized*: passed for no more than the level's cheapest reference solution costs. Judged by cost rather than by how busy the machines are: sizes come in fixed steps, so a right answer can sit well under the 70% the game teaches (level 1's large server is 44% busy), and a busyness floor would reward running hot. No tolerance: costs are exact catalogue sums. A test checks every level's cheapest reference earns it.
   - *N+1*: passed a level with a scripted crash, the crashed node's survivors never above 85% (the hot line) afterwards.
@@ -196,8 +205,20 @@ Pure functions in `packages/web/src/progression/`, over saved progress and run r
   - *Five Nines Club*: mastered every level of a chapter.
   - *Napkin Wizard*: the estimate bonus (within 10%) on 3 levels.
   The contents page shows earned and unearned badges with how to earn each; the grade card stamps new ones, handed over by a cast member.
+- **Promotions** (`progression/promotion.ts`): the player's title climbs once per written chapter, derived from best grades, never saved. The rule, in one place: a chapter promotes when its capstone is passed, or its last level when it has no capstone yet, so a future capstone takes over by data alone. Today: Everything Links (chapter 1), Bank Balance (chapter 2) and Flash Sale (chapter 3). The contents page shows the current title; the run that earns one ends its payout reveal with the founder handing it over, to a gong. The titles and scenes are the theme's (`story.promotions`).
 - **Cost as a second score.** The grade card shows the money left under budget, and the boss reacts to it.
-- **Saved progress** is versioned inside its key (`five-nines:v1`, version 2 adds badges). A version 1 save loads intact and is awarded the badges its grades and estimates already earn. A save the build can't read is copied to `five-nines:unreadable-backup` before anything could overwrite it, and if that copy fails the game doesn't write at all.
+- **Saved progress** is versioned inside its key (`five-nines:v1`; version 2 adds badges, 3 peeks and kept designs, 4 the all-hands seen). A version 1 save loads intact and is awarded the badges its grades and estimates already earn. A save the build can't read is copied to `five-nines:unreadable-backup` before anything could overwrite it, and if that copy fails the game doesn't write at all.
+
+### The story (built)
+
+The campaign is a story: **Everything Labs**, a startup that launches a product a quarter, each named "Everything ___" (full premise in `docs/story/everything-labs.md`). The player joins as a Synergy Intern; the founder, Chad Visionary, dreams the products up on stage; the player makes them survive launch day.
+
+- **Arc.** Each chapter opens with an all-hands where the founder unveils the quarter's products, runs through the concept levels (everyday work on those products) and ends on launch day: a capstone where there is one, and a promotion. Chapter 1 is Everything Links (waitlist, going viral, launch week, launch day); chapter 2 News, Chat and Pay; chapter 3 Social, the Store and the Drop.
+- **Level titles stay** (they name the concept); the product is a subtitle beside the title on the contents card and the briefing ("Everything Links · launch day").
+- **All-hands.** A chapter's title page, shown once, the first time the player opens one of its levels (save version 4 records it), and reopenable from its label on the map (`#/all-hands/<chapter id>`).
+- **Memos.** Each briefing opens with a short memo: the founder's hype, then Erasmus's translation in the margin, then the plain briefing as before. The plain briefing and the numbers box stay the source of truth. Erasmus's translation is worded from `levelNumbers`, and a test checks every number in it is in the numbers box (or is the 70% rule).
+- **Tone.** The comedy lives in the founder, the product names and Doug's stamp. Numbers and lessons are played straight and never contradict the sim. The founder never states a number (tested). Events are never timed. Funny, not mean; no real companies or shows referenced.
+- **Coworkers in copy only.** Doug (the Naming Department, a rubber stamp that only says EVERYTHING) stamps each product name; Bex (Head of Growth) explains where traffic comes from, on sticky notes. Neither is a cast role.
 
 ### Juice (built)
 
@@ -250,7 +271,7 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 **The engineer's notebook.** Every screen is a page in a spiral-bound notebook: graph paper, ink doodles of real components, hand-lettered headings. The error budget is a row of tally marks crossed out as requests fail, the postmortem is a sticky note with the root cause circled in red pen, the result is a marked page, and the campaign map is a hand-drawn trail through the chapters. Real component names stay visible next to every doodle: each component is labelled with a real-world AWS example (EC2, ALB, ElastiCache, RDS, SQS; Stripe for the payment provider), with the generic concept it teaches (app server, load balancer, cache…) in smaller pencil beside it. Copy that explains a concept keeps the concept's words. The doodles are the silhouettes of the things themselves, and each canvas node's frame follows its doodle: a rack unit, a drum, a chip with pins, a conveyor, a bucket. A node standing for more than one machine (instances, replicas, shards, a replicated cache) has copies of its frame stacked behind it, one card for two and two for three or more.
 
-Text in the notebook is at least 12px as rendered and 4.5:1 against its paper; `test/contrast.test.ts` measures the rewards screens and the chapter 3 readouts from the stylesheets and tokens.
+Text in the notebook is at least 12px as rendered and 4.5:1 against its paper; `test/contrast.test.ts` measures the rewards screens, the chapter 3 readouts and the story's pages from the stylesheets and tokens.
 
 **The cast, by role.** The game only ever asks for a role; the notebook supplies the character:
 
@@ -258,11 +279,12 @@ Text in the notebook is at least 12px as rendered and 4.5:1 against its paper; `
 |---|---|---|
 | Boss | the budget brief, the verdict on a graded run | Ms. Tally, a pencil with a tally-marked body |
 | Mentor | a hint per failure reason, the take on design checks, the postmortem nudge | Erasmus, an eraser with a moustache |
-| Troublemaker | the tease for a level's stress events, credit for crashes | Smudge, an ink blot |
+| Troublemaker | the tease for a level's stress events, credit for crashes | Smudge, an ink blot: production itself, not a coworker |
+| Founder | the story's hype: all-hands, memos, promotions (never a number) | Chad Visionary, a neon highlighter |
 
 Lines are always worded from what actually happened: the game derives the situation (the level's first crash or spike, the check that failed), the theme only words it.
 
-**The theme boundary.** Everything style-specific (art, character names and lines, words such as "page" for a level, and all CSS, with raw colours only in its tokens) lives in one folder, `packages/web/src/theme/notebook/`. Screens reach it only through `theme/index.ts`, which selects it statically and exposes the slots of the `Theme` contract (`theme/contract.ts`): the cast script and speech bubble, component names and art, budget meter, postmortem card, grade card, campaign map, badge shelf, small marks and sounds. A new art style is a new folder implementing that contract, plus its favicon and font links in `index.html`. There is no runtime theme switching.
+**The theme boundary.** Everything style-specific (art, character names and lines, words such as "page" for a level, and all CSS, with raw colours only in its tokens) lives in one folder, `packages/web/src/theme/notebook/`. Screens reach it only through `theme/index.ts`, which selects it statically and exposes the slots of the `Theme` contract (`theme/contract.ts`): the cast script and speech bubble, the story script (products, memos, all-hands, promotions) and its all-hands page and memo note, component names and art, budget meter, postmortem card, grade card, campaign map, badge shelf, small marks and sounds. A new art style is a new folder implementing that contract, plus its favicon and font links in `index.html`. There is no runtime theme switching.
 
 ---
 
@@ -278,7 +300,7 @@ Lines are always worded from what actually happened: the game derives the situat
 
 ### MVP scope
 
-- **In:** the 8 components above, levels 1–10 (including the Bank Balance and Stale Prices consistency levels), the estimate step, run and playback, the failure postmortem, the debrief, and star grading.
+- **In:** the 8 components above, levels 1–10 and the Everything Links capstone (including the Bank Balance and Stale Prices consistency levels), the estimate step, run and playback, the failure postmortem, the debrief, and star grading.
 - **Out:** accounts, leaderboards, sandbox mode, multi-region, mobile.
 
 ### Order of work
@@ -306,7 +328,7 @@ Lines are always worded from what actually happened: the game derives the situat
 2. **Timeouts and retries become player-configurable in later levels.** Early levels get a single, narrow knob: load-balancer retry on connection failure (level 3).
 3. **Data modelling is out of scope.** Five Nines teaches the scaling part of a system design interview.
 4. **Grading is by outcome.** Any design that meets the requirements passes. Each level still has an in-game **solutions** section with one or more annotated reference designs. Players can open it after attempting the level to compare against their own design. Levels also list known wrong answers ("anti-solutions"). CI uses them to prove that the obvious mistakes fail, and the debrief can use them as "common traps".
-5. **Consistency is part of the curriculum.** Stale reads and duplicate effects count as bad requests (see the consistency model in section 1). The consistency levels are Bank Balance (6), Stale Prices (9), Double Charge (11) and the capstone's network partition (13).
+5. **Consistency is part of the curriculum.** Stale reads and duplicate effects count as bad requests (see the consistency model in section 1). The consistency levels are Bank Balance (6), Stale Prices (9), Double Charge (11) and Everything Links Worldwide's network partition (13).
 
 ### Open questions
 

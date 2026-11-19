@@ -1,6 +1,32 @@
 # Story premise: Everything Labs
 
-Status: premise for review. Builds on the owner's decisions; replaces the four earlier pitches in this folder.
+Status: **built** for chapters 1–3 and the Everything Links capstone. The other capstones are designs, waiting on request classes (section 5). Section 0 records what was decided and built; the rest is the premise, kept in sync with the build.
+
+## 0. Decisions and what was built
+
+**The owner's decisions**
+
+- The founder is **Chad Visionary**. He never states a number; only Erasmus does, and Erasmus's numbers come from the level's data.
+- The 10 level titles stay, with the product as a subtitle ("Everything Links · launch day").
+- Scope of the first pass: the story, plus the Everything Links capstone. Request classes and the other capstones come later.
+- The founder is a fourth cast role in the theme contract (a neon highlighter). Doug and Bex appear only in copy: quoted, or on sticky notes.
+- Smudge is production itself.
+- Links may introduce the database.
+
+**Where it lives**
+
+- The words: `packages/web/src/theme/notebook/story.ts` (products, memos, all-hands, promotions), behind the theme contract's `story` slot. Drawing: `Story.tsx` and `styles/story.css`; the founder's doodle in `Characters.tsx`.
+- The promotion rule: `packages/web/src/progression/promotion.ts`. Derived from best grades, never saved.
+- All-hands seen: save version 4 (`state/persistence.ts`).
+- Everything Links: `packages/sim/src/levels/11-everything-links.json`, played fourth; `Chapter.capstoneId` marks it.
+- Tests: `packages/web/test/story.test.ts` (every level has a product and a memo; the founder states no number; every number in a translation is in the numbers box), plus the promotion, reveal and save tests.
+
+**How the story shows**
+
+- **All-hands**: a chapter's title page, shown once, the first time one of its levels is opened, and reopenable from the chapter's label on the map.
+- **Memo**: at the top of each briefing, the founder's hype, Erasmus's translation in the margin, and sometimes a sticky note from Bex or Doug. The plain briefing and the numbers box follow, unchanged, and stay the source of truth.
+- **Product**: beside each level's title, on the contents card and the briefing. Capstones carry a red "launch day" mark there and a starburst on the map.
+- **Title**: on the contents page. **Promotion**: at the end of the results payout, on the run that earns it, to a gong.
 
 ## 1. Premise and tone
 
@@ -47,31 +73,35 @@ You join **Everything Labs** ("Disrupting everything. Literally.") as a Synergy 
 
 ## 3. The promotion ladder
 
-One promotion per capstone, handed out by the founder on the gong stage. The title shows on the notebook's cover and contents page.
+One promotion per chapter, handed out by the founder on the gong stage. The title shows on the contents page.
+
+**The rule (built):** a chapter promotes when its capstone is passed, or its last level when it has no capstone yet. Today that is Everything Links (chapter 1), Bank Balance (chapter 2) and Flash Sale (chapter 3). When Reviews or Tickets is built and set as its chapter's `capstoneId`, it becomes the trigger with no code change. The built scenes say what shipped ("News, Chat and Pay are live"), not Reviews or Tickets.
 
 | When | New title | Founder's announcement |
 |---|---|---|
 | Start | Synergy Intern | "Welcome to the family. Your title is Synergy Intern. Nobody knows what it means, which means it can mean anything." |
 | Everything Links ships (end of Getting Online) | 10x Engineer | "I ran the numbers. Okay, Erasmus ran the numbers. You're a 10x Engineer now." |
-| Everything Reviews ships (end of Growing Pains) | Paradigm Architect | "You didn't just shift the paradigm. You built it a house." |
-| Everything Tickets ships (end of Hypergrowth) | Chief Disruption Officer | "There's only one CDO at Everything Labs, and it used to be me. I'm promoting myself to Visionary Emeritus." |
+| End of Growing Pains (Bank Balance today; Everything Reviews later) | Paradigm Architect | "You didn't just shift the paradigm. You built it a house." |
+| End of Hypergrowth (Flash Sale today; Everything Tickets later) | Chief Disruption Officer | "There's only one CDO at Everything Labs, and it used to be me. I'm promoting myself to Visionary Emeritus." |
 | During Worldwide | (being workshopped) | A whiteboard of rejected titles grows each level: "Head of Tomorrow," "VP of Yes," "Chief Officer of Officers." |
 | Worldwide capstone ships | Open | One option: Doug finally names something that isn't "Everything ___". His stamp says "ENGINEER." |
 
 ## 4. Chapter-by-chapter map
 
-Renames only. Every number below is the level's JSON. "Fit" flags where the story strains.
+Renames only. Every number below is the level's JSON. "Fit" flags where the story strains. The translations in these tables were the pitch; the built ones (`story.ts`) are worded from the level's numbers and say only what the numbers box says, so they never give away the napkin answer (no "50 vCPUs" on level 2, no "48 changes a second" on level 9).
 
-### Chapter 1: Getting Online (all-hands: Everything Links is coming)
+**Built all-hands.** Chapter 1 unveils Everything Links (the sample in section 6, plus the Synergy Intern welcome). Chapter 2 unveils **News, Chat and Pay** together ("this quarter we don't launch one product. We launch three."). Chapter 3 unveils **Social, the Store and the Drop**. Reviews and Tickets are not promised yet; their all-hands lines change when their capstones are built.
+
+### Chapter 1: Getting Online (all-hands: Everything Links)
 
 | # | Product / service | In-story event | Founder's hype | Erasmus's translation | Fit |
 |---|---|---|---|---|---|
 | 1 Hello, Traffic | The Everything Links waitlist API | The teaser site goes live and people join the waitlist | "Today we open the doors to the future of links." | "100 requests a second, rising to 350 within 30 seconds. 10ms of CPU each. One app server, p99 under 75ms." | Clean |
 | 2 Scale Out | Same waitlist | Bex gets the waitlist into a popular newsletter | "We're going viral. Organically. I paid for nothing." | "1,000 rising to 5,000 a second. That's 50 vCPUs of work, and the biggest box has 16." | Clean (the JSON already says newsletter) |
 | 3 Pull the Plug | Same waitlist, launch week | At some point, a server dies | "Downtime is a mindset." | "Up to 5,000 a second, and one server will crash. Lose any one and still serve everyone." | Clean |
-| **Capstone** | **Everything Links** (URL shortener) | Launch day | "Long links are a tax on the human spirit." | See section 5 | New |
+| **4 Everything Links** (capstone, built) | **Everything Links** (URL shortener) | Launch day | "Long links are a tax on the human spirit." | "1,000 climbing to 3,000 requests a second, 5 ms of CPU each, then one trip to the database: 95% redirects, 5% new links. A server will crash. p99 under 40 ms. New machine, same 70% rule." | Built |
 
-### Chapter 2: Growing Pains (all-hands: Everything Reviews is coming)
+### Chapter 2: Growing Pains (all-hands: News, Chat and Pay; Everything Reviews later)
 
 | # | Product / service | In-story event | Founder's hype | Erasmus's translation | Fit |
 |---|---|---|---|---|---|
@@ -80,7 +110,7 @@ Renames only. Every number below is the level's JSON. "Fit" flags where the stor
 | 6 Bank Balance | **Everything Pay**, a wallet | Payday, at some point, spikes traffic for about 40 seconds | "Money is just information that wants to be free. Not free free. Fee-free." | "12,000 a second, jumping to 20,000 on payday. 95% reads. One read in five is someone checking their balance right after their own transfer." | Clean |
 | **Capstone** | **Everything Reviews** (Yelp-like, no geo search) | Launch day | "Opinions are the oil of the attention economy." | See section 5 | New |
 
-### Chapter 3: Hypergrowth (all-hands: Everything Tickets is coming)
+### Chapter 3: Hypergrowth (all-hands: Social, Store and the Drop; Everything Tickets later)
 
 | # | Product / service | In-story event | Founder's hype | Erasmus's translation | Fit |
 |---|---|---|---|---|---|
@@ -104,7 +134,17 @@ The planned levels in `docs/design.md` fit as more work: **Double Charge** is an
 - S3 (`blobStorage`, on `main`) is priced and drawn, but validation rejects it everywhere; its engine model isn't built.
 - No CDN, no regions, no search index.
 
-### Everything Links (Getting Online)
+### Everything Links (Getting Online): built
+
+**As built** (`11-everything-links.json`, page 4, calibrated in CI):
+
+- 1,000 climbing to 3,000 req/s by 30 s, held for a 3-minute run; 5 ms of CPU each; 95% redirects, 5% new links over 20 million links (Zipf 1, 1 KB). At some point the busiest app server crashes. p99 ≤ 40 ms, **$1,300/month** (not the $1,400 below: at $1,400, six medium servers with a large database, $1,345, also passed, and the oversized database stopped being a trap).
+- Napkin math, new quantity `databaseBusyAtPeak`: 2,850 reads + 150 writes × 2.5 = 3,225, so a medium database is 64.5% busy (a small one 129%).
+- Solutions, both mastered: six medium app servers, an ALB with retries and a medium database ($1,045, p99 32 ms, 75% busy after the crash: earns Right-sized and N+1); four large app servers instead ($1,285, p99 27 ms).
+- Anti-solutions: a small database (79.9% available), no retries (95.6%), no spare server (three large: p99 48.7 ms), a large database ($1,585, over budget).
+- Hints, a debrief ending on "same 70% rule, different machine" and the base-62 interview tip, and the field guide's database entry, which now introduces the primary and the 70% rule.
+
+**The original design**, kept for reference:
 
 - **Traffic.** Redirects (reads of a short code) and creates (writes of a new link), about 95/5. Skewed: a few links go viral. A launch-day surge, and at some point a server crashes.
 - **Components.** ALB, EC2, RDS.
@@ -182,6 +222,8 @@ The planned levels in `docs/design.md` fit as more work: **Double Charge** is an
 > *Margin:* Shipped, and it held. Well earned. Next quarter is worse. —E.
 
 ## 7. Open questions for the owner
+
+Questions 1–6 and 8 are settled (section 0). Still open:
 
 1. **The founder's name.** "Chad Visionary" is a working name, and "Chad" carries meme baggage. Alternatives: Rex Momentum, Skyler Boldly. Should the surname be a joke at all?
 2. **Level titles.** Keep the 10 titles (they name the concept and still fit) with the product as a subtitle ("Hello, Traffic · Everything Links waitlist"), or retitle in-world?
