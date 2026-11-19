@@ -49,6 +49,7 @@ describe('persistence', () => {
       badges: { rightSized: { levelId: '02-scale-out' }, napkinWizard: { levelId: null } },
       peeked: { '03-pull-the-plug': true as const },
       stashedDrafts: { '03-pull-the-plug': draft },
+      seenAllHands: { 'getting-online': true as const },
     };
     expect(writeSave(storage, save)).toBe(true);
     expect(storage.data.has(STORAGE_KEY)).toBe(true);
@@ -56,7 +57,7 @@ describe('persistence', () => {
   });
 
   it('starts empty when nothing is stored, storage is missing, or it throws', () => {
-    const empty = { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {} };
+    const empty = { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {}, seenAllHands: {} };
     expect(loadSave(new MemoryStorage())).toEqual(empty);
     expect(loadSave(null)).toEqual(empty);
     expect(loadSave(throwingStorage)).toEqual(empty);
@@ -65,7 +66,7 @@ describe('persistence', () => {
   });
 
   it('ignores malformed JSON and versions it does not know', () => {
-    const empty = { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {} };
+    const empty = { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {}, seenAllHands: {} };
     expect(parseSave('{not json')).toEqual(empty);
     expect(parseSave(JSON.stringify({ version: SAVE_VERSION + 1, drafts: { x: draft } }))).toEqual(empty);
     expect(parseSave(JSON.stringify({ version: 0, drafts: { x: draft } }))).toEqual(empty);
@@ -88,6 +89,7 @@ describe('persistence', () => {
       badges: {},
       peeked: {},
       stashedDrafts: {},
+      seenAllHands: {},
     });
     // Written back as the current version.
     expect(JSON.parse(serializeSave(parseSave(v1))).version).toBe(SAVE_VERSION);
@@ -111,10 +113,33 @@ describe('persistence', () => {
       badges: v2.badges,
       peeked: {},
       stashedDrafts: {},
+      seenAllHands: {},
     });
     const written = JSON.parse(serializeSave(parseSave(JSON.stringify(v2))));
-    expect(written.version).toBe(3);
+    expect(written.version).toBe(SAVE_VERSION);
     expect(written).toMatchObject({ drafts: v2.drafts, bestGrades: v2.bestGrades, estimates: v2.estimates, badges: v2.badges });
+  });
+
+  it('migrates a version 3 save: everything kept, no all-hands seen yet', () => {
+    const v3 = {
+      version: 3,
+      drafts: { '03-pull-the-plug': draft },
+      bestGrades: { '01-hello-traffic': 'mastered' },
+      estimates: {},
+      badges: { rightSized: { levelId: '01-hello-traffic' } },
+      peeked: { '03-pull-the-plug': true },
+      stashedDrafts: { '03-pull-the-plug': draft },
+      // A version 3 save never had these; anything here is ignored rather than trusted.
+      seenAllHands: { 'getting-online': true },
+    };
+    const { seenAllHands: _ignored, version: _version, ...kept } = v3;
+    expect(parseSave(JSON.stringify(v3))).toEqual({ ...kept, seenAllHands: {} });
+    expect(JSON.parse(serializeSave(parseSave(JSON.stringify(v3)))).version).toBe(SAVE_VERSION);
+  });
+
+  it('keeps the all-hands seen and drops malformed ones', () => {
+    const raw = JSON.stringify({ version: 4, seenAllHands: { 'getting-online': true, 'growing-pains': 'yes', hypergrowth: false } });
+    expect(parseSave(raw).seenAllHands).toEqual({ 'getting-online': true });
   });
 
   it('drops malformed peeks and kept designs', () => {
@@ -139,7 +164,7 @@ describe('persistence', () => {
     const storage = new MemoryStorage();
     const future = JSON.stringify({ version: SAVE_VERSION + 1, bestGrades: { a: 'mastered' } });
     storage.setItem(STORAGE_KEY, future);
-    expect(openSave(storage)).toEqual({ save: { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {} }, writable: true });
+    expect(openSave(storage)).toEqual({ save: { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {}, seenAllHands: {} }, writable: true });
     expect(storage.getItem(BACKUP_KEY)).toBe(future);
     // The first copy is the one kept.
     storage.setItem(STORAGE_KEY, '{garbage');
@@ -147,7 +172,7 @@ describe('persistence', () => {
     expect(storage.getItem(BACKUP_KEY)).toBe(future);
     // Readable saves are never copied.
     const fresh = new MemoryStorage();
-    fresh.setItem(STORAGE_KEY, serializeSave({ drafts: {}, bestGrades: { a: 'pass' }, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {} }));
+    fresh.setItem(STORAGE_KEY, serializeSave({ drafts: {}, bestGrades: { a: 'pass' }, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {}, seenAllHands: {} }));
     expect(openSave(fresh).save.bestGrades).toEqual({ a: 'pass' });
     expect(fresh.getItem(BACKUP_KEY)).toBeNull();
   });
@@ -204,6 +229,7 @@ describe('persistence', () => {
       badges: {},
       peeked: {},
       stashedDrafts: {},
+      seenAllHands: {},
     });
     const layout = parseSave(raw).drafts.l!.layout;
     expect(layout[CLIENTS_ID]).toEqual({ x: 5, y: 5 });

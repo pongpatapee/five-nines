@@ -15,6 +15,7 @@ const reward: RunReward = {
   totalNines: { before: 10, after: 12, total: 50 },
   newBadges: ['rightSized', 'pennyPincher'],
   openedChapterIds: [],
+  promotedChapterIds: [],
   capped: false,
 };
 
@@ -30,10 +31,19 @@ describe('payout reveal', () => {
 
   it('shows the counter and the level filling in step', () => {
     const beats = revealBeats(reward, true, false);
-    expect(revealAt(reward, beats, -1)).toEqual({ total: 10, level: 3, badges: [], done: false });
+    expect(revealAt(reward, beats, -1)).toEqual({ total: 10, level: 3, badges: [], promoted: false, done: false });
     expect(revealAt(reward, beats, REVEAL_TIMING.ninesStartMs)).toMatchObject({ total: 11, level: 4, badges: [] });
     const end = revealAt(reward, beats, Infinity);
-    expect(end).toEqual({ total: 12, level: 5, badges: ['rightSized', 'pennyPincher'], done: true });
+    expect(end).toEqual({ total: 12, level: 5, badges: ['rightSized', 'pennyPincher'], promoted: false, done: true });
+  });
+
+  it('ends with the promotion, after the badges, when the run earned one', () => {
+    const promoted = { ...reward, promotedChapterIds: ['getting-online'] };
+    const beats = revealBeats(promoted, true, false);
+    expect(beats.map((beat) => beat.kind)).toEqual(['grade', 'win', 'nine', 'nine', 'badge', 'badge', 'promotion']);
+    expect(beats.at(-1)!.atMs - beats.at(-2)!.atMs).toBe(REVEAL_TIMING.promotionGapMs);
+    expect(revealAt(promoted, beats, beats.at(-2)!.atMs).promoted).toBe(false);
+    expect(revealAt(promoted, beats, Infinity)).toMatchObject({ promoted: true, done: true });
   });
 
   it('happens all at once with reduced motion', () => {
@@ -46,7 +56,7 @@ describe('payout reveal', () => {
     const nothing = { ...reward, levelNines: { before: 5, after: 5 }, totalNines: { before: 12, after: 12, total: 50 }, newBadges: [] };
     const beats = revealBeats(nothing, true, false);
     expect(beats.map((beat) => beat.kind)).toEqual(['grade', 'win']);
-    expect(revealAt(nothing, beats, Infinity)).toEqual({ total: 12, level: 5, badges: [], done: true });
+    expect(revealAt(nothing, beats, Infinity)).toEqual({ total: 12, level: 5, badges: [], promoted: false, done: true });
   });
 });
 

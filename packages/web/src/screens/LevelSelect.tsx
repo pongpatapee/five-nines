@@ -1,12 +1,13 @@
-import { CHAPTERS, isWritten, LEVELS, type Level } from '@five-nines/sim';
+import { CHAPTERS, isWritten, LEVELS, type Grade, type Level } from '@five-nines/sim';
 import { SoundToggle } from '../audio/SoundToggle.tsx';
 import { formatMs, formatUsd } from '../format.ts';
-import { NINES_FOR_GRADE, chapterThreshold, type LevelAccess } from '../progression/index.ts';
+import { NINES_FOR_GRADE, chapterThreshold, currentPromotionId, type LevelAccess } from '../progression/index.ts';
 import { tierPercent } from '../results/grading.ts';
 import { routeHref } from '../routing.ts';
 import { useBadges, usePeekedLevels } from '../state/index.ts';
-import { BadgeShelf, CampaignMap, cast, CastLine, lockSituation, marks, troublemakerTease, words } from '../theme/index.ts';
+import { BadgeShelf, CampaignMap, cast, CastLine, lockSituation, marks, story, troublemakerTease, words } from '../theme/index.ts';
 import { useCampaign, type CampaignState } from './campaign.ts';
+import { LevelProduct } from './LevelProduct.tsx';
 
 const { Arrow, Checkbox } = marks;
 
@@ -45,6 +46,12 @@ export function LevelSelect() {
             <SoundToggle className="contents__sound" />
           </div>
           <p className="contents__target">{target}</p>
+          <p className="contents__title-row">
+            <span className="contents__title-label">
+              {story.words.titleLabel} at {story.company}:
+            </span>
+            <span className="contents__job-title">{jobTitle(best)}</span>
+          </p>
         </div>
       </header>
 
@@ -71,6 +78,12 @@ export function LevelSelect() {
       </div>
     </main>
   );
+}
+
+/** The player's title: the latest promotion earned (`progression/promotion.ts`), or where everyone starts. */
+function jobTitle(best: Readonly<Record<string, Grade>>): string {
+  const promoted = currentPromotionId(CHAPTERS, best);
+  return (promoted ? story.promotions[promoted]?.title : undefined) ?? story.startingTitle;
 }
 
 function levelLabel(levelId: string): string {
@@ -126,6 +139,7 @@ function NextUpCard({
         <p className="index-card__concept">
           <span className="highlight">{level.concept.toLowerCase()}</span>
         </p>
+        <LevelProduct levelId={level.id} />
         <p className="index-card__lede">{level.briefing[0]}</p>
 
         <div className="index-card__reqs">

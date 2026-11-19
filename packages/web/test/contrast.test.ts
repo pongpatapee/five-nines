@@ -148,6 +148,24 @@ const TEXT: Audit[] = [
   { selector: '.solution__number dd', on: ['var(--highlighter)'], inheritsSize: 'var(--text-sm)' },
   { selector: '.grade-card__capped', on: ['var(--paper-card)'], inheritsSize: 'var(--text-sm)' },
   { selector: '.guide-link', on: ['var(--paper-card)', 'var(--paper)', 'var(--paper-shade)'] },
+  // The story: scenes, the all-hands page, the memo, the player's title, the capstone's marks and the promotion.
+  { selector: '.scene__stage', on: ['var(--paper)', 'var(--paper-card)'] },
+  { selector: '.scene__stamp-ink', on: ['var(--paper)', 'var(--paper-card)'] },
+  { selector: ".scene[data-size='sm'] .scene__stamp-ink", on: ['var(--paper-card)'], colors: ['var(--red-pen-text)'] },
+  { selector: '.scene__margin', on: ['var(--paper)', 'var(--paper-card)'] },
+  { selector: '.all-hands__product', on: ['var(--paper)', 'var(--highlighter)'] },
+  { selector: '.memo__from', on: ['var(--paper-card)'] },
+  { selector: '.memo__translation', on: ['var(--paper-card)'] },
+  { selector: '.memo__translation-lead', on: ['var(--paper-card)'], inheritsSize: 'var(--text-md)' },
+  { selector: '.memo__sticky-text', on: ['var(--sticky)'] },
+  { selector: '.memo__sticky-from', on: ['var(--sticky)'] },
+  { selector: '.level-product', on: ['var(--paper)', 'var(--paper-card)'] },
+  { selector: '.capstone-mark', on: ['var(--paper)', 'var(--paper-card)'] },
+  { selector: '.contents__title-label', on: ['var(--paper)'] },
+  { selector: '.contents__job-title', on: ['var(--paper)', 'var(--highlighter-green)'] },
+  { selector: '.map-text--capstone', on: ['var(--paper)', 'var(--paper-card)'], scale: MAP_SCALE },
+  { selector: '.map-text--all-hands', on: ['var(--paper)'], scale: MAP_SCALE },
+  { selector: '.grade-card__promotion-title', on: ['var(--paper-card)'] },
 ];
 
 /**

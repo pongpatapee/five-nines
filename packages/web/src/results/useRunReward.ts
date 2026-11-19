@@ -29,7 +29,7 @@ export function useRunReward(level: Level, evaluation: GradedEvaluation): RunRew
   return reward;
 }
 
-const CUES: Record<RevealBeat['kind'], SoundCue> = { grade: 'grade', win: 'win', nine: 'nine', badge: 'badge' };
+const CUES: Record<RevealBeat['kind'], SoundCue> = { grade: 'grade', win: 'win', nine: 'nine', badge: 'badge', promotion: 'promotion' };
 
 /** Plays the payout's beats in time, with their sounds, and returns what's showing now. */
 export function useReveal(

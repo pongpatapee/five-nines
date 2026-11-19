@@ -1,6 +1,6 @@
 /**
  * The results screen's payout, revealed in beats: the grade is stamped, the win chimes, the nines tick up one at a
- * time, then each new badge is stamped. Pure: `revealBeats` lays the beats out in time, `revealAt` says what's showing
+ * time, each new badge is stamped, then a promotion, if the run earned one, lands to the gong. Pure: `revealBeats` lays the beats out in time, `revealAt` says what's showing
  * at a moment. With reduced motion every beat happens at once.
  */
 import type { BadgeId, RunReward } from '../progression/index.ts';
@@ -10,7 +10,8 @@ export type RevealBeat =
   | { kind: 'win'; atMs: number }
   /** One more nine on the counter: `total` is the new running total. */
   | { kind: 'nine'; atMs: number; total: number }
-  | { kind: 'badge'; atMs: number; badge: BadgeId };
+  | { kind: 'badge'; atMs: number; badge: BadgeId }
+  | { kind: 'promotion'; atMs: number };
 
 export const REVEAL_TIMING = {
   /** The win chime, after the grade's stamp lands. */
@@ -21,6 +22,8 @@ export const REVEAL_TIMING = {
   nineGapMs: 180,
   /** Between the last nine and the first badge, and between badges. */
   badgeGapMs: 650,
+  /** Between the last nine or badge and a promotion. */
+  promotionGapMs: 900,
 } as const;
 
 export function revealBeats(reward: RunReward, passed: boolean, reducedMotion: boolean): RevealBeat[] {
@@ -38,6 +41,9 @@ export function revealBeats(reward: RunReward, passed: boolean, reducedMotion: b
     beats.push({ kind: 'badge', atMs: at(t), badge });
     t += REVEAL_TIMING.badgeGapMs;
   }
+  if (reward.promotedChapterIds.length > 0) {
+    beats.push({ kind: 'promotion', atMs: at(t - REVEAL_TIMING.badgeGapMs + REVEAL_TIMING.promotionGapMs) });
+  }
   return beats;
 }
 
@@ -48,6 +54,8 @@ export interface RevealState {
   level: number;
   /** New badges stamped so far, in order. */
   badges: BadgeId[];
+  /** The run's promotion has been handed over. */
+  promoted: boolean;
   /** Every beat has happened. */
   done: boolean;
 }
@@ -55,16 +63,19 @@ export interface RevealState {
 export function revealAt(reward: RunReward, beats: readonly RevealBeat[], elapsedMs: number): RevealState {
   let total = reward.totalNines.before;
   const badges: BadgeId[] = [];
+  let promoted = false;
   for (const beat of beats) {
     if (beat.atMs > elapsedMs) continue;
     if (beat.kind === 'nine') total = Math.max(total, beat.total);
     if (beat.kind === 'badge') badges.push(beat.badge);
+    if (beat.kind === 'promotion') promoted = true;
   }
   const gained = total - reward.totalNines.before;
   return {
     total,
     level: Math.min(reward.levelNines.after, reward.levelNines.before + gained),
     badges,
+    promoted,
     done: beats.every((beat) => beat.atMs <= elapsedMs),
   };
 }

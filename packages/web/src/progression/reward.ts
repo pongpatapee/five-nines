@@ -1,11 +1,12 @@
 /**
  * What a graded run paid out, worked out by comparing the progress before and after recording it. Pure, so the
- * results screen can show exactly what changed: nines ticking up, new badges stamped, chapters opened.
+ * results screen can show exactly what changed: nines ticking up, new badges stamped, chapters opened, a promotion.
  */
 import { isWritten, type Chapter, type Grade } from '@five-nines/sim';
 import { gradeRank } from '../format.ts';
 import { BADGE_IDS, type BadgeId } from './badges.ts';
 import { ninesForGrade, ninesTotal } from './nines.ts';
+import { earnedPromotionIds } from './promotion.ts';
 import { openChapterIds } from './unlocks.ts';
 
 /** Where a badge was earned: the level whose run or estimate earned it, or null when it came with an old save. */
@@ -30,6 +31,8 @@ export interface RunReward {
   newBadges: BadgeId[];
   /** Chapters this run opened (by nines), in campaign order. */
   openedChapterIds: string[];
+  /** Chapters whose promotion this run earned (`promotion.ts`): at most one, since a run passes one level. */
+  promotedChapterIds: string[];
   /** The level's solution was seen before passing, and this run was credited less than it earned (progression/peek.ts). */
   capped: boolean;
 }
@@ -52,12 +55,14 @@ export function runReward(chapters: readonly Chapter[], levelId: string, before:
   const levelIds = chapters.filter(isWritten).flatMap((chapter) => chapter.levelIds);
   const totalBefore = ninesTotal(levelIds, before.best);
   const openBefore = new Set(openChapterIds(chapters, { best: before.best }));
+  const promotedBefore = new Set(earnedPromotionIds(chapters, before.best));
   return {
     levelId,
     levelNines: { before: ninesForGrade(before.best[levelId]), after: ninesForGrade(after.best[levelId]) },
     totalNines: { before: totalBefore.earned, after: ninesTotal(levelIds, after.best).earned, total: totalBefore.total },
     newBadges: BADGE_IDS.filter((id) => before.badges[id] === undefined && after.badges[id] !== undefined),
     openedChapterIds: openChapterIds(chapters, { best: after.best }).filter((id) => !openBefore.has(id)),
+    promotedChapterIds: earnedPromotionIds(chapters, after.best).filter((id) => !promotedBefore.has(id)),
     capped: false,
   };
 }

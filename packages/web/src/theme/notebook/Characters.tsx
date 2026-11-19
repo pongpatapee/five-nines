@@ -1,5 +1,5 @@
 /**
- * The cast, drawn in ink. All three are decorative (`aria-hidden`); wherever they speak, `CastLine` names them in
+ * The cast, drawn in ink. All four are decorative (`aria-hidden`); wherever they speak, `CastLine` names them in
  * text, so nothing depends on seeing the drawing.
  *
  * Ink strokes use `currentColor` (set to --ink by `.cast-figure`), material colours come from tokens.
@@ -122,8 +122,49 @@ export function Smudge({ size = 90 }: { size?: number }) {
   );
 }
 
+export type ChadMood = 'beaming' | 'sincere';
+
+/**
+ * Chad Visionary, the founder: a neon highlighter with its cap off, arms wide, a keynote headset, and a streak of
+ * highlighter behind him, because he highlights everything.
+ */
+export function ChadVisionary({ mood = 'beaming', size = 110 }: { mood?: ChadMood; size?: number }) {
+  return (
+    <svg className="cast-figure" width={(size * 112) / 170} height={size} viewBox="-56 -6 112 170" aria-hidden>
+      <path
+        d="M-48,120 C-20,96 22,70 50,36"
+        style={{ ...paint(null, 'var(--cast-highlighter-streak)', 22), strokeLinecap: 'round' }}
+      />
+      <g transform="rotate(4)">
+        <path d="M-15,30 L-11,8 L13,2 L15,30 Z" style={paint('var(--cast-highlighter-tip)', INK, 2.2)} strokeLinejoin="round" />
+        <rect x="-20" y="28" width="40" height="112" rx="9" style={paint('var(--cast-highlighter-body)', INK, 2.4)} />
+        <path d="M-20,112 H20 M-20,120 H20" style={paint(null, INK, 1.6)} />
+        <circle cx="-8" cy="56" r="5.5" style={paint('var(--paper-card)', INK, 1.8)} />
+        <circle cx="9" cy="56" r="5.5" style={paint('var(--paper-card)', INK, 1.8)} />
+        <circle cx="-7" cy="57" r="2.2" style={paint(INK)} />
+        <circle cx="10" cy="57" r="2.2" style={paint(INK)} />
+        <path d="M-15,45 Q-9,40 -3,44 M3,44 Q9,40 15,45" style={paint(null, INK, 2.2)} strokeLinecap="round" />
+        {mood === 'beaming' ? (
+          <path d="M-10,68 Q1,82 12,68 Z" style={paint('var(--paper-card)', INK, 2)} strokeLinejoin="round" />
+        ) : (
+          <path d="M-8,70 Q1,76 10,70" style={paint(null, INK, 2)} strokeLinecap="round" />
+        )}
+        <path d="M-20,52 C-28,56 -26,70 -14,72" style={paint(null, INK, 1.6)} strokeLinecap="round" />
+        <circle cx="-13" cy="72" r="2.2" style={paint(INK)} />
+        <path d="M20,72 L40,48" style={paint(null, INK, 2.4)} strokeLinecap="round" />
+        <path d="M-20,72 L-38,52" style={paint(null, INK, 2.4)} strokeLinecap="round" />
+        <g transform="rotate(-24 -42 44)">
+          <rect x="-50" y="30" width="16" height="26" rx="4" style={paint('var(--cast-highlighter-tip)', INK, 1.8)} />
+        </g>
+        <path d="M-8,140 L-10,156 M8,140 L10,156" style={paint(null, INK, 2.2)} strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
+
 const TALLY_MOOD: Record<CastMood, TallyMood> = { neutral: 'stern', pleased: 'pleased', concerned: 'unimpressed' };
 const ERASMUS_MOOD: Record<CastMood, ErasmusMood> = { neutral: 'calm', pleased: 'calm', concerned: 'leaning' };
+const CHAD_MOOD: Record<CastMood, ChadMood> = { neutral: 'beaming', pleased: 'beaming', concerned: 'sincere' };
 
 /** A character with a speech bubble. The caption under the figure names them, so screen readers get the speaker. */
 export function CastLine({ role, children, lead, size, mood = 'neutral', tone = 'note', className }: CastLineProps) {
@@ -134,6 +175,7 @@ export function CastLine({ role, children, lead, size, mood = 'neutral', tone = 
         {role === 'boss' && <MsTally mood={TALLY_MOOD[mood]} size={size ?? 110} />}
         {role === 'mentor' && <Erasmus mood={ERASMUS_MOOD[mood]} size={size ?? 78} />}
         {role === 'troublemaker' && <Smudge size={size ?? 72} />}
+        {role === 'founder' && <ChadVisionary mood={CHAD_MOOD[mood]} size={size ?? 100} />}
         <figcaption className="cast-line__name">
           {member.name}
           <span className="visually-hidden">, </span>

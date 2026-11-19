@@ -70,6 +70,9 @@
   --cast-eraser-pink: #f5b3c2;
   --cast-eraser-blue: #a9c4ea;
   --cast-eraser-shadow: #b88a9a;
+  --cast-highlighter-body: #d4f53c;
+  --cast-highlighter-tip: #ff6fae;
+  --cast-highlighter-streak: rgb(212 245 60 / 0.55);
 
   /* ---------------------------------------------------------------- semantic: surfaces */
   --bg: var(--paper);

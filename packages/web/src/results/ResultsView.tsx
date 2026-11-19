@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import type { GradedEvaluation } from '../engine/index.ts';
 import { useReducedMotion } from '../playback/useReducedMotion.ts';
 import { GuideLink } from '../guide/FieldGuideProvider.tsx';
-import { cast, failoverSituation, GradeCard, savingsSituation, type RewardView } from '../theme/index.ts';
+import { cast, failoverSituation, GradeCard, savingsSituation, story, type RewardView } from '../theme/index.ts';
 import type { Hints } from '../screens/useHints.ts';
 import { DebriefPanel } from './DebriefPanel.tsx';
 import type { ResultView } from '../screens/levelMode.ts';
@@ -59,6 +59,7 @@ export function ResultsView({
             const index = CHAPTERS.findIndex((chapter) => chapter.id === id);
             return { number: index + 1, title: CHAPTERS[index]!.title };
           }),
+          promotion: shown.promoted ? (story.promotions[reward.promotedChapterIds[0] ?? ''] ?? null) : null,
         }
       : null;
   const savings = useMemo(() => savingsSituation(evaluation), [evaluation]);

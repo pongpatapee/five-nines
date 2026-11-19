@@ -22,8 +22,9 @@ const POPULARITY: Record<Popularity, string> = {
   skewed: 'a few are very popular',
 };
 
-/** "50%", "99.8%", "95%". */
-const share = (fraction: number) => `${Number((fraction * 100).toFixed(1))}%`;
+/** "50%", "99.8%", "95%": a share as the numbers box writes it. */
+export const shareText = (fraction: number) => `${Number((fraction * 100).toFixed(1))}%`;
+const share = shareText;
 
 function shardKey(key: ShardKeyNumbers): { label: string; value: string } {
   return key.spread === 'sequential'

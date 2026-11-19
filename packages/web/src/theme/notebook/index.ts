@@ -19,6 +19,8 @@ import { NapkinWorking } from './NapkinWorking.tsx';
 import { NumbersBox, numbersText } from './numbers.tsx';
 import { PostmortemCard } from './PostmortemCard.tsx';
 import { Shell } from './Shell.tsx';
+import { NOTEBOOK_STORY } from './story.ts';
+import { AllHands, LevelMemoNote } from './Story.tsx';
 import { NOTEBOOK_SOUNDS } from './sounds.ts';
 import { UtilizationGauge } from './UtilizationGauge.tsx';
 // In cascade order: later sheets override earlier ones at equal specificity.
@@ -31,10 +33,14 @@ import './styles/playback.css';
 import './styles/results.css';
 import './styles/screens.css';
 import './styles/rewards.css';
+import './styles/story.css';
 
 export const notebookTheme: Theme = {
   Shell,
   cast: NOTEBOOK_SCRIPT,
+  story: NOTEBOOK_STORY,
+  AllHands,
+  LevelMemoNote,
   CastLine,
   words: {
     level: 'page',

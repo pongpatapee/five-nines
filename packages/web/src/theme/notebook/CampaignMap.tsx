@@ -7,6 +7,7 @@ import type { CampaignMapProps } from '../contract.ts';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
 import { NinesDots, paint } from './ink.tsx';
+import { NOTEBOOK_STORY } from './story.ts';
 import {
   CHAPTER_LABELS,
   chapterLabelWidth,
@@ -45,7 +46,13 @@ export function CampaignMap({ chapters, levels, best, peeked, nextUp, access, ch
           aria-label={`Campaign map. ${written.map((chapter, c) => `Chapter ${c + 1}, ${chapter.title}: ${chapter.levelIds.length} pages${chapterLockText(chapterAccess[chapter.id])}.`).join(' ')} Later chapters coming soon.`}
         >
           {written.map((chapter, c) => (
-            <ChapterLabel key={chapter.id} layout={CHAPTER_LABELS[c]!} title={chapter.title} lock={chapterAccess[chapter.id]}>
+            <ChapterLabel
+              key={chapter.id}
+              layout={CHAPTER_LABELS[c]!}
+              title={chapter.title}
+              lock={chapterAccess[chapter.id]}
+              allHandsId={NOTEBOOK_STORY.allHands(chapter.id) ? chapter.id : null}
+            >
               Ch. {c + 1} · {chapter.title}
             </ChapterLabel>
           ))}
@@ -66,6 +73,7 @@ export function CampaignMap({ chapters, levels, best, peeked, nextUp, access, ch
               level={level}
               index={i}
               at={LEVEL_SLOTS[i]!}
+              capstone={written.some((chapter) => chapter.capstoneId === level.id)}
               grade={best[level.id]}
               peeked={peeked?.[level.id] === true}
               current={i === nextUp}
@@ -92,15 +100,19 @@ function ChapterLabel({
   layout,
   title,
   lock,
+  allHandsId = null,
   children,
 }: {
   layout: (typeof CHAPTER_LABELS)[number];
   title: string;
   lock?: ChapterAccess;
+  /** The chapter whose all-hands the label links back to, once the chapter is open. Null for none. */
+  allHandsId?: string | null;
   children: ReactNode;
 }) {
   const { at, tilt } = layout;
   const width = chapterLabelWidth(title);
+  const open = lock?.kind !== 'locked';
   return (
     <g transform={`rotate(${tilt} ${at.x + width / 2} ${at.y + 13})`}>
       <rect x={at.x} y={at.y} width={width} height={26} rx={6} style={{ fill: WASH[layout.wash], opacity: 0.9 }} />
@@ -114,6 +126,13 @@ function ChapterLabel({
             needs {lock.needed} nines
           </text>
         </g>
+      )}
+      {open && allHandsId && (
+        <a href={routeHref({ name: 'allHands', chapterId: allHandsId })} className="map-all-hands" aria-label={`${title}: the ${NOTEBOOK_STORY.words.replayAllHands} again`}>
+          <text x={at.x + width + 10} y={at.y + 19} className="map-text map-text--all-hands">
+            ▸ {NOTEBOOK_STORY.words.replayAllHands}
+          </text>
+        </a>
       )}
     </g>
   );
@@ -135,6 +154,7 @@ function LevelStop({
   level,
   index,
   at,
+  capstone,
   grade,
   peeked,
   current,
@@ -144,6 +164,8 @@ function LevelStop({
   level: Level;
   index: number;
   at: XYPoint;
+  /** The chapter's launch-day level: drawn larger, in a starburst, and marked. */
+  capstone: boolean;
   grade: Grade | undefined;
   /** The solution was seen before passing: a pencil note beside the page. */
   peeked: boolean;
@@ -153,8 +175,10 @@ function LevelStop({
 }) {
   const nines = ninesForGrade(grade);
   const status = grade === undefined ? 'not played yet' : grade === 'fail' ? 'not passed yet' : GRADE_LABELS[grade];
-  const r = current ? 32 : 30;
+  const r = (current ? 32 : 30) + (capstone ? 4 : 0);
   const locked = access.kind !== 'open';
+  const launch = capstone ? ` ${capitalize(NOTEBOOK_STORY.words.capstone)}: the chapter's capstone.` : '';
+  const mark = capstone ? <CapstoneMark at={at} r={r} /> : null;
   if (locked) {
     // Still a link: the page explains what opens it. But it reads as closed on the map.
     return (
@@ -162,9 +186,10 @@ function LevelStop({
         href={routeHref({ name: 'level', levelId: level.id })}
         className="map-stop map-stop--locked"
         data-grade="locked"
-        aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}.${lockLabel(access, levelNumberOf)}${current ? ' You are here.' : ''}`}
+        aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}.${launch}${lockLabel(access, levelNumberOf)}${current ? ' You are here.' : ''}`}
       >
         <circle className="map-stop__focus" cx={at.x} cy={at.y} r={r + 8} />
+        {mark}
         <circle className="map-locked__page" cx={at.x} cy={at.y} r={r} />
         <text x={at.x} y={at.y + 11} textAnchor="middle" className="map-text map-text--locked-number">
           {index + 1}
@@ -186,7 +211,7 @@ function LevelStop({
       href={routeHref({ name: 'level', levelId: level.id })}
       className="map-stop"
       data-grade={grade ?? 'unplayed'}
-      aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}. ${status}, ${nines} of ${MAX_NINES_PER_LEVEL} nines.${peeked ? ` ${capitalize(NOTEBOOK_SCRIPT.giveUp.peekedNote)}.` : ''}${current ? ' You are here.' : ''}`}
+      aria-label={`Page ${index + 1}: ${level.title}. ${level.concept}.${launch} ${status}, ${nines} of ${MAX_NINES_PER_LEVEL} nines.${peeked ? ` ${capitalize(NOTEBOOK_SCRIPT.giveUp.peekedNote)}.` : ''}${current ? ' You are here.' : ''}`}
     >
       {current && (
         <path
@@ -195,6 +220,7 @@ function LevelStop({
         />
       )}
       <circle className="map-stop__focus" cx={at.x} cy={at.y} r={r + 8} />
+      {mark}
       <g filter="url(#nb-wobble)">
         <circle className="map-stop__disc" cx={at.x} cy={at.y} r={r} />
       </g>
@@ -230,6 +256,23 @@ function LevelStop({
         </g>
       )}
     </a>
+  );
+}
+
+/** A capstone's starburst behind its disc, and "launch day" lettered above. Decorative (the link says it). */
+function CapstoneMark({ at, r }: { at: XYPoint; r: number }) {
+  const points = Array.from({ length: 24 }, (_, k) => {
+    const radius = k % 2 === 0 ? r + 14 : r + 5;
+    const angle = (Math.PI * 2 * k) / 24 - Math.PI / 2;
+    return `${(at.x + radius * Math.cos(angle)).toFixed(1)},${(at.y + radius * Math.sin(angle)).toFixed(1)}`;
+  });
+  return (
+    <g aria-hidden>
+      <polygon points={points.join(' ')} className="map-capstone__burst" strokeLinejoin="round" />
+      <text x={at.x} y={at.y - r - 20} textAnchor="middle" className="map-text map-text--capstone">
+        {NOTEBOOK_STORY.words.capstone}
+      </text>
+    </g>
   );
 }
 

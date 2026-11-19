@@ -1,5 +1,6 @@
 /**
- * The progress store: per-level drafts, best grades, estimates and badges, persisted to localStorage.
+ * The progress store: per-level drafts, best grades, estimates and badges, and the all-hands seen, persisted to
+ * localStorage.
  *
  * Use the hooks (`useDraft`, `useBestGrade`, `useBestGrades`, `useBadges`) in components and
  * `progressStore.getState()` for actions. Writes to storage are debounced, and flushed when the page is hidden or
@@ -37,6 +38,8 @@ export interface ProgressState {
   peeked: Readonly<Record<string, true>>;
   /** The player's own design per level, kept aside while a reference solution is on the canvas. */
   stashedDrafts: Readonly<Record<string, Draft>>;
+  /** Chapters whose all-hands the player has seen. */
+  seenAllHands: Readonly<Record<string, true>>;
 
   /** Replaces a level's draft (design and layout). Autosaved. */
   updateDraft(levelId: string, draft: Draft): void;
@@ -62,6 +65,8 @@ export interface ProgressState {
   loadSolution(levelId: string, solution: Draft): void;
   /** Puts the player's kept design back on the canvas, replacing the solution. */
   restoreStashedDraft(levelId: string): void;
+  /** Records that the player has seen a chapter's all-hands, so it doesn't open by itself again. */
+  markAllHandsSeen(chapterId: string): void;
 }
 
 /** Every level starts with just the clients node. Shared and frozen so selectors return a stable reference. */
@@ -85,8 +90,16 @@ export type ProgressStore = StoreApi<ProgressState> & {
 };
 
 type Facts = Pick<ProgressState, 'bestGrades' | 'estimates' | 'badges'>;
-type Saved = Pick<ProgressState, 'drafts' | 'bestGrades' | 'estimates' | 'badges' | 'peeked' | 'stashedDrafts'>;
-const SAVED_KEYS = ['drafts', 'bestGrades', 'estimates', 'badges', 'peeked', 'stashedDrafts'] as const satisfies readonly (keyof Saved)[];
+type Saved = Pick<ProgressState, 'drafts' | 'bestGrades' | 'estimates' | 'badges' | 'peeked' | 'stashedDrafts' | 'seenAllHands'>;
+const SAVED_KEYS = [
+  'drafts',
+  'bestGrades',
+  'estimates',
+  'badges',
+  'peeked',
+  'stashedDrafts',
+  'seenAllHands',
+] as const satisfies readonly (keyof Saved)[];
 
 /** The progress badges `facts` earn that it doesn't hold yet, credited to `levelId`. */
 function withProgressBadges(chapters: readonly Chapter[], facts: Facts, levelId: string | null): EarnedBadges {
@@ -108,6 +121,7 @@ export function createProgressStore({ storage, writeDelayMs = 300, chapters = CH
     badges: initialBadges,
     peeked: initial.peeked,
     stashedDrafts: initial.stashedDrafts,
+    seenAllHands: initial.seenAllHands,
     updateDraft: (levelId, draft) =>
       set((state) => (state.drafts[levelId] === draft ? state : { drafts: { ...state.drafts, [levelId]: draft } })),
     resetDraft: (levelId) =>
@@ -162,14 +176,16 @@ export function createProgressStore({ storage, writeDelayMs = 300, chapters = CH
         const { [levelId]: _restored, ...stashedDrafts } = state.stashedDrafts;
         return { drafts: { ...state.drafts, [levelId]: stashed }, stashedDrafts };
       }),
+    markAllHandsSeen: (chapterId) =>
+      set((state) => (state.seenAllHands[chapterId] ? state : { seenAllHands: { ...state.seenAllHands, [chapterId]: true } })),
   }));
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   const write = () => {
     timer = null;
     if (!writable) return;
-    const { drafts, bestGrades, estimates, badges, peeked, stashedDrafts } = store.getState();
-    writeSave(storage, { drafts, bestGrades, estimates, badges, peeked, stashedDrafts });
+    const { drafts, bestGrades, estimates, badges, peeked, stashedDrafts, seenAllHands } = store.getState();
+    writeSave(storage, { drafts, bestGrades, estimates, badges, peeked, stashedDrafts, seenAllHands });
   };
   const flush = () => {
     if (timer === null) return;
@@ -231,6 +247,11 @@ export function usePeeked(levelId: string): boolean {
 
 export function usePeekedLevels(): Readonly<Record<string, true>> {
   return useProgress((state) => state.peeked);
+}
+
+/** Whether the player has seen a chapter's all-hands. */
+export function useAllHandsSeen(chapterId: string): boolean {
+  return useProgress((state) => state.seenAllHands[chapterId] === true);
 }
 
 /** The player's own design kept aside while a solution is on the canvas, if any. */

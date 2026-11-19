@@ -19,6 +19,9 @@ import {
   progressBadges,
   runBadges,
   runReward,
+  currentPromotionId,
+  earnedPromotionIds,
+  promotionLevelId,
 } from '../src/progression/index.ts';
 
 type Graded = Extract<Evaluation, { status: 'graded' }>;
@@ -247,8 +250,49 @@ describe('run rewards', () => {
       totalNines: { before: 9, after: 14, total: 25 },
       newBadges: ['rightSized'],
       openedChapterIds: ['growing-pains'],
+      promotedChapterIds: ['getting-online'],
       capped: false,
     });
-    expect(runReward(CAMPAIGN, 'c', after, after)).toMatchObject({ levelNines: { before: 5, after: 5 }, newBadges: [], openedChapterIds: [] });
+    expect(runReward(CAMPAIGN, 'c', after, after)).toMatchObject({
+      levelNines: { before: 5, after: 5 },
+      newBadges: [],
+      openedChapterIds: [],
+      promotedChapterIds: [],
+    });
+  });
+});
+
+describe('promotions', () => {
+  const chapters: Chapter[] = [
+    { id: 'one', title: 'One', levelIds: ['a', 'b', 'cap'], capstoneId: 'cap' },
+    { id: 'two', title: 'Two', levelIds: ['d', 'e'] },
+    { id: 'later', title: 'Later', levelIds: [] },
+  ];
+
+  it("promotes on a chapter's capstone, or else its last level", () => {
+    expect(promotionLevelId(chapters[0]!)).toBe('cap');
+    expect(promotionLevelId(chapters[1]!)).toBe('e');
+    expect(promotionLevelId(chapters[2]!)).toBeNull();
+  });
+
+  it('counts only passing grades, and only the latest title is current', () => {
+    expect(earnedPromotionIds(chapters, {})).toEqual([]);
+    expect(currentPromotionId(chapters, {})).toBeNull();
+    expect(earnedPromotionIds(chapters, { cap: 'fail' })).toEqual([]);
+    expect(earnedPromotionIds(chapters, { cap: 'pass' })).toEqual(['one']);
+    // Out of order (unlock all): the furthest chapter's title wins.
+    expect(earnedPromotionIds(chapters, { e: 'star' })).toEqual(['two']);
+    expect(currentPromotionId(chapters, { cap: 'pass', e: 'mastered' })).toBe('two');
+  });
+
+  it('hands out a promotion once, on the run that earns it', () => {
+    const before = { best: { a: 'pass', b: 'pass' } as Record<string, Grade>, badges: {} };
+    const after = { best: { ...before.best, cap: 'pass' } as Record<string, Grade>, badges: {} };
+    expect(runReward(chapters, 'cap', before, after).promotedChapterIds).toEqual(['one']);
+    expect(runReward(chapters, 'cap', after, { ...after, best: { ...after.best, cap: 'mastered' } }).promotedChapterIds).toEqual([]);
+  });
+
+  it('promotes at the end of every written chapter of the real campaign: Links ends chapter 1', () => {
+    expect(CHAPTERS.filter(isWritten).map(promotionLevelId)).toEqual(['11-everything-links', '06-bank-balance', '10-flash-sale']);
   });
 });

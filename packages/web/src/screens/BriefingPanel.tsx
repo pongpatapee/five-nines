@@ -2,8 +2,9 @@ import { designCostUsdPerMonth, levelNumbers, type Design, type Level } from '@f
 import { Fragment, useMemo } from 'react';
 import { COMPONENTS } from '../components/registry.ts';
 import { capitalize } from '../format.ts';
-import { cast, CastLine, componentNames, NumbersBox, troublemakerTease, words } from '../theme/index.ts';
+import { cast, CastLine, componentNames, LevelMemoNote, NumbersBox, story, troublemakerTease, words } from '../theme/index.ts';
 import { CostMeter } from './CostMeter.tsx';
+import { LevelProduct } from './LevelProduct.tsx';
 
 export interface BriefingPanelProps {
   level: Level;
@@ -16,11 +17,16 @@ export interface BriefingPanelProps {
   onShowEstimateWorking?: (() => void) | null;
 }
 
-/** Left side panel, in every mode: briefing, the level's numbers, component reference card and live cost. */
+/**
+ * Left side panel, in every mode: the founder's memo and its translation, the briefing, the level's numbers, the
+ * component reference card and the live cost. The plain briefing and the numbers are the source of truth; the memo is
+ * the story around them.
+ */
 export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle, onShowEstimateWorking }: BriefingPanelProps) {
   const cost = designCostUsdPerMonth(design);
   const tease = troublemakerTease(level);
   const numbers = useMemo(() => levelNumbers(level), [level]);
+  const memo = useMemo(() => story.memo(level.id, numbers), [level.id, numbers]);
   if (collapsed) {
     return (
       <aside className="briefing briefing--collapsed" aria-label="Briefing (collapsed)">
@@ -39,6 +45,7 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle,
             {capitalize(words.level)} {levelNumber} · {level.concept}
           </div>
           <h1 className="briefing__title hand">{level.title}</h1>
+          <LevelProduct levelId={level.id} />
         </div>
         <button type="button" className="btn btn--ghost btn--sm briefing__toggle" onClick={onToggle} title="Hide briefing">
           «
@@ -46,6 +53,8 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle,
       </div>
 
       <div className="briefing__scroll">
+        {memo && <LevelMemoNote memo={memo} />}
+
         <CastLine role="boss" size={84} className="briefing__boss">
           "{cast.bossBrief(level)}"
         </CastLine>

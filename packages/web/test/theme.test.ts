@@ -22,7 +22,7 @@ import {
 } from '../src/theme/index.ts';
 import { checkSummary, levelStress, verdictFor, type Verdict } from '../src/theme/situations.ts';
 
-const ROLES = ['boss', 'mentor', 'troublemaker'] as const;
+const ROLES = ['boss', 'mentor', 'troublemaker', 'founder'] as const;
 const FAILURE_REASONS = Object.keys(FAILURE_REASON_TEXT) as (keyof typeof FAILURE_REASON_TEXT)[];
 
 describe('cast roles', () => {

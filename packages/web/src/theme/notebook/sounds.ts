@@ -1,6 +1,7 @@
 /**
  * The notebook's sounds, synthesised with the Web Audio API: no audio files. Desk sounds for the desk theme: a page
- * turning, a pen scratching, a rubber stamp, a pencil tick, the on-call pager buzzing and a small win chime.
+ * turning, a pen scratching, a rubber stamp, a pencil tick, the on-call pager buzzing, a small win chime, and the
+ * office's launch gong for a promotion.
  *
  * Every synth starts its sources at `at` and stops them a moment later, so nothing keeps running.
  */
@@ -125,6 +126,26 @@ const chime: SoundSynth = (context, out, at) => {
   }
 };
 
+/**
+ * The launch gong, for a promotion: a low fundamental with inharmonic partials that shimmer and decay slowly, struck
+ * with a soft mallet thump.
+ */
+const gong: SoundSynth = (context, out, at) => {
+  const body = filter(context, out, 'lowpass', 2400, 0.7);
+  for (const [ratio, peak, length] of [
+    [1, 0.3, 1.5],
+    [1.48, 0.14, 1.3],
+    [2.09, 0.1, 1.1],
+    [2.76, 0.06, 0.9],
+    [3.53, 0.035, 0.7],
+  ] as const) {
+    // A slight downward bend gives the struck-metal wobble.
+    tone(context, envelope(context, body, at, peak, 0.012, length), at, length, 'sine', 98 * ratio, 96 * ratio);
+  }
+  const mallet = envelope(context, out, at, 0.25, 0.003, 0.12);
+  noiseBurst(context, filter(context, mallet, 'lowpass', 500, 0.8), at, 0.12);
+};
+
 export const NOTEBOOK_SOUNDS: Readonly<Record<SoundCue, SoundSynth>> = {
   navigate: pageTurn,
   hint: penScratch,
@@ -132,6 +153,7 @@ export const NOTEBOOK_SOUNDS: Readonly<Record<SoundCue, SoundSynth>> = {
   grade: stamp,
   badge: stamp,
   win: chime,
+  promotion: gong,
   crash: pager,
   incident: stamp,
 };

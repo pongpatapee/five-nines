@@ -12,12 +12,14 @@ import {
 } from '../../format.ts';
 import { MAX_NINES_PER_LEVEL, ninesForGrade, type BadgeId } from '../../progression/index.ts';
 import { gradeHeadline, litTiers, nextTier, tierPercent, tierRequirementLabel, TIER_ORDER } from '../../results/grading.ts';
-import type { GradeCardProps, HintLadderProps, RewardView } from '../contract.ts';
+import type { GradeCardProps, HintLadderProps, RewardView, SceneBeat } from '../contract.ts';
 import { verdictFor, type SavingsSituation } from '../situations.ts';
 import { BADGE_GLYPHS } from './BadgeShelf.tsx';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
 import { BadgeSeal, Cross, HandArrow, InkLoop, NinesDots, Tick } from './ink.tsx';
+import { NOTEBOOK_STORY } from './story.ts';
+import { Scene } from './Story.tsx';
 
 /** The graded result as a marked notebook page: the grade circled, the boss's verdict, ticks and crosses. */
 export function GradeCard({
@@ -96,6 +98,7 @@ export function GradeCard({
       </div>
 
       {reward && reward.shown.badges.length > 0 && <NewBadges badges={reward.shown.badges} />}
+      {reward?.promotion && <PromotionMoment title={reward.promotion.title} beats={reward.promotion.beats} />}
 
       <dl className="grade-card__facts">
         <div>
@@ -296,6 +299,17 @@ function NewBadges({ badges }: { badges: readonly BadgeId[] }) {
         );
       })}
     </ul>
+  );
+}
+
+/** The launch shipped: the founder hands over the player's new title, stamped onto the page. */
+function PromotionMoment({ title, beats }: { title: string; beats: readonly SceneBeat[] }) {
+  return (
+    <section className="grade-card__promotion stamp-in" aria-label={`${NOTEBOOK_STORY.words.promoted}: ${title}`} role="status">
+      <p className="eyebrow">{NOTEBOOK_STORY.words.promoted}</p>
+      <p className="grade-card__promotion-title">{title}</p>
+      <Scene beats={beats} size="sm" />
+    </section>
   );
 }
 

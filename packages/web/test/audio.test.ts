@@ -4,7 +4,7 @@ import { createSfx } from '../src/audio/sfx.ts';
 import { createSettingsStore, DEFAULT_SETTINGS, parseSettings, SETTINGS_KEY, type StorageLike } from '../src/state/index.ts';
 import { theme, type SoundCue } from '../src/theme/index.ts';
 
-const CUES: SoundCue[] = ['navigate', 'hint', 'nine', 'grade', 'badge', 'win', 'crash', 'incident'];
+const CUES: SoundCue[] = ['navigate', 'hint', 'nine', 'grade', 'badge', 'win', 'promotion', 'crash', 'incident'];
 
 function memoryStorage(): StorageLike & { data: Map<string, string> } {
   const data = new Map<string, string>();

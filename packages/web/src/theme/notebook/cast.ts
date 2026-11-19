@@ -5,7 +5,8 @@
  * - Ms. Tally, the budget boss: sets the bar in the briefing and delivers the verdict.
  * - Erasmus, the mentor eraser: voices hints, design checks and the postmortem nudge.
  * - Smudge, the ink-blot troublemaker: owns the level's stress (traffic surges, crashed servers, a rebooted cache, a
- *   post gone viral).
+ *   post gone viral). Not a coworker: production itself.
+ * - Chad Visionary, the founder: a neon highlighter. His lines are the story's (`story.ts`); he never states a number.
  */
 import type { FailureReason, Grade } from '@five-nines/sim';
 import { formatAvailability, formatCount, formatMs, formatPercent, formatUsd } from '../../format.ts';
@@ -24,7 +25,8 @@ import { COMPONENT_NAMES } from './names.ts';
 const MEMBERS = {
   boss: { name: 'Ms. Tally', title: 'budget boss' },
   mentor: { name: 'Erasmus', title: 'mentor' },
-  troublemaker: { name: 'Smudge', title: 'troublemaker' },
+  troublemaker: { name: 'Smudge', title: 'production' },
+  founder: { name: 'Chad Visionary', title: 'founder' },
 } as const;
 
 /** "30 seconds", "about a minute", "about a minute and a half", "about 3 minutes": how a character would say when something happens. */

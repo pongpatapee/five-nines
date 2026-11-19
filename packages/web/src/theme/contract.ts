@@ -42,8 +42,12 @@ import type {
 
 // ---------------------------------------------------------------------------- the cast
 
-/** The characters, by what they do in the game (docs/design.md, "Art direction"). */
-export type CastRole = 'boss' | 'mentor' | 'troublemaker';
+/**
+ * The characters, by what they do in the game (docs/design.md, "Art direction"). The founder runs the company the
+ * story is set in: he unveils each chapter's product, opens each briefing with a memo, and hands out promotions. He
+ * never states a number; the mentor translates him.
+ */
+export type CastRole = 'boss' | 'mentor' | 'troublemaker' | 'founder';
 
 /** How a character looks while saying a line. Each theme draws these its own way. */
 export type CastMood = 'neutral' | 'pleased' | 'concerned';
@@ -186,6 +190,90 @@ export interface CastLineProps {
   /** `alarm` marks the lead-in as bad news. */
   tone?: 'note' | 'alarm';
   className?: string;
+}
+
+// ---------------------------------------------------------------------------- the story
+
+/**
+ * One beat of a scene, in order: stage directions, a cast member's line, a word stamped in big letters (the name of
+ * a product or a title), or the mentor's note in the margin.
+ */
+export type SceneBeat =
+  | { kind: 'stage'; text: string }
+  | { kind: 'line'; role: CastRole; text: string }
+  | { kind: 'stamp'; text: string }
+  | { kind: 'margin'; text: string };
+
+/** A chapter's all-hands: the founder unveils what the chapter builds. */
+export interface AllHandsScene {
+  /** The product unveiled, as stamped: "Everything Links". */
+  product: string;
+  beats: readonly SceneBeat[];
+}
+
+/** A promotion: the title the player is handed, and the scene. */
+export interface Promotion {
+  title: string;
+  beats: readonly SceneBeat[];
+}
+
+/** The memo atop a level's briefing: the founder's hype, then the mentor's translation of it into the numbers. */
+export interface LevelMemo {
+  /** The founder, in vibes: never a number. */
+  hype: string;
+  /** The mentor's margin note: the hype, as the level's numbers. Every figure in it is in the numbers box. */
+  translation: string;
+  /** A coworker's sticky note, where one has something to add. */
+  sticky: { from: string; text: string } | null;
+}
+
+/**
+ * The story the levels are set in (docs/story/everything-labs.md). Played for laughs in the corporate world only:
+ * the numbers, the briefing and the lessons stay the source of truth, and no line here contradicts them.
+ */
+export interface StoryScript {
+  /** The company, for headings. */
+  company: string;
+  /** What a level works on, beside its title: "Everything Links · waitlist". Null for a level with none. */
+  product(levelId: string): string | null;
+  /** The memo atop the level's briefing, worded from its numbers. Null for a level with none. */
+  memo(levelId: string, numbers: LevelNumbers): LevelMemo | null;
+  /** A chapter's all-hands, by chapter id. Null for a chapter with none. */
+  allHands(chapterId: string): AllHandsScene | null;
+  /** The player's title before any promotion. */
+  startingTitle: string;
+  /** The promotion each chapter hands out when it's earned (`progression/promotion.ts`), by chapter id. */
+  promotions: Readonly<Record<string, Promotion>>;
+  /** Fixed words around the story. */
+  words: {
+    /** Before the player's current title on the contents page: "Your title". */
+    titleLabel: string;
+    /** A capstone's mark, on the map and its page: "launch day". */
+    capstone: string;
+    /** The link back to a chapter's all-hands. */
+    replayAllHands: string;
+    /** The all-hands page's way on: "On to p.1". */
+    continueTo(levelLabel: string): string;
+    /** The heading of the promotion on the results card. */
+    promoted: string;
+  };
+}
+
+/** Props of the all-hands page. */
+export interface AllHandsProps {
+  scene: AllHandsScene;
+  chapterNumber: number;
+  chapterTitle: string;
+  /** The way on, to the level the player was opening or the chapter's first: its label, and what it does. */
+  continueLabel: string;
+  onContinue(): void;
+  /** Back to the contents. */
+  backHref: string;
+}
+
+/** Props of the memo atop a briefing. */
+export interface LevelMemoProps {
+  memo: LevelMemo;
 }
 
 // ---------------------------------------------------------------------------- copy
@@ -352,6 +440,8 @@ export interface RewardView {
   shown: RevealState;
   /** Chapters the run opened. */
   openedChapters: readonly { number: number; title: string }[];
+  /** The promotion the run earned, once the reveal reaches it. Null when it earned none, or not yet shown. */
+  promotion: Promotion | null;
 }
 
 /**
@@ -410,6 +500,8 @@ export type SoundCue =
   | 'badge'
   /** A passing grade. */
   | 'win'
+  /** A promotion handed over: the launch gong. */
+  | 'promotion'
   /** The troublemaker strikes during playback: a crash, a restart, a hot key. */
   | 'crash'
   /** Playback freezes on the incident. */
@@ -425,6 +517,12 @@ export interface Theme {
   /** Wraps every screen. */
   Shell: ComponentType<{ children: ReactNode }>;
   cast: CastScript;
+  /** The story around the levels: products, memos, all-hands and promotions. */
+  story: StoryScript;
+  /** A chapter's all-hands, as a page of its own. */
+  AllHands: ComponentType<AllHandsProps>;
+  /** The founder's memo and the mentor's translation, atop a briefing. */
+  LevelMemoNote: ComponentType<LevelMemoProps>;
   /** A character saying a line. Must name the speaker in text. */
   CastLine: ComponentType<CastLineProps>;
   words: ThemeWords;

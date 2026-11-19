@@ -11,6 +11,8 @@
  * - 3: adds the levels whose solution was seen before passing (`peeked`) and the player's own designs kept aside
  *   while a reference solution is on the canvas (`stashedDrafts`). Older saves load with neither, and keep everything
  *   else.
+ * - 4: adds the chapters whose all-hands the player has seen (`seenAllHands`), so each opens once. Older saves load
+ *   with none seen: a returning player meets each chapter's all-hands once, and keeps everything else.
  */
 import { DesignSchema, GradeSchema, type Grade } from '@five-nines/sim';
 import { completeLayout } from '../canvas/layout.ts';
@@ -21,7 +23,7 @@ import { isBadgeId, type BadgeId, type BadgeRecord, type EarnedBadges } from '..
 export const STORAGE_KEY = 'five-nines:v1';
 /** Where an unreadable save is copied, once, before the game starts afresh. */
 export const BACKUP_KEY = 'five-nines:unreadable-backup';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface SaveData {
   /** Per-level drafts, keyed by level id. */
@@ -36,6 +38,8 @@ export interface SaveData {
   peeked: Record<string, true>;
   /** The player's own design per level id, kept aside while a reference solution is loaded onto the canvas. */
   stashedDrafts: Record<string, Draft>;
+  /** Chapters whose all-hands the player has seen, by chapter id. */
+  seenAllHands: Record<string, true>;
 }
 
 /** A level's napkin-math answer. Kept for the "Napkin Wizard" badge (estimates within 10% on several levels). */
@@ -53,7 +57,7 @@ export interface StorageLike {
 }
 
 export function emptySave(): SaveData {
-  return { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {} };
+  return { drafts: {}, bestGrades: {}, estimates: {}, badges: {}, peeked: {}, stashedDrafts: {}, seenAllHands: {} };
 }
 
 /** `window.localStorage`, or null when it doesn't exist or access throws (e.g. blocked cookies). */
@@ -145,6 +149,10 @@ export function readSave(raw: string | null): ParsedSave {
       }
     }
   }
+  // Versions 1 to 3 had no all-hands.
+  if (data.version >= 4 && isRecord(data.seenAllHands)) {
+    for (const [chapterId, value] of Object.entries(data.seenAllHands)) if (value === true) save.seenAllHands[chapterId] = true;
+  }
   return { save, readable: true };
 }
 
@@ -174,6 +182,7 @@ export function serializeSave(save: SaveData): string {
     badges: save.badges,
     peeked: save.peeked,
     stashedDrafts: save.stashedDrafts,
+    seenAllHands: save.seenAllHands,
   });
 }
 

@@ -12,6 +12,9 @@ export const theme: Theme = notebookTheme;
 export const {
   Shell,
   cast,
+  story,
+  AllHands,
+  LevelMemoNote,
   CastLine,
   words,
   componentNames,
