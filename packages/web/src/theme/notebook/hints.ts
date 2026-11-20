@@ -191,6 +191,55 @@ function why(story: FailureStory): string {
   }
 }
 
+/**
+ * Erasmus's callout at the top of a failed run's result: one or two short sentences, what failed and where, with the
+ * run's own numbers. The ladder below goes deeper; this is the line most players read.
+ */
+export function mentorCallout(story: FailureStory): string {
+  switch (story.topic) {
+    case 'overload': {
+      if (story.kind === 'loadBalancer') return `${story.nodeId} got more requests than a load balancer can pass on. They failed.`;
+      if (story.hotShard) {
+        return `Shard ${story.hotShard.index + 1} of ${story.nodeId} carried ${formatPercent(story.hotShard.share)} of the traffic. It queued requests until they timed out.`;
+      }
+      const load = story.peakUtilization === null ? 'out of capacity' : busy(story.peakUtilization);
+      if (story.cacheRestartAtSec !== null && story.kind !== 'cache') {
+        return `The cache came back empty, so every read hit ${story.nodeId}. It got to ${load}, and requests timed out.`;
+      }
+      return `${story.nodeId} was ${load}. Requests queued until they timed out.`;
+    }
+    case 'crash': {
+      const f = story.failover;
+      if (story.noneLeft || !f) return `${story.nodeId} had no healthy server left, so every request failed.`;
+      const dead = instanceName(f.nodeId, f.instance, f.rotationSize);
+      const traffic = f.rotationSize > 1 ? `1 in ${f.rotationSize} requests` : 'Every request';
+      return `${dead} crashed. ${traffic} still went to it and failed: ${share(f.lostShare)} lost, and a pass allows ${PASS_BUDGET}.`;
+    }
+    case 'stale':
+      return story.readAfterWrite
+        ? `Users read their own fresh writes from ${story.nodeId} before it had them, and saw the old value.`
+        : `${story.nodeId} served data that was out of date${story.limitSec === null ? '' : `, older than ${seconds(story.limitSec)}`}.`;
+    case 'rateLimit':
+      return `${story.nodeId} takes ${formatCount(story.rateLimitRps)} calls a second and was sent ${formatCount(story.peakCallsRps)}. It refused the rest, and those orders failed.`;
+    case 'queueFull':
+      return `${story.nodeId} filled up: ${story.workers} workers drained it too slowly, so it turned orders away.`;
+    case 'deadline':
+      return `Orders waited in ${story.nodeId} past the deadline: ${story.workers} workers drained it too slowly.`;
+    case 'latency': {
+      const head = `p99 hit ${formatMs(story.p99Ms)}, over the ${formatMs(story.requiredMs)} limit.`;
+      const b = story.worst?.busiest;
+      if (!b) return head;
+      return b.utilization >= COMFORTABLE_UTILIZATION
+        ? `${head} ${b.nodeId} was ${busy(b.utilization)}, so requests waited in line.`
+        : `${head} Nothing was very busy, so look at the route itself.`;
+    }
+    case 'budget': {
+      const over = `${formatUsd(story.costUsdPerMonth)} a month: ${formatUsd(story.costUsdPerMonth - story.budgetUsdPerMonth)} over budget.`;
+      return story.priciest ? `${over} ${story.priciest.nodeId} costs the most.` : over;
+    }
+  }
+}
+
 /** The general concept and fix for each kind of failure, when a level has nothing more specific. */
 const GENERAL: Record<HintTopic, { concept: string; fix: string }> = {
   overload: {
@@ -882,8 +931,10 @@ function verdict({ close, guess, answer }: EstimateResult): { exclaim: string; l
 export const MENTOR_ESTIMATE: MentorEstimateScript = {
   ask,
   verdict,
-  skipped: { exclaim: 'Skipped.', line: "No harm done. Here's how I'd work it out; the top bar brings the question back." },
+  skipped: { exclaim: 'Skipped.', line: "No harm done. Here's how I'd work it out; the briefing brings the question back." },
   review: { exclaim: 'The working.', line: "Here's how I'd work it out, step by step." },
   revisit: 'Show the napkin working',
   bonus: 'napkin bonus',
+  challenge: 'Estimate first for a bonus',
+  challengeEarned: 'Napkin bonus earned',
 };

@@ -86,6 +86,47 @@
   padding: var(--space-4) var(--space-6) 0;
 }
 
+/* Erasmus's one-line callout on a failed run: what failed and where, before the details. */
+.grade-card__callout {
+  padding: var(--space-2) var(--space-6) 0;
+}
+
+.grade-card__callout .cast-line__bubble {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+/* After a pass: the player's design beside the other designs that pass, one line each. */
+.grade-card__tradeoff {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-3) var(--space-6) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--blue-pen);
+  background: var(--paper-shade);
+  font-size: var(--text-sm);
+}
+
+.grade-card__tradeoff-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+}
+
+.grade-card__tradeoff-row dt {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.grade-card__tradeoff-row dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.grade-card__tradeoff-match {
+  color: var(--green-pen-text);
+}
+
 .grade-card__checks {
   display: grid;
   gap: 0;

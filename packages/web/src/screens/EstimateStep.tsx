@@ -32,9 +32,9 @@ type Phase =
   | { kind: 'review'; skipped: boolean };
 
 /**
- * The napkin-math step before building (docs/design.md, "Estimate step"): the mentor asks one question worked out
- * from the level's numbers, the player answers or skips, and gets the worked solution either way. It can be reopened
- * on the question or straight on the working.
+ * The napkin-math step, opt-in from the briefing card (docs/design.md, "Estimate step"): the mentor asks one question
+ * worked out from the level's numbers, the player answers or skips, and gets the worked solution either way. It can be
+ * reopened on the question or straight on the working.
  */
 export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClose, start = 'ask' }: EstimateStepProps) {
   const solution = useMemo(() => solveEstimate(level, estimate), [level, estimate]);
@@ -58,11 +58,8 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
     }
   }, [phase.kind]);
 
-  // Esc leaves the step: a skip if nothing was ever answered.
-  useEscape(() => {
-    if (phase.kind === 'ask' && record === undefined) onSkip();
-    onClose();
-  });
+  // Esc leaves the step. The step is opt-in, so leaving it unanswered is not a skip: the challenge stays open.
+  useEscape(onClose);
   useRestoreFocus();
 
   const check = (event: FormEvent) => {
@@ -132,16 +129,21 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
             </form>
             <div className="estimate-card__actions">
               {record === undefined ? (
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  onClick={() => {
-                    onSkip();
-                    setPhase({ kind: 'review', skipped: true });
-                  }}
-                >
-                  Skip: show me the working
-                </button>
+                <>
+                  <button type="button" className="btn btn--ghost" onClick={onClose}>
+                    Not now
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => {
+                      onSkip();
+                      setPhase({ kind: 'review', skipped: true });
+                    }}
+                  >
+                    Skip: show me the working
+                  </button>
+                </>
               ) : (
                 <>
                   <button type="button" className="btn btn--ghost" onClick={onClose}>
@@ -180,7 +182,7 @@ export function EstimateStep({ level, estimate, record, onAnswer, onSkip, onClos
               </>
             }
             badges={phase.kind === 'answered' ? phase.badges : []}
-            doneLabel={phase.kind === 'review' && !phase.skipped ? 'Back to building' : 'Start building'}
+            doneLabel="Back to building"
             onDone={onClose}
             retryLabel={phase.kind === 'answered' ? (phase.close ? null : 'Try again') : 'Answer it'}
             onRetry={() => {

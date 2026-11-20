@@ -14,7 +14,7 @@ export const {
   cast,
   story,
   AllHands,
-  LevelMemoNote,
+  BriefingCard,
   CastLine,
   words,
   componentNames,
@@ -37,6 +37,7 @@ export const {
 export type * from './contract.ts';
 export {
   checkSummary,
+  designComparison,
   failoverSituation,
   failureStory,
   hottestShard,
@@ -45,9 +46,12 @@ export {
   LEVEL_TRAPS,
   levelTrap,
   lockSituation,
+  recentStrikes,
   savingsSituation,
+  STRIKE_NOTE_SEC,
   verdictFor,
   worstLatency,
+  type DesignComparison,
   type FailoverSituation,
   type FailureStory,
   type HintLadder,
@@ -55,6 +59,7 @@ export {
   type LevelTrap,
   type LockSituation,
   type SavingsSituation,
+  type Strike,
 } from './situations.ts';
 
 /** The mentor's hint for a failure reason, or the sign-off when there's none. */

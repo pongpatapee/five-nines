@@ -685,3 +685,65 @@
   justify-content: space-between;
   gap: var(--space-2);
 }
+
+/* The dial's word, under its reading, once a machine passes the 70% line: "busy", "too busy", "overloaded". */
+.util-gauge--mark:has(.util-gauge__word) {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  column-gap: 3px;
+  align-items: center;
+}
+
+.util-gauge--mark:has(.util-gauge__word) .util-gauge__dial {
+  grid-row: span 2;
+}
+
+.util-gauge--mark .util-gauge__value {
+  line-height: 1.1;
+}
+
+.util-gauge__word {
+  font-family: var(--font-note);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--zone-color);
+  white-space: nowrap;
+}
+
+/*
+ * The troublemaker's note, pinned above the node it struck during playback: a small red-pen tag clear of the node's
+ * handles (on its left and right edges) and of the node itself.
+ */
+.design-node__note {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 2;
+  padding: 1px var(--space-2);
+  border: 1.6px solid var(--red-pen);
+  border-radius: var(--radius-hand);
+  background: var(--paper-card);
+  box-shadow: var(--shadow-ink-sm);
+  font-family: var(--font-note);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--red-pen-text);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%) rotate(-1.5deg);
+  animation: node-note-in 240ms ease-out;
+}
+
+@keyframes node-note-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px) rotate(-1.5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .design-node__note {
+    animation: none;
+  }
+}

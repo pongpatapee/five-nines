@@ -27,6 +27,8 @@ import type { BadgeId, ChapterAccess, EarnedBadges, LevelAccess, RunReward } fro
 import type { RevealState } from '../results/reveal.ts';
 import type {
   CheckSummary,
+  DesignComparison,
+  DesignSketch,
   LockSituation,
   SavingsSituation,
   FailoverSituation,
@@ -37,6 +39,7 @@ import type {
   LatencySituation,
   LevelStress,
   LevelTrap,
+  Strike,
   Verdict,
 } from './situations.ts';
 
@@ -68,6 +71,8 @@ export interface CastScript {
   bossVerdict(verdict: Verdict): { exclaim: string; line: string };
   /** The troublemaker's heads-up about the level's stress. */
   troublemakerTease(stress: LevelStress): string;
+  /** The troublemaker's mark pinned to the node it struck during playback, one short line: "unplugged instance 2". */
+  troublemakerNote(strike: Strike): string;
   /** A crash, credited to the troublemaker on the timeline and in the postmortem's event log. */
   troublemakerCrash(nodeId: string, instance: number): string;
   /** A cache restart, credited to the troublemaker the same way. */
@@ -86,6 +91,15 @@ export interface CastScript {
   mentorChecks(summary: CheckSummary): string;
   /** The mentor's hint ladder for a failed run (docs/design.md, "Hints and iteration"). */
   mentorLadder: MentorLadderScript;
+  /**
+   * The mentor's one-line callout at the top of a failed run's result: what failed, where, with the run's numbers.
+   * Short (chapter 1 keeps it to 25 words); the ladder below it goes deeper.
+   */
+  mentorCallout(story: FailureStory): string;
+  /** A design in a few words, for the trade-off line after a pass: "6 medium servers + a spare, retries, a medium database". */
+  designSketch(sketch: DesignSketch): string;
+  /** The trade-off line's words around the sketches. */
+  tradeOff: { yours: string; alsoPasses: string; matches: string };
   /** The mentor on why p99 is where it is, quoting the numbers. */
   mentorLatency(situation: LatencySituation): string;
   /** The failover around a crash as a few short lines: when it died, when the balancer noticed, what it cost. */
@@ -177,6 +191,10 @@ export interface MentorEstimateScript {
   revisit: string;
   /** The name of the bonus mark ("napkin bonus"). */
   bonus: string;
+  /** The opt-in challenge on the briefing card, before it's earned: "Estimate first for a bonus". */
+  challenge: string;
+  /** The same control once the bonus is earned. */
+  challengeEarned: string;
 }
 
 export interface CastLineProps {
@@ -217,13 +235,21 @@ export interface Promotion {
   beats: readonly SceneBeat[];
 }
 
-/** The memo atop a level's briefing: the founder's hype, then the mentor's translation of it into the numbers. */
+/**
+ * The words atop a level's briefing card: the founder's hype, the goal, and the mentor's translation of the hype into
+ * the numbers. Chapter 1 keeps each to one short line (docs/design.md, "Word budgets").
+ */
 export interface LevelMemo {
   /** The founder, in vibes: never a number. */
   hype: string;
+  /**
+   * What to build, in one plain line. Null for a level written before the briefing card: its briefing prose then
+   * stays in view rather than behind "more".
+   */
+  goal: string | null;
   /** The mentor's margin note: the hype, as the level's numbers. Every figure in it is in the numbers box. */
   translation: string;
-  /** A coworker's sticky note, where one has something to add. */
+  /** A coworker's sticky note, where one has something to add. Behind "more". */
   sticky: { from: string; text: string } | null;
 }
 
@@ -252,8 +278,14 @@ export interface StoryScript {
     capstone: string;
     /** The link back to a chapter's all-hands. */
     replayAllHands: string;
-    /** The all-hands page's way on: "On to p.1". */
+    /** The all-hands page's big button: "Let's go". */
+    go: string;
+    /** Under it, where it leads: "On to p.1". */
     continueTo(levelLabel: string): string;
+    /** The briefing card's toggle for everything behind it. */
+    more: string;
+    /** The heading of the briefing card's goal line. */
+    goal: string;
     /** The heading of the promotion on the results card. */
     promoted: string;
   };
@@ -271,9 +303,20 @@ export interface AllHandsProps {
   backHref: string;
 }
 
-/** Props of the memo atop a briefing. */
-export interface LevelMemoProps {
-  memo: LevelMemo;
+/**
+ * Props of the briefing card: the founder's line, the goal and the mentor's margin note, then the numbers as a picture
+ * (a sparkline of the traffic, an icon per event, a badge per requirement), then everything else behind "more".
+ */
+export interface BriefingCardProps {
+  /** Null for a level with no memo: the card shows the numbers alone. */
+  memo: LevelMemo | null;
+  numbers: LevelNumbers;
+  /** The level's traffic curve, for the sparkline. */
+  traffic: readonly { atSec: number; rps: number }[];
+  /** Under the numbers: the opt-in napkin challenge, when the level has one. */
+  challenge?: ReactNode;
+  /** Behind the "more" toggle: the boss's brief, the briefing prose, the full numbers, the reference card. */
+  more: ReactNode;
 }
 
 // ---------------------------------------------------------------------------- copy
@@ -400,6 +443,10 @@ export interface GradeCardProps {
   reward: RewardView | null;
   /** Money left under the budget, or null when over it. */
   savings: SavingsSituation | null;
+  /** What failed, for the mentor's callout at the top of a failed run. Null when it passed. */
+  failure: FailureStory | null;
+  /** The player's design beside the level's reference solutions, after a pass only. Null otherwise. */
+  comparison: DesignComparison | null;
 }
 
 export interface HintLadderProps {
@@ -456,7 +503,10 @@ export interface UtilizationGaugeProps {
   utilization: number;
   /** What the reading measures; `busy` (a machine) when omitted. */
   measure?: GaugeMeasure;
-  /** `full`: the inspector's gauge with its reading. `mark`: a small dial on a canvas node. Both are labelled. */
+  /**
+   * `full`: the inspector's gauge with its reading. `mark`: a small dial on a canvas node, with a word for its zone
+   * ("busy", "too busy", "overloaded") while it's past the 70% line. Both are labelled.
+   */
   variant: 'full' | 'mark';
 }
 
@@ -521,8 +571,8 @@ export interface Theme {
   story: StoryScript;
   /** A chapter's all-hands, as a page of its own. */
   AllHands: ComponentType<AllHandsProps>;
-  /** The founder's memo and the mentor's translation, atop a briefing. */
-  LevelMemoNote: ComponentType<LevelMemoProps>;
+  /** The briefing card: the founder's line, the goal, the margin note and the numbers drawn, with the rest behind "more". */
+  BriefingCard: ComponentType<BriefingCardProps>;
   /** A character saying a line. Must name the speaker in text. */
   CastLine: ComponentType<CastLineProps>;
   words: ThemeWords;

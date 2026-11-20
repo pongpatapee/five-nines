@@ -20,7 +20,7 @@ import { NumbersBox, numbersText } from './numbers.tsx';
 import { PostmortemCard } from './PostmortemCard.tsx';
 import { Shell } from './Shell.tsx';
 import { NOTEBOOK_STORY } from './story.ts';
-import { AllHands, LevelMemoNote } from './Story.tsx';
+import { AllHands, BriefingCard } from './Story.tsx';
 import { NOTEBOOK_SOUNDS } from './sounds.ts';
 import { UtilizationGauge } from './UtilizationGauge.tsx';
 // In cascade order: later sheets override earlier ones at equal specificity.
@@ -40,7 +40,7 @@ export const notebookTheme: Theme = {
   cast: NOTEBOOK_SCRIPT,
   story: NOTEBOOK_STORY,
   AllHands,
-  LevelMemoNote,
+  BriefingCard,
   CastLine,
   words: {
     level: 'page',

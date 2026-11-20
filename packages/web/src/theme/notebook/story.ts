@@ -38,6 +38,8 @@ interface LevelStory {
   /** What the level works on, beside its title. */
   product: string;
   hype: string;
+  /** The goal line on the briefing card. Levels without one keep their briefing prose in view. */
+  goal?: string;
   translation(numbers: LevelNumbers): string;
   sticky?: { from: string; text: string };
 }
@@ -46,28 +48,28 @@ interface LevelStory {
 const LEVELS: Readonly<Record<string, LevelStory>> = {
   '01-hello-traffic': {
     product: 'Everything Links · the waitlist',
-    hype: "The waitlist goes live today. This is the moment the future gets an email address. Expect massive demand. Like, a lot.",
-    translation: (x) =>
-      `"A lot" means ${climb(x)} requests a second, ${formatMs(x.cpuMsPerRequest)} of CPU each. One app server, p99 under ${formatMs(x.requirements.p99Ms)}.`,
+    hype: 'The waitlist goes live today. Expect massive demand. Like, a lot.',
+    goal: 'Pick one app server that keeps every request fast, on budget.',
+    translation: (x) => `"A lot" means ${climb(x)} requests a second, ${formatMs(x.cpuMsPerRequest)} of CPU each.`,
   },
   '02-scale-out': {
     product: 'Everything Links · the waitlist goes viral',
-    hype: "We're going viral. Organically. I paid for nothing. I'd like to thank Bex, and also the concept of momentum.",
-    translation: (x) =>
-      `"Viral" means ${climb(x)} requests a second, still ${formatMs(x.cpuMsPerRequest)} of CPU each. Check how much one box can take before you pick one.`,
+    hype: "We're going viral. Organically. I paid for nothing. Thank you, Bex.",
+    goal: 'One big server, or several behind a load balancer? Serve everyone, fast, on budget.',
+    translation: (x) => `"Viral" means ${climb(x)} requests a second, still ${formatMs(x.cpuMsPerRequest)} of CPU each.`,
     sticky: { from: 'Bex, Head of Growth', text: 'I got us into the newsletter!! Everyone reads it. Like, everyone.' },
   },
   '03-pull-the-plug': {
     product: 'Everything Links · launch week',
-    hype: "Downtime is a mindset. And we don't have that mindset. We have the other one.",
-    translation: (x) =>
-      `Same traffic, up to ${n(x.traffic.sustainedRps)} requests a second, and at some point one app server will crash. Lose any one and keep serving everyone.`,
+    hype: "Downtime is a mindset. We don't have that mindset. We have the other one.",
+    goal: 'An app server will crash. Keep serving everyone through it.',
+    translation: (x) => `Same traffic, up to ${n(x.traffic.sustainedRps)} requests a second. Plan to lose any one server.`,
   },
   '11-everything-links': {
     product: 'Everything Links · launch day',
-    hype: 'Long links are a tax on the human spirit. Today, we repeal that tax. For everyone. Forever. Starting now-ish.',
-    translation: (x) =>
-      `Launch day: ${climb(x)} requests a second, ${formatMs(x.cpuMsPerRequest)} of CPU each, then one trip to the database: ${reads(x)} redirects, ${writes(x)} new links. A server will crash. p99 under ${formatMs(x.requirements.p99Ms)}. New machine, same 70% rule.`,
+    hype: 'Long links are a tax on the human spirit. Today, we repeal that tax. Starting now-ish.',
+    goal: 'Ship the real thing: app servers, a load balancer and your first database.',
+    translation: (x) => `${reads(x)} of requests are redirects, ${writes(x)} new links. Same 70% rule, new machine.`,
     sticky: { from: 'Doug, Naming Department', text: 'Stamp is inked and ready. EVERYTHING.' },
   },
   '04-read-all-about-it': {
@@ -127,25 +129,14 @@ const ALL_HANDS: Readonly<Record<string, AllHandsScene>> = {
   'getting-online': {
     product: 'Everything Links',
     beats: [
-      { kind: 'stage', text: 'The gong. Chad bounds onto the beanbags.' },
-      {
-        kind: 'line',
-        role: 'founder',
-        text: "Team. Family. Doug. Look at a link. Any link. It's long. It's ugly. Our links still have question marks in them. Today that ends. Doug?",
-      },
-      { kind: 'stage', text: 'Doug lifts a sheet. On the whiteboard, in stamp ink:' },
       { kind: 'stamp', text: 'Everything Links' },
+      { kind: 'line', role: 'founder', text: 'Team. Family. Doug. Links are long and ugly. Today that ends.' },
+      { kind: 'line', role: 'founder', text: "Short links, for everyone. The waitlist opens today. It'll scale, obviously." },
       {
         kind: 'line',
         role: 'founder',
-        text: "Short links. For everyone. We open the waitlist today, and we launch when it's ready. It'll be ready soon. It'll scale, obviously. Our new intern is on it.",
+        text: 'Our new Synergy Intern is on it. Nobody knows what that title means, so it can mean anything.',
       },
-      {
-        kind: 'line',
-        role: 'founder',
-        text: 'Welcome to the family, by the way. Your title is Synergy Intern. Nobody knows what it means, which means it can mean anything.',
-      },
-      { kind: 'margin', text: "That's you. Start with the waitlist. —E." },
     ],
   },
   'growing-pains': {
@@ -196,7 +187,7 @@ const PROMOTIONS: Readonly<Record<string, Promotion>> = {
       {
         kind: 'line',
         role: 'founder',
-        text: "Everything Links is live, and it didn't fall over. I'm told that's rare? I ran the numbers. Okay, Erasmus ran the numbers. Synergy Intern, you are now a 10x Engineer. I don't know what the other nine x's are, but I can feel them.",
+        text: "Everything Links is live, and it didn't fall over. You are now a 10x Engineer. I don't know what the other nine x's are, but I can feel them.",
       },
       { kind: 'stage', text: 'Doug stamps a new business card.' },
       { kind: 'stamp', text: '10x Engineer' },
@@ -233,7 +224,9 @@ const PROMOTIONS: Readonly<Record<string, Promotion>> = {
 
 function memo(levelId: string, numbers: LevelNumbers): LevelMemo | null {
   const story = LEVELS[levelId];
-  return story ? { hype: story.hype, translation: story.translation(numbers), sticky: story.sticky ?? null } : null;
+  return story
+    ? { hype: story.hype, goal: story.goal ?? null, translation: story.translation(numbers), sticky: story.sticky ?? null }
+    : null;
 }
 
 export const NOTEBOOK_STORY: StoryScript = {
@@ -247,7 +240,10 @@ export const NOTEBOOK_STORY: StoryScript = {
     titleLabel: 'Your title',
     capstone: 'launch day',
     replayAllHands: 'all-hands',
+    go: "Let's go",
     continueTo: (levelLabel) => `On to ${levelLabel}`,
+    more: 'More: the full briefing',
+    goal: 'Goal',
     promoted: 'Promotion',
   },
 };

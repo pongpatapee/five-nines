@@ -13,7 +13,7 @@ import {
 import { MAX_NINES_PER_LEVEL, ninesForGrade, type BadgeId } from '../../progression/index.ts';
 import { gradeHeadline, litTiers, nextTier, tierPercent, tierRequirementLabel, TIER_ORDER } from '../../results/grading.ts';
 import type { GradeCardProps, HintLadderProps, RewardView, SceneBeat } from '../contract.ts';
-import { verdictFor, type SavingsSituation } from '../situations.ts';
+import { verdictFor, type DesignComparison, type SavingsSituation } from '../situations.ts';
 import { BADGE_GLYPHS } from './BadgeShelf.tsx';
 import { NOTEBOOK_SCRIPT } from './cast.ts';
 import { CastLine } from './Characters.tsx';
@@ -35,6 +35,8 @@ export function GradeCard({
   onNextLevel,
   reward,
   savings,
+  failure,
+  comparison,
 }: GradeCardProps) {
   const { grade, checks, simulation } = evaluation;
   const passed = grade !== 'fail';
@@ -71,6 +73,13 @@ export function GradeCard({
       >
         {verdict.line}
       </CastLine>
+
+      {failure && (
+        <CastLine role="mentor" mood="concerned" size={52} tone="alarm" className="grade-card__callout">
+          {NOTEBOOK_SCRIPT.mentorCallout(failure)}
+        </CastLine>
+      )}
+      {comparison && <TradeOff comparison={comparison} />}
 
       <div className="grade-card__checks">
         <CheckRow
@@ -264,6 +273,31 @@ function Payout({ view }: { view: RewardView }) {
           </p>
         ))}
     </div>
+  );
+}
+
+/** After a pass: what the player's design chose and cost, beside the reference designs that also pass. */
+function TradeOff({ comparison }: { comparison: DesignComparison }) {
+  const words = NOTEBOOK_SCRIPT.tradeOff;
+  const sketch = NOTEBOOK_SCRIPT.designSketch;
+  return (
+    <dl className="grade-card__tradeoff">
+      <div className="grade-card__tradeoff-row" data-yours>
+        <dt>{words.yours}:</dt>
+        <dd>
+          {sketch(comparison.yours)}, <span className="num">{formatUsdPerMonth(comparison.yours.costUsdPerMonth)}</span>
+          {comparison.matchesReference && <span className="grade-card__tradeoff-match"> ({words.matches})</span>}
+        </dd>
+      </div>
+      {comparison.others.map((other, i) => (
+        <div key={i} className="grade-card__tradeoff-row">
+          <dt>{words.alsoPasses}:</dt>
+          <dd>
+            {sketch(other)}, <span className="num">{formatUsdPerMonth(other.costUsdPerMonth)}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

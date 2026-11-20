@@ -31,6 +31,7 @@ import type { CanvasSelection, DeleteRequest, Draft, LiveFrame, NodeMark, XY } f
 const edgeTypes: EdgeTypes = { flow: FlowEdge };
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--edge-color)' } as const;
 const NO_MARKS: Readonly<Record<string, NodeMark>> = {};
+const NO_NOTES: Readonly<Record<string, string>> = {};
 const DELETE_KEYS = ['Backspace', 'Delete'];
 /** Graph-paper square, in flow units. Matches `--grid-minor-size` so the canvas and the page share a grid. */
 const GRID_MINOR = 24;
@@ -51,6 +52,8 @@ export interface DesignCanvasProps {
   marks?: Readonly<Record<string, NodeMark>>;
   /** Expected peak utilization per node id (`peakLoad`), shown on the nodes while there are no live stats. */
   forecast?: Readonly<Record<string, number>> | null;
+  /** A short line pinned above a node, by node id: the troublemaker's mark during playback. */
+  notes?: Readonly<Record<string, string>>;
 
   /**
    * Controlled selection. Pass it together with `onSelectionChange`; leave it undefined to let the canvas track
@@ -101,6 +104,7 @@ function DesignCanvasInner({
   live = null,
   marks = NO_MARKS,
   forecast = null,
+  notes = NO_NOTES,
   selection: controlledSelection,
   onSelectionChange,
   onNodeMove,
@@ -209,7 +213,7 @@ function DesignCanvasInner({
     onReady?.(handle);
   }, [handle, onReady]);
 
-  const decorations = useMemo(() => ({ live, marks, forecast }), [live, marks, forecast]);
+  const decorations = useMemo(() => ({ live, marks, forecast, notes }), [live, marks, forecast, notes]);
   const classes = ['design-canvas', `design-canvas--${mode}`];
   if (live) classes.push('design-canvas--live');
   if (className) classes.push(className);

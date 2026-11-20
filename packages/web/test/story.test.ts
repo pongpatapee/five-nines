@@ -7,7 +7,7 @@ import { CHAPTERS, isWritten, LEVELS, levelNumbers, type Level } from '@five-nin
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AllHands, CastLine, cast, LevelMemoNote, numbersText, story, type SceneBeat } from '../src/theme/index.ts';
+import { AllHands, BriefingCard, CastLine, cast, numbersText, story, type SceneBeat } from '../src/theme/index.ts';
 
 const CASES = LEVELS.map((level) => [level.id, level] as const);
 const WRITTEN = CHAPTERS.filter(isWritten).map((chapter) => [chapter.id, chapter] as const);
@@ -108,14 +108,28 @@ describe('the story pages', () => {
       }),
     );
     expect(html).toContain('Everything Links');
-    expect(html).toContain('Start with the waitlist');
+    expect(html).toContain('The waitlist opens today');
+    expect(html).toContain(story.words.go.replace("'", '&#x27;'));
     expect(html).toContain('On to p.1');
   });
 
-  it('draws a memo with its sticky note', () => {
-    const html = renderToStaticMarkup(createElement(LevelMemoNote, { memo: memoOf(LEVELS.find((l) => l.id === '02-scale-out')!) }));
+  it('draws a briefing card: the memo, the numbers drawn, and the sticky note behind more', () => {
+    const level = LEVELS.find((l) => l.id === '02-scale-out')!;
+    const html = renderToStaticMarkup(
+      createElement(BriefingCard, { memo: memoOf(level), numbers: levelNumbers(level), traffic: level.workload.traffic, more: null }),
+    );
     expect(html).toContain('Chad Visionary');
     expect(html).toContain('Bex');
     expect(html).toContain('5,000');
+    expect(html).toContain('<details class="brief-card__more">');
+  });
+
+  it('keeps more open for a level whose card has no goal line', () => {
+    const level = LEVELS.find((l) => l.id === '07-the-write-wall')!;
+    expect(memoOf(level).goal).toBeNull();
+    const html = renderToStaticMarkup(
+      createElement(BriefingCard, { memo: memoOf(level), numbers: levelNumbers(level), traffic: level.workload.traffic, more: null }),
+    );
+    expect(html).toContain('<details class="brief-card__more" open="">');
   });
 });

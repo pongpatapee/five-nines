@@ -1,5 +1,5 @@
 import { CHAPTERS, LEVELS, type Chapter, type Grade, type Level } from '@five-nines/sim';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { isPassingGrade } from '../format.ts';
 import { navigate, routeHref } from '../routing.ts';
 import { progressStore } from '../state/index.ts';
@@ -22,8 +22,8 @@ export function allHandsNextLevel(chapter: Chapter, best: Readonly<Record<string
 }
 
 /**
- * A chapter's all-hands. It records itself as seen as soon as it shows, so it opens by itself only once (`LevelGate`
- * in App.tsx); the contents page can bring it back.
+ * A chapter's all-hands: one panel, skippable with Enter or Esc. It records itself as seen as soon as it shows, so it
+ * opens by itself only once (`LevelGate` in App.tsx); the contents page can bring it back.
  */
 export function AllHandsScreen({
   chapter,
@@ -39,13 +39,31 @@ export function AllHandsScreen({
   onContinue?: () => void;
 }) {
   useEffect(() => progressStore.getState().markAllHandsSeen(chapter.id), [chapter.id]);
+  const go = onContinue ?? (() => navigate({ name: 'level', levelId: next.id }));
+  // Enter or Esc skips straight to the level. A focused button or link keeps its own Enter.
+  const goRef = useRef(go);
+  useEffect(() => {
+    goRef.current = go;
+  });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+      const onControl = event.target instanceof HTMLElement && event.target.closest('a, button, input, textarea, select') !== null;
+      if (event.key === 'Escape' || (event.key === 'Enter' && !onControl)) {
+        event.preventDefault();
+        goRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
   return (
     <AllHands
       scene={scene}
       chapterNumber={CHAPTERS.findIndex((c) => c.id === chapter.id) + 1}
       chapterTitle={chapter.title}
       continueLabel={story.words.continueTo(levelLabel(next))}
-      onContinue={onContinue ?? (() => navigate({ name: 'level', levelId: next.id }))}
+      onContinue={go}
       backHref={routeHref({ name: 'levels' })}
     />
   );

@@ -4,10 +4,13 @@
  * character claim something the simulation didn't do.
  */
 import {
+  CLIENTS_ID,
+  designCostUsdPerMonth,
   HEALTH_CHECK,
   levelNumbers,
   LOAD_BALANCER,
   nodeCostUsdPerMonth,
+  peakLoad,
   type Chapter,
   type ComponentKind,
   type Design,
@@ -23,6 +26,7 @@ import {
   type SimulationResult,
   type TimelineFrame,
 } from '@five-nines/sim';
+import { nodeCopies } from '../components/registry.ts';
 import type { GradedEvaluation } from '../engine/index.ts';
 import type { GuideEntryId } from '../guide/guide.ts';
 import type { LevelAccess } from '../progression/index.ts';
@@ -137,6 +141,38 @@ export function eventCaption(event: SimEvent, script: CastScript): { text: strin
     return { text: script.troublemakerHotKey(event.label), byTroublemaker: true };
   }
   return { text: event.message, byTroublemaker: false };
+}
+
+/** A scripted event the troublemaker caused, pinned to the node it struck, for its note on the canvas. */
+export type Strike =
+  | { kind: 'crash'; nodeId: string; instance: number; atSec: number }
+  | { kind: 'cacheRestart'; nodeId: string; atSec: number }
+  | { kind: 'hotKey'; nodeId: string; label: string; atSec: number };
+
+/** How long a strike's note stays pinned to its node during playback, in simulated seconds. */
+export const STRIKE_NOTE_SEC = 12;
+
+/**
+ * The troublemaker's strikes still worth a note at `timeSec`: struck within the last `STRIKE_NOTE_SEC`, the latest
+ * per node. A hot key concerns the whole data set rather than one node, so its note goes on the design's shards (or,
+ * failing that, its database).
+ */
+export function recentStrikes(events: readonly SimEvent[], timeSec: number, design: Design): Strike[] {
+  const byNode = new Map<string, Strike>();
+  const dataNode = design.nodes.find((node) => node.kind === 'shards') ?? design.nodes.find((node) => node.kind === 'database');
+  for (const event of events) {
+    if (event.atSec > timeSec || timeSec - event.atSec > STRIKE_NOTE_SEC) continue;
+    let strike: Strike | null = null;
+    if (event.kind === 'instanceFailed' && event.instance !== undefined) {
+      strike = { kind: 'crash', nodeId: event.nodeId, instance: event.instance, atSec: event.atSec };
+    } else if (event.kind === 'cacheRestarted') {
+      strike = { kind: 'cacheRestart', nodeId: event.nodeId, atSec: event.atSec };
+    } else if (event.kind === 'hotKeyStarted' && event.label !== undefined && dataNode) {
+      strike = { kind: 'hotKey', nodeId: dataNode.id, label: event.label, atSec: event.atSec };
+    }
+    if (strike) byNode.set(strike.nodeId, strike);
+  }
+  return [...byNode.values()];
 }
 
 /** The mentor's hint for a failure reason, or the sign-off when there's none. */
@@ -646,6 +682,113 @@ export function savingsSituation(evaluation: Pick<GradedEvaluation, 'grade' | 'c
   if (!ok || budgetUsdPerMonth <= 0) return null;
   const savedUsdPerMonth = budgetUsdPerMonth - costUsdPerMonth;
   return { savedUsdPerMonth, costUsdPerMonth, budgetUsdPerMonth, share: savedUsdPerMonth / budgetUsdPerMonth, grade: evaluation.grade };
+}
+
+// ---------------------------------------------------------------------------- design trade-offs
+
+/** One part of a design, as the trade-off line counts it: "6 medium app servers". */
+export interface DesignPart {
+  kind: ComponentKind;
+  /** The size option, where the kind has one. */
+  size: string | null;
+  /** Machines it stands for (`nodeCopies`); a replicated cache counts once, with `replicated` among its options. */
+  count: number;
+  /** The switches that change how it behaves, where it has them. */
+  options: readonly DesignOption[];
+}
+
+/** A design choice beyond size and count. */
+export type DesignOption = 'replicated' | 'coalescing' | 'invalidates' | 'readYourWrites';
+
+function designOptions(node: Design['nodes'][number]): DesignOption[] {
+  if (node.kind === 'cache') {
+    return [
+      ...(node.replicated ? (['replicated'] as const) : []),
+      ...(node.coalesceMisses ? (['coalescing'] as const) : []),
+      ...(node.invalidateOnWrite ? (['invalidates'] as const) : []),
+    ];
+  }
+  if (node.kind === 'readReplicas' && (node.readYourWritesSec ?? 0) > 0) return ['readYourWrites'];
+  return [];
+}
+
+/** A design boiled down to the choices it made, for comparing it with others. */
+export interface DesignSketch {
+  /** The parts, in design order, the load balancer left out (it shows as `retries`). */
+  parts: readonly DesignPart[];
+  /** Whether it has a load balancer. */
+  balanced: boolean;
+  /** Whether its load balancer retries refused connections. */
+  retries: boolean;
+  /**
+   * In a level with a crash: whether its app servers still keep up (at most 100% busy at the peak) after losing the
+   * busiest one, worked out on paper (`peakLoad`). Always false in a level without one.
+   */
+  spare: boolean;
+  costUsdPerMonth: number;
+}
+
+export function designSketch(level: Level, design: Design): DesignSketch {
+  const balancers = design.nodes.filter((node): node is LoadBalancerSpec => node.kind === 'loadBalancer');
+  const afterCrash = peakLoad(level, design).afterCrash;
+  const appServers = design.nodes.filter((node) => node.kind === 'appServer');
+  const spare =
+    afterCrash !== null &&
+    appServers.length > 0 &&
+    appServers.every((node) => {
+      const load = afterCrash[node.id];
+      return load === undefined || load.utilization <= 1;
+    });
+  return {
+    parts: design.nodes
+      .filter((node) => node.id !== CLIENTS_ID && node.kind !== 'loadBalancer')
+      .map((node) => ({
+        kind: node.kind,
+        size: 'size' in node && typeof node.size === 'string' ? node.size : null,
+        count: node.kind === 'cache' ? 1 : nodeCopies(node),
+        options: designOptions(node),
+      })),
+    balanced: balancers.length > 0,
+    retries: balancers.some((node) => node.retryOnConnectFailure === true),
+    spare,
+    costUsdPerMonth: designCostUsdPerMonth(design),
+  };
+}
+
+/** Two sketches make the same choices: the same parts, sizes and counts, the same flags. Cost follows from those. */
+function sameChoices(a: DesignSketch, b: DesignSketch): boolean {
+  const key = (s: DesignSketch) =>
+    JSON.stringify([s.parts.map((p) => [p.kind, p.size, p.count, ...p.options]).sort(), s.balanced, s.retries, s.spare]);
+  return key(a) === key(b);
+}
+
+/**
+ * The player's passing design beside the level's reference solutions: what they chose and what it cost, and the other
+ * designs that also pass. Only after a pass, so it never spoils a level still to solve.
+ */
+export interface DesignComparison {
+  yours: DesignSketch;
+  /** Whether the player's design makes the same choices as one of the references. */
+  matchesReference: boolean;
+  /** The references that choose differently, cheapest first. */
+  others: readonly DesignSketch[];
+}
+
+export function designComparison(
+  level: Level,
+  design: Design,
+  evaluation: Pick<GradedEvaluation, 'grade'>,
+): DesignComparison | null {
+  if (evaluation.grade === 'fail') return null;
+  const yours = designSketch(level, design);
+  const references = level.solutions.map((solution) => designSketch(level, solution.design));
+  return {
+    yours,
+    matchesReference: references.some((reference) => sameChoices(reference, yours)),
+    others: references
+      .filter((reference) => !sameChoices(reference, yours))
+      .sort((a, b) => a.costUsdPerMonth - b.costUsdPerMonth),
+  };
 }
 
 /** Why a level is closed, with what the cast needs to say it. */

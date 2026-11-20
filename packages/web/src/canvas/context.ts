@@ -12,9 +12,11 @@ export interface CanvasDecorations {
   marks: Readonly<Record<string, NodeMark>>;
   /** Expected peak utilization per node id, shown as a small gauge on each node while building. */
   forecast: Readonly<Record<string, number>> | null;
+  /** A short line pinned above a node during playback ("Smudge unplugged instance 2"), by node id. */
+  notes: Readonly<Record<string, string>>;
 }
 
-export const DecorationsContext = createContext<CanvasDecorations>({ live: null, marks: {}, forecast: null });
+export const DecorationsContext = createContext<CanvasDecorations>({ live: null, marks: {}, forecast: null, notes: {} });
 
 export function useDecorations(): CanvasDecorations {
   return useContext(DecorationsContext);

@@ -24,6 +24,17 @@ export const ZONE_WORDS: Record<GaugeMeasure, Record<UtilizationZone, string>> =
   },
 };
 
+/**
+ * The word beside a node's small dial, short enough for the canvas: nothing while comfortable, then a word at each
+ * line it crosses (70%, 85%, 100%).
+ */
+export const ZONE_SHORT_WORDS: Record<GaugeMeasure, Record<UtilizationZone, string>> = {
+  busy: { comfortable: '', busy: 'busy', hot: 'too busy', overloaded: 'overloaded' },
+  deadline: { comfortable: '', busy: 'tight', hot: 'near deadline', overloaded: 'too late' },
+  room: { comfortable: '', busy: 'filling', hot: 'nearly full', overloaded: 'overflows' },
+  backlog: { comfortable: '', busy: 'building', hot: 'near limit', overloaded: 'over limit' },
+};
+
 /** What the reading is, for its label. */
 const MEASURE_LABEL: Record<GaugeMeasure, string> = {
   busy: 'Expected peak utilization',
@@ -78,6 +89,11 @@ export function UtilizationGauge({ utilization, variant, measure = 'busy' }: Uti
         <span className="util-gauge__value num" aria-hidden>
           {Number.isFinite(utilization) ? formatPercent(utilization) : '—'}
         </span>
+        {ZONE_SHORT_WORDS[measure][zone] && (
+          <span className="util-gauge__word" aria-hidden>
+            {ZONE_SHORT_WORDS[measure][zone]}
+          </span>
+        )}
       </span>
     );
   }

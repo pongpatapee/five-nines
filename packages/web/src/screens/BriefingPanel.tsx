@@ -2,7 +2,7 @@ import { designCostUsdPerMonth, levelNumbers, type Design, type Level } from '@f
 import { Fragment, useMemo } from 'react';
 import { COMPONENTS } from '../components/registry.ts';
 import { capitalize } from '../format.ts';
-import { cast, CastLine, componentNames, LevelMemoNote, NumbersBox, story, troublemakerTease, words } from '../theme/index.ts';
+import { BriefingCard, cast, CastLine, componentNames, marks, NumbersBox, story, troublemakerTease, words } from '../theme/index.ts';
 import { CostMeter } from './CostMeter.tsx';
 import { LevelProduct } from './LevelProduct.tsx';
 
@@ -15,14 +15,28 @@ export interface BriefingPanelProps {
   onToggle(): void;
   /** Opens the napkin-math working again; null when there's none to show yet, or it can't open now. */
   onShowEstimateWorking?: (() => void) | null;
+  /** Opens the opt-in napkin-math question; null when the level has none, or it can't open now. */
+  onOpenEstimate?: (() => void) | null;
+  /** Whether the napkin bonus is already earned on this level. */
+  estimateBonus?: boolean;
 }
 
 /**
- * Left side panel, in every mode: the founder's memo and its translation, the briefing, the level's numbers, the
- * component reference card and the live cost. The plain briefing and the numbers are the source of truth; the memo is
- * the story around them.
+ * Left side panel, in every mode: the live cost, then the theme's briefing card (the founder's line, the goal, the
+ * mentor's margin note, the numbers drawn, and the opt-in napkin challenge). Behind its "more": the boss's brief, the
+ * plain briefing, the full numbers, the troublemaker's tease and the component reference card. The plain briefing and
+ * the numbers are the source of truth; the card is the way into them (docs/design.md, "Briefing").
  */
-export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle, onShowEstimateWorking }: BriefingPanelProps) {
+export function BriefingPanel({
+  level,
+  levelNumber,
+  design,
+  collapsed,
+  onToggle,
+  onShowEstimateWorking,
+  onOpenEstimate,
+  estimateBonus = false,
+}: BriefingPanelProps) {
   const cost = designCostUsdPerMonth(design);
   const tease = troublemakerTease(level);
   const numbers = useMemo(() => levelNumbers(level), [level]);
@@ -53,40 +67,60 @@ export function BriefingPanel({ level, levelNumber, design, collapsed, onToggle,
       </div>
 
       <div className="briefing__scroll">
-        {memo && <LevelMemoNote memo={memo} />}
-
-        <CastLine role="boss" size={84} className="briefing__boss">
-          "{cast.bossBrief(level)}"
-        </CastLine>
-
         <CostMeter costUsdPerMonth={cost} budgetUsdPerMonth={level.requirements.budgetUsdPerMonth} />
-
-        <section className="briefing__section">
-          <h2 className="briefing__section-title">Briefing</h2>
-          <div className="briefing__prose">
-            {level.briefing.map((paragraph, i) => (
-              <p key={i}>{paragraph}</p>
-            ))}
-          </div>
-          {onShowEstimateWorking && (
-            <button type="button" className="btn btn--sm btn--ghost briefing__napkin" onClick={onShowEstimateWorking}>
-              {cast.mentorEstimate.revisit}
-            </button>
-          )}
-        </section>
-
-        <NumbersBox numbers={numbers} variant="briefing" />
-
-        {tease && (
-          <CastLine role="troublemaker" size={56} tone="alarm" className="briefing__troublemaker">
-            {tease}
-          </CastLine>
-        )}
-
-        <section className="briefing__section">
-          <h2 className="briefing__section-title">Component reference</h2>
-          <ReferenceCard components={level.components} />
-        </section>
+        <BriefingCard
+          memo={memo}
+          numbers={numbers}
+          traffic={level.workload.traffic}
+          challenge={
+            onOpenEstimate ? (
+              <button
+                type="button"
+                className="btn btn--sm briefing__challenge"
+                data-earned={estimateBonus}
+                onClick={onOpenEstimate}
+              >
+                {estimateBonus ? (
+                  <>
+                    <marks.Met /> {cast.mentorEstimate.challengeEarned}
+                  </>
+                ) : (
+                  cast.mentorEstimate.challenge
+                )}
+              </button>
+            ) : null
+          }
+          more={
+            <>
+              <CastLine role="boss" size={64} className="briefing__boss">
+                "{cast.bossBrief(level)}"
+              </CastLine>
+              <section className="briefing__section">
+                <h2 className="briefing__section-title">Briefing</h2>
+                <div className="briefing__prose">
+                  {level.briefing.map((paragraph, i) => (
+                    <p key={i}>{paragraph}</p>
+                  ))}
+                </div>
+                {onShowEstimateWorking && (
+                  <button type="button" className="btn btn--sm btn--ghost briefing__napkin" onClick={onShowEstimateWorking}>
+                    {cast.mentorEstimate.revisit}
+                  </button>
+                )}
+              </section>
+              <NumbersBox numbers={numbers} variant="briefing" />
+              {tease && (
+                <CastLine role="troublemaker" size={56} tone="alarm" className="briefing__troublemaker">
+                  {tease}
+                </CastLine>
+              )}
+              <section className="briefing__section">
+                <h2 className="briefing__section-title">Component reference</h2>
+                <ReferenceCard components={level.components} />
+              </section>
+            </>
+          }
+        />
       </div>
     </aside>
   );

@@ -18,8 +18,8 @@ import {
 } from '../../progression/index.ts';
 import { tierPercent } from '../../results/grading.ts';
 import type { BadgeCopy, CastRole, CastScript } from '../contract.ts';
-import type { LevelStress, LockSituation, SavingsSituation, Verdict } from '../situations.ts';
-import { failoverLines, MENTOR_ESTIMATE, MENTOR_LADDER, mentorLatency } from './hints.ts';
+import type { DesignOption, DesignPart, DesignSketch, LevelStress, LockSituation, SavingsSituation, Strike, Verdict } from '../situations.ts';
+import { failoverLines, MENTOR_ESTIMATE, MENTOR_LADDER, mentorCallout, mentorLatency } from './hints.ts';
 import { COMPONENT_NAMES } from './names.ts';
 
 const MEMBERS = {
@@ -55,6 +55,59 @@ function troublemakerTease(stress: LevelStress): string {
     case 'surge':
       return `heh. traffic climbs from ${formatCount(stress.fromRps)} to ${formatCount(stress.toRps)} req/s. hope you sized up.`;
   }
+}
+
+/** Smudge's note pinned to what it struck, during playback. Short enough to sit above a node. */
+function troublemakerNote(strike: Strike): string {
+  switch (strike.kind) {
+    case 'crash':
+      return `${MEMBERS.troublemaker.name} unplugged instance ${strike.instance + 1}`;
+    case 'cacheRestart':
+      return `${MEMBERS.troublemaker.name} rebooted it: empty`;
+    case 'hotKey':
+      return `${MEMBERS.troublemaker.name}: ${strike.label} went viral`;
+  }
+}
+
+/** What each kind is called in a design sketch, one and many. Kinds that are no choice (the provider) are left out. */
+const SKETCH_NOUNS: Partial<Record<DesignPart['kind'], [string, string]>> = {
+  appServer: ['server', 'servers'],
+  cache: ['cache', 'caches'],
+  database: ['database', 'databases'],
+  readReplicas: ['read replica', 'read replicas'],
+  shards: ['shard', 'shards'],
+  queue: ['queue', 'queues'],
+  blobStorage: ['bucket', 'buckets'],
+};
+
+const OPTION_WORDS: Record<DesignOption, string> = {
+  replicated: 'replicated',
+  coalescing: 'coalescing',
+  invalidates: 'invalidate on write',
+  readYourWrites: 'read-your-writes',
+};
+
+/** "6 medium servers (1 spare), load balancer + retries, medium database". */
+function designSketch(sketch: DesignSketch): string {
+  const words: string[] = [];
+  let balancerSaid = false;
+  for (const part of sketch.parts) {
+    const nouns = SKETCH_NOUNS[part.kind];
+    if (!nouns) continue;
+    const noun = nouns[part.count === 1 ? 0 : 1];
+    const size = part.size ? `${part.size} ` : '';
+    const many = part.kind === 'appServer' || part.count > 1;
+    let text = many ? `${part.count} ${size}${noun}` : `${size}${noun}`;
+    if (part.kind === 'appServer' && sketch.spare) text += ' (1 spare)';
+    if (part.options.length > 0) text += ` (${part.options.map((option) => OPTION_WORDS[option]).join(', ')})`;
+    words.push(text);
+    if (part.kind === 'appServer' && sketch.balanced && !balancerSaid) {
+      words.push(sketch.retries ? 'load balancer + retries' : 'load balancer');
+      balancerSaid = true;
+    }
+  }
+  if (sketch.balanced && !balancerSaid) words.unshift(sketch.retries ? 'load balancer + retries' : 'load balancer');
+  return words.join(', ');
 }
 
 const BOSS_PRAISE: Record<Exclude<Grade, 'fail'>, { exclaim: string; line: string }> = {
@@ -170,6 +223,7 @@ export const NOTEBOOK_SCRIPT: CastScript = {
   bossBrief: (level) => `${formatUsd(level.requirements.budgetUsdPerMonth)} a month. Not a cent over.`,
   bossVerdict,
   troublemakerTease,
+  troublemakerNote,
   troublemakerCrash: (nodeId, instance) => `${MEMBERS.troublemaker.name} pulls the plug on ${nodeId} instance ${instance + 1}`,
   troublemakerCacheRestart: (nodeId) => `${MEMBERS.troublemaker.name} reboots ${nodeId}`,
   troublemakerHotKey: (label) => `${MEMBERS.troublemaker.name} makes ${label} go viral`,
@@ -187,6 +241,9 @@ export const NOTEBOOK_SCRIPT: CastScript = {
     return "Looks runnable to me. Press Run and let's see what breaks.";
   },
   mentorLadder: MENTOR_LADDER,
+  mentorCallout,
+  designSketch,
+  tradeOff: { yours: 'Your design', alsoPasses: 'Also passes', matches: 'the reference design' },
   mentorLatency,
   failoverLines,
   mentorEstimate: MENTOR_ESTIMATE,

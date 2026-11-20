@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import type { GradedEvaluation } from '../engine/index.ts';
 import { useReducedMotion } from '../playback/useReducedMotion.ts';
 import { GuideLink } from '../guide/FieldGuideProvider.tsx';
-import { cast, failoverSituation, GradeCard, savingsSituation, story, type RewardView } from '../theme/index.ts';
+import { cast, designComparison, failoverSituation, failureStory, GradeCard, savingsSituation, story, type RewardView } from '../theme/index.ts';
 import type { Hints } from '../screens/useHints.ts';
 import { DebriefPanel } from './DebriefPanel.tsx';
 import type { ResultView } from '../screens/levelMode.ts';
@@ -65,6 +65,8 @@ export function ResultsView({
   const savings = useMemo(() => savingsSituation(evaluation), [evaluation]);
   const passed = evaluation.grade !== 'fail';
   const failover = useMemo(() => failoverSituation(design, evaluation.simulation), [design, evaluation]);
+  const failure = useMemo(() => failureStory(level, design, evaluation), [level, design, evaluation]);
+  const comparison = useMemo(() => designComparison(level, design, evaluation), [level, design, evaluation]);
 
   return (
     <div className="results-overlay" data-view={view}>
@@ -91,6 +93,8 @@ export function ResultsView({
           onNextLevel={passed ? onNextLevel : null}
           reward={rewardView}
           savings={savings}
+          failure={failure}
+          comparison={comparison}
         />
       ) : (
         <DebriefPanel

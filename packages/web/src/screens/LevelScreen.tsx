@@ -24,6 +24,8 @@ import { BriefingPanel } from './BriefingPanel.tsx';
 import { useCampaign } from './campaign.ts';
 import { INITIAL_MODE, levelModeReducer, type LevelMode, type ResultView } from './levelMode.ts';
 
+const NO_MARKS = {} as const;
+
 export interface LevelScreenProps {
   level: Level;
 }
@@ -51,11 +53,9 @@ function LevelPage({ level }: LevelScreenProps) {
   const draft = useDraft(level.id);
   const bestGrade = useBestGrade(level.id);
   const estimateRecord = useEstimate(level.id);
-  // The napkin-math step opens on its question before building, the first time a level with one is visited. Null
-  // when closed; `review` opens it on the worked solution.
-  const [estimateOpen, setEstimateOpen] = useState<'ask' | 'review' | null>(() =>
-    level.estimate !== undefined && progressStore.getState().estimates[level.id] === undefined ? 'ask' : null,
-  );
+  // The napkin-math step is opt-in: an "estimate first for a bonus" challenge on the briefing card, never a gate
+  // before building. Null when closed; `ask` opens it on the question, `review` on the worked solution.
+  const [estimateOpen, setEstimateOpen] = useState<'ask' | 'review' | null>(null);
   const runCounter = useRef(0);
   // One evaluation per run, even when StrictMode replays the effect in development.
   const inflight = useRef<{ runId: number; promise: Promise<Evaluation> } | null>(null);
@@ -160,6 +160,13 @@ function LevelPage({ level }: LevelScreenProps) {
   );
 
   const shownDraft = mode.kind === 'build' ? draft : mode.draft;
+  // A failed run's result keeps the root-cause node circled on the canvas behind the grade card, where the mentor's
+  // callout points.
+  const resultEvaluation = mode.kind === 'result' ? mode.evaluation : null;
+  const resultMarks = useMemo(() => {
+    const rootCause = resultEvaluation && resultEvaluation.grade === 'fail' ? resultEvaluation.simulation.causes[0]?.nodeId : undefined;
+    return rootCause ? { [rootCause]: 'focus' as const } : NO_MARKS;
+  }, [resultEvaluation]);
 
   return (
     <div className={`level-screen${briefingCollapsed ? ' is-briefing-collapsed' : ''}`}>
@@ -184,6 +191,8 @@ function LevelPage({ level }: LevelScreenProps) {
           collapsed={briefingCollapsed}
           onToggle={() => setBriefingCollapsed((c) => !c)}
           onShowEstimateWorking={canReviewEstimate && !estimateOpen ? () => setEstimateOpen('review') : null}
+          onOpenEstimate={mode.kind === 'build' && level.estimate && !estimateOpen ? () => setEstimateOpen('ask') : null}
+          estimateBonus={estimateRecord?.close ?? false}
         />
         <main className="level-screen__stage" data-mode={mode.kind}>
           {mode.kind === 'build' && (
@@ -247,7 +256,7 @@ function LevelPage({ level }: LevelScreenProps) {
 
           {mode.kind === 'result' && (
             <>
-              <DesignCanvas mode="readOnly" draft={mode.draft} />
+              <DesignCanvas mode="readOnly" draft={mode.draft} marks={resultMarks} />
               <ResultsView
                 level={level}
                 design={mode.draft.design}

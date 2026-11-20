@@ -20,7 +20,7 @@ import { incidentAtFreeze } from './incident.ts';
 import { prepareSeries } from './series.ts';
 import { TimelineStrip } from './TimelineStrip.tsx';
 import { useReducedMotion } from './useReducedMotion.ts';
-import { BudgetMeter, failoverSituation, PostmortemCard } from '../theme/index.ts';
+import { BudgetMeter, cast, failoverSituation, PostmortemCard, recentStrikes } from '../theme/index.ts';
 import { playCue } from '../audio/sfx.ts';
 import { strikesPlayed } from './juice.ts';
 import { LatencyNote } from './LatencyNote.tsx';
@@ -94,6 +94,14 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
     }
     wasFrozen.current = frozen;
   }, [frozen, rootCauseId, reducedMotion]);
+
+  // ---- the troublemaker's notes: a short line pinned to whatever it just struck ----
+
+  const noteSecond = Math.floor(clock.timeSec);
+  const notes = useMemo(() => {
+    const strikes = recentStrikes(simulation.events, noteSecond, draft.design);
+    return Object.fromEntries(strikes.map((strike) => [strike.nodeId, cast.troublemakerNote(strike)]));
+  }, [simulation.events, noteSecond, draft.design]);
 
   // ---- juice: the pager buzzes when the troublemaker strikes, the page shakes when a machine breaks ----
 
@@ -187,6 +195,7 @@ export function Playback({ level, draft, evaluation, onFinished, onExit }: Playb
           draft={draft}
           live={snapshot.frame}
           marks={marks}
+          notes={notes}
           overlay={overlay}
           onReady={onReady}
         />
