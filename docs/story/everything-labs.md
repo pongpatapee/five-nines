@@ -23,8 +23,8 @@ Status: **built** for chapters 1–3 and the Everything Links capstone. The othe
 
 **How the story shows**
 
-- **All-hands**: a chapter's title page, shown once, the first time one of its levels is opened, and reopenable from the chapter's label on the map.
-- **Memo**: at the top of each briefing, the founder's hype, Erasmus's translation in the margin, and sometimes a sticky note from Bex or Doug. The plain briefing and the numbers box follow, unchanged, and stay the source of truth.
+- **All-hands**: a chapter's title page, one panel of two or three bubbles (chapter 1's are in section 6's spirit, cut to 40 words), shown once, the first time one of its levels is opened, and reopenable from the chapter's label on the map.
+- **Memo**: at the top of each briefing card, the founder's hype, a goal line, and Erasmus's translation as one margin line; a sticky note from Bex or Doug sits behind "more" with the plain briefing and the numbers box, which stay the source of truth (docs/design.md, "Play first").
 - **Product**: beside each level's title, on the contents card and the briefing. Capstones carry a red "launch day" mark there and a starburst on the map.
 - **Title**: on the contents page. **Promotion**: at the end of the results payout, on the run that earns it, to a gong.
 

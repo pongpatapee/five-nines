@@ -5,13 +5,12 @@
   "briefing": [
     "Your startup's API just launched. Traffic starts at 100 requests per second and climbs to 350 within 30 seconds.",
     "Every request needs 10ms of CPU time. An app server works on one request per vCPU at a time; the rest wait in line.",
-    "Choose one app server that keeps p99 latency under 75ms without going over budget.",
-    "Rule of thumb: keep each server under about 70% busy at peak. Above that, requests start waiting in line and p99 climbs fast."
+    "Choose one app server that keeps p99 latency under 75ms without going over budget."
   ],
   "debrief": [
-    "A server with 4 vCPUs and 10ms of CPU per request can handle 400 requests per second. At 350 it isn't overloaded, but it's about 88% busy, so most requests arrive while every vCPU is taken and have to wait in line.",
-    "Queueing delay grows roughly with 1 / (1 − utilization). Going from 50% to 90% busy multiplies the wait by about five, and close to 100% it explodes. That's why production systems usually aim for 60–70% utilization at peak, not 100%.",
-    "Buying a bigger machine is called scaling up, or vertical scaling. It's the simplest fix, but there's always a largest machine, and bigger machines cost proportionally more. The next level hits that ceiling."
+    "350 requests a second at 10ms each is 3.5 vCPUs of work. A medium server's 4 vCPUs run 88% busy, so requests wait in line and p99 climbs.",
+    "Keep each machine under about 70% busy at the peak. A large server's 8 vCPUs sit at 44%: fast, and within budget.",
+    "Buying a bigger machine is scaling up, or vertical scaling. It's the simplest fix, but there's always a biggest machine. The next page hits it."
   ],
   "components": ["appServer"],
   "durationSec": 120,

@@ -219,6 +219,26 @@ function conceptCopy(id: ConceptId): ConceptCopy {
         example: `${rps} req/s at ${cpuMs} ms each: a medium server (${n(medium)} req/s) is ${pct(rps / medium)} busy, never overloaded but slow; a large one (${n(large)} req/s) is ${pct(rps / large)} busy.`,
       };
     }
+    case 'scaling': {
+      const [rps, cpuMs] = [5_000, 10];
+      const work = (rps * cpuMs) / 1000;
+      const biggest = Object.values(APP_SERVER_SIZES).reduce((a, b) => (b.vcpu > a.vcpu ? b : a));
+      const servers = Math.ceil(work / COMFORTABLE_UTILIZATION / biggest.vcpu);
+      return {
+        name: 'Scaling up and out',
+        what: 'Scaling up buys a bigger machine: the simplest fix, until the biggest one runs out. Scaling out adds machines behind a load balancer: no ceiling, and no single machine whose loss takes everything down.',
+        example: `${n(rps)} req/s at ${cpuMs} ms each is ${n(work)} vCPUs of work. The biggest server has ${biggest.vcpu}, so scale out: ${servers} of them have ${servers * biggest.vcpu} vCPUs, ${pct(work / (servers * biggest.vcpu))} busy.`,
+      };
+    }
+    case 'redundancy': {
+      const [work, servers] = [50, 5];
+      const { vcpu } = APP_SERVER_SIZES.xlarge;
+      return {
+        name: 'A spare server (N+1)',
+        what: `Run one more machine than the peak needs. When one dies, the rest still carry the load under about ${pct(HOT_UTILIZATION)} busy. Until health checks notice the dead one, retries send its refused requests elsewhere.`,
+        example: `${work} vCPUs of work on ${servers} xlarge servers: ${servers * vcpu} vCPUs, ${pct(work / (servers * vcpu))} busy. Lose one: ${(servers - 1) * vcpu} vCPUs, ${pct(work / ((servers - 1) * vcpu))} busy. With only ${servers - 1}, losing one leaves ${(servers - 2) * vcpu}: ${pct(work / ((servers - 2) * vcpu))}, overloaded.`,
+      };
+    }
     case 'errorBudget': {
       const [rps, sec, servers] = [5_000, 180, 5];
       const total = rps * sec;

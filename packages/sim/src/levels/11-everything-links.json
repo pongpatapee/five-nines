@@ -3,16 +3,15 @@
   "title": "Everything Links",
   "concept": "Launch day: a URL shortener",
   "briefing": [
-    "Launch day for a link shortener. Traffic climbs from 1,000 to 3,000 requests per second over the first 30 seconds and stays there. Every request needs 5ms of CPU on an app server, then one trip to the database: 95% look up a short link to redirect it, the rest create a new one.",
-    "This is your first database. It's one machine, and every request needs it. It does a fixed number of reads a second, and a write is more work than a read. The rule of thumb from page 1 still holds: keep it under about 70% busy at the peak.",
-    "At some point during the run, one of your app servers will crash. Everything from this chapter applies."
+    "Launch day for a link shortener. Traffic climbs from 1,000 to 3,000 requests per second over the first 30 seconds and stays there.",
+    "Every request needs 5ms of CPU on an app server, then one trip to the database: 95% look up a short link to redirect it, the rest create a new one.",
+    "This is your first database: one machine that every request needs. It does a fixed number of reads a second, and a write costs more than a read.",
+    "At some point during the run, one of your app servers will crash."
   ],
   "debrief": [
-    "Launch day takes the whole chapter plus one new machine. The app tier is pages 1 to 3: 3,000 requests a second × 5ms is 15 vCPUs of work. Six medium servers have 24 vCPUs, 63% busy. When one crashes, the other five run at 75%, and retries hide the crash until the health checks take it out of rotation.",
-    "The database is the new part. At the peak it sees 2,850 reads and 150 writes a second. A medium database does 5,000 reads or 2,000 writes, so one write costs as much as 2.5 reads: the 150 writes are 375 reads' worth of work. That's 3,225 reads' worth in all, 65% of a medium database.",
-    "A small database does half as much, so the same work needs 129% of it. It falls behind as soon as traffic peaks, its queue grows, and requests time out. A large one would be 32% busy, at twice the price of a medium one, which the budget doesn't allow.",
-    "Same 70% rule, different machine. Every box has a capacity; work it out from the peak, and leave headroom.",
-    "A URL shortener is the classic first system design question, and the numbers here are why: redirects far outnumber new links, so it's read-heavy, and a few links get most of the clicks. In an interview, also say how you make the short codes: a counter encoded in base 62 never collides, while random codes need a check that the code is free. The next chapter takes load off the database."
+    "The app tier is pages 1 to 3: 15 vCPUs of work on six medium servers is 63% busy, 75% after the crash, with retries covering it.",
+    "The database is new: 2,850 reads plus 150 writes at 2.5 reads each is 3,225 reads' worth, 65% of a medium one and 129% of a small one.",
+    "Same 70% rule, different machine. In an interview, say how you make short codes: a counter in base 62 never collides."
   ],
   "components": ["appServer", "loadBalancer", "database"],
   "durationSec": 180,

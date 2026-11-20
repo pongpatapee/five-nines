@@ -4,15 +4,13 @@
   "concept": "Redundancy and failover",
   "briefing": [
     "Same traffic as before: up to 5,000 requests per second, 10ms of CPU each.",
-    "At some point during the run, one of your app servers will crash. Machines die all the time in production, and your design has to keep serving through it.",
-    "Load balancers find dead instances with health checks: every few seconds they probe each instance, and take it out of rotation after 2 failed checks in a row. Until then, they keep sending it traffic."
+    "At some point during the run, one of your app servers will crash. Your design has to keep serving through it.",
+    "A load balancer takes a dead instance out of rotation after 2 failed health checks in a row. Until then, it keeps sending it traffic."
   ],
   "debrief": [
-    "Surviving a crash takes two things.",
-    "Spare capacity, known as N+1: if you need 4 servers to carry the load, run 5. When one dies, the rest still keep up. With only 4, the 3 survivors are overloaded for the rest of the run.",
-    "Fast failover: even with a 5-second health-check interval, the load balancer needs 2 failed checks, up to 10 seconds, to notice. Meanwhile 1 in 5 requests goes to a dead machine. That's 1/5 × 9s ≈ 1.8 seconds' worth of traffic lost out of 180, about 1% of requests: 99% availability, below the 99.9% needed to pass.",
-    "Retries close the gap. A crashed server refuses connections immediately, so the load balancer can retry the request on another instance about a millisecond later, and the user never notices. Retrying is safe here because the request never reached the application. Retrying requests that might already have been processed is a harder problem, which comes up in later levels.",
-    "Health checks keep the dead server out of rotation; retries cover the gap until they do. You need both."
+    "Surviving a crash takes a spare: if four servers carry the load, run five. With exactly four, the three survivors are overloaded.",
+    "The load balancer needs 2 failed health checks to notice. With 5-second checks, 1 in 5 requests hits the server for about 9 seconds: 1% lost, ten times too many.",
+    "Retries close that gap: a refused request goes to another server a millisecond later, and nobody notices. Spare capacity plus retries: you need both."
   ],
   "components": ["appServer", "loadBalancer"],
   "durationSec": 180,

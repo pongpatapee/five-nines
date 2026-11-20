@@ -160,6 +160,32 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 
 ## 3. UX
 
+### Play first (built for chapter 1)
+
+Players should reach the canvas and press Run within seconds, and learn each idea where it bites: after a failed run, on the canvas, in the debrief and in the field guide, not in a wall of briefing prose.
+
+- **The flow.** All-hands (one panel, Enter or Esc skips it) → the level, straight onto the canvas → build and Run → a failed run's result opens on the mentor's callout → a pass shows how the design compares with the other designs that pass. Napkin math is opt-in, never a gate. Measured in Chrome: Enter on the all-hands puts the canvas and its Run button on screen in about 70 ms.
+- **The all-hands** is one panel: the founder's doodle, Doug's stamp, two or three speech bubbles, and a big "Let's go" that names where it leads. Later chapters' stage directions and margin notes sit small among the bubbles.
+- **The briefing card** (`BriefingCard` in the theme contract): one line from the founder, one goal line, one margin line from Erasmus, then the numbers drawn (`NumbersCard`): a sparkline of the level's traffic with its start and peak rates, a chip for the work per request (CPU, the read share, the provider's limit), an icon per event, named never timed, and a badge per requirement (p99, availability, budget, plus staleness, own writes and charging where the level has them). Behind a "more" toggle: a coworker's sticky note, the boss's brief, the plain briefing, the full numbers box, the troublemaker's tease and the component reference card. A level whose memo has no goal line (chapters 2 and 3 today) keeps "more" open, so its longer briefing stays in view; adding a goal line in `story.ts` moves a level onto the play-first card with no code change.
+- **The napkin challenge** is a button on the briefing card, "Estimate first for a bonus", which becomes "Napkin bonus earned" once it is. Closing the step unanswered (Esc or "Not now") records nothing; "Skip" still shows the working. The bonus and the Napkin Wizard badge work as before.
+- **On the canvas.** Each node's small dial says a word once it passes a line: "busy" from 70%, "too busy" from 85%, "overloaded" past 100% (`ZONE_SHORT_WORDS`; a queue says "building", "near limit", "over limit"). While building it reads the expected peak; during playback it reads the node's busiest machine that second. When the troublemaker strikes, a one-line note is pinned above the node it struck for 12 simulated seconds ("Smudge unplugged instance 2"; `recentStrikes` in `theme/situations.ts`). It sits above the node, clear of the handles on its sides.
+- **The callout.** A failed run's result opens with one line from the mentor, worded by `mentorCallout` from the run's `FailureStory`: the node or the requirement that failed, with the run's own numbers ("app was 175% busy, over capacity. Requests queued until they timed out."). The root-cause node stays circled on the canvas behind the grade card. The four-rung hint ladder follows for those who want more.
+- **The trade-off line.** After a pass, and only then, so it never spoils: the player's design in a few words with its cost, and every reference solution that chooses differently ("Your design: 6 medium servers (1 spare), load balancer + retries, medium database, $1,045/mo (the reference design). Also passes: 4 large servers (1 spare), …, $1,285/mo"). `designComparison` in `theme/situations.ts` boils each design down to its choices (parts, sizes, counts, cache and replica options, a load balancer and its retries, and in a level with a crash whether the app servers still keep up after losing one, from `peakLoad`); the theme words them.
+- **Where the explanations went.** The concepts the old briefings explained now live in the callout (what failed and why), the debrief (three short bullets), and the field guide, which gained two concepts: *Scaling up and out* (from page 2) and *A spare server (N+1)* (from page 3).
+
+### Word budgets (chapter 1, enforced by `test/word-budget.test.ts`)
+
+| Text | Budget | Chapter 1 now |
+|---|---|---|
+| The founder's line on the briefing card | ≤ 20 words | 11 to 16 |
+| The goal line | ≤ 20 words | 10 to 14 |
+| Everything visible on the briefing card before "more" (rendered, without the numbers drawn) | ≤ 60 words | 47 to 52 (was 100 to 206 before building, plus the napkin question) |
+| All-hands bubbles | ≤ 45 words in all | 40 (was 102 words of scene) |
+| The failure callout, on every known wrong answer | ≤ 25 words | 10 to 21 |
+| The debrief | ≤ 3 bullets of ≤ 30 words | 3 bullets, 21 to 30 words (was 3 to 5 paragraphs of up to 71) |
+
+Plain American English, short and concrete; only the founder is funny. Later chapters may keep their longer copy until they get goal lines.
+
 ### Build
 
 - Node-graph canvas, a component palette, and an inspector panel for each node's settings.
@@ -168,7 +194,7 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 
 ### Estimate step (covers back-of-envelope estimation)
 
-- Before building, the mentor asks one question, e.g. "how many app servers will you need?" or "what cache hit rate do you need to protect the database?" (built). Each level's `estimate` names a quantity worked out from its own numbers (`estimate.ts`); the recorded answer is checked against that working in CI.
+- Opt-in, from the briefing card's "Estimate first for a bonus" (or the top bar), the mentor asks one question, e.g. "how many app servers will you need?" or "what cache hit rate do you need to protect the database?" (built). It no longer opens by itself on a first visit. Each level's `estimate` names a quantity worked out from its own numbers (`estimate.ts`); the recorded answer is checked against that working in CI.
 - The player answers or skips, and sees the working. An estimate within ±10% earns a bonus mark, kept in saved progress for the Napkin Wizard badge. The step can be reopened from the top bar, and once answered or skipped the briefing has a "Show the napkin working" link straight to the working.
 - The working is a worked solution, not a formula: `napkinSolution` (`estimate.ts`) lists the steps in order, each with its numbers and result (find the peak, split reads from writes, what one write costs in reads, ...), ending on the answer, plus a takeaway with numbers for the design (headroom to the 70% and 85% lines, whole machines, the hit rate that keeps the database below full). The theme says why each step is taken and writes its arithmetic; the notebook inks numbered steps, runs highlighter over each result and boxes the answer in red pen. CI checks every level's steps end on its answer, and that no step leans on shorthand it never explains ("read-equivalents").
 - One question per level, answered as one number, even on the multi-step levels (4, 7, 8): the steps teach the method afterwards, and the question stays a quick napkin guess rather than a form.
@@ -215,8 +241,8 @@ The campaign is a story: **Everything Labs**, a startup that launches a product 
 
 - **Arc.** Each chapter opens with an all-hands where the founder unveils the quarter's products, runs through the concept levels (everyday work on those products) and ends on launch day: a capstone where there is one, and a promotion. Chapter 1 is Everything Links (waitlist, going viral, launch week, launch day); chapter 2 News, Chat and Pay; chapter 3 Social, the Store and the Drop.
 - **Level titles stay** (they name the concept); the product is a subtitle beside the title on the contents card and the briefing ("Everything Links · launch day").
-- **All-hands.** A chapter's title page, shown once, the first time the player opens one of its levels (save version 4 records it), and reopenable from its label on the map (`#/all-hands/<chapter id>`).
-- **Memos.** Each briefing opens with a short memo: the founder's hype, then Erasmus's translation in the margin, then the plain briefing as before. The plain briefing and the numbers box stay the source of truth. Erasmus's translation is worded from `levelNumbers`, and a test checks every number in it is in the numbers box (or is the 70% rule).
+- **All-hands.** A chapter's title page as one panel ("Play first" above), shown once, the first time the player opens one of its levels (save version 4 records it), and reopenable from its label on the map (`#/all-hands/<chapter id>`).
+- **Memos.** Each briefing card opens with the founder's hype, a goal line (chapter 1 so far), then Erasmus's translation as one margin line; the plain briefing sits behind "more". The plain briefing and the numbers box stay the source of truth. Erasmus's translation is worded from `levelNumbers`, and a test checks every number in it is in the numbers box (or is the 70% rule).
 - **Tone.** The comedy lives in the founder, the product names and Doug's stamp. Numbers and lessons are played straight and never contradict the sim. The founder never states a number (tested). Events are never timed. Funny, not mean; no real companies or shows referenced.
 - **Coworkers in copy only.** Doug (the Naming Department, a rubber stamp that only says EVERYTHING) stamps each product name; Bex (Head of Growth) explains where traffic comes from, on sticky notes. Neither is a cast role.
 

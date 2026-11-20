@@ -22,7 +22,7 @@ import { formatCompact, formatCount, formatUsdCents, formatUsdPerMonth } from '.
 import type { LevelAccess } from '../progression/index.ts';
 
 /** The ideas the guide explains besides the components. */
-export const CONCEPT_IDS = ['nines', 'p99', 'utilization', 'errorBudget'] as const;
+export const CONCEPT_IDS = ['nines', 'p99', 'utilization', 'scaling', 'redundancy', 'errorBudget'] as const;
 export type ConceptId = (typeof CONCEPT_IDS)[number];
 
 export type GuideEntryId = ComponentKind | ConceptId;
@@ -33,12 +33,15 @@ export function isConceptId(id: GuideEntryId): id is ConceptId {
 
 /**
  * The level that introduces each concept: the first page whose play depends on it. Availability, p99 and the 70% rule
- * are all on page 1's requirements and briefing; the error budget becomes the lesson on page 3, where a crash spends it.
+ * are all on page 1's requirements; scaling up against scaling out is page 2's choice; a spare server and the error
+ * budget become the lesson on page 3, where a crash spends it.
  */
 export const CONCEPT_INTRODUCED_AT: Readonly<Record<ConceptId, string>> = {
   nines: '01-hello-traffic',
   p99: '01-hello-traffic',
   utilization: '01-hello-traffic',
+  scaling: '02-scale-out',
+  redundancy: '03-pull-the-plug',
   errorBudget: '03-pull-the-plug',
 };
 

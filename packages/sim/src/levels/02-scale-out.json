@@ -8,10 +8,9 @@
     "A load balancer spreads requests evenly across every app server instance behind it."
   ],
   "debrief": [
-    "No single machine can handle 5,000 req/s, so you scaled out: several machines behind a load balancer. This is horizontal scaling.",
-    "The back-of-envelope math: 5,000 req/s × 10ms = 50 vCPUs of work. Add headroom so nothing runs near 100% and you need about 64 vCPUs.",
-    "Round-robin load balancing sends every instance the same number of requests, whatever its size. Mix a small server in with big ones and the small one is overwhelmed while the big ones sit idle. Keep the instances in a pool identical, or use a weighted or least-connections algorithm.",
-    "Scaling out has another benefit you'll need in the next level: no single machine is a point of failure."
+    "5,000 requests a second at 10ms each is 50 vCPUs of work. The biggest server has 16, so no single machine can do it.",
+    "Scaling out means several machines behind a load balancer. Four xlarge servers have 64 vCPUs, 78% busy at the peak: under the 85% line where p99 climbs.",
+    "Round robin sends every instance the same share. Mix sizes and the small one drowns while the big ones idle, so keep a pool identical."
   ],
   "components": ["appServer", "loadBalancer"],
   "durationSec": 120,
