@@ -8,7 +8,7 @@
  *      recolouring the notebook means editing this file only.
  *
  * Text colours are checked against every paper they sit on (≥ 4.5:1): ink, pencil, red-pen text, green-pen text,
- * amber text and blue-pen text all pass on paper, card, sticky note and highlighter.
+ * amber text and blue-pen text all pass on paper, card, sticky note and highlighter. Only ink passes on the kraft cover.
  */
 :root {
   /* ---------------------------------------------------------------- palette: paper */
@@ -20,6 +20,10 @@
   --tape: rgb(238 214 140 / 0.75);
   --tape-blue: rgb(214 226 240 / 0.85);
   --tape-edge: rgb(255 255 255 / 0.6);
+  /* The notebook's cover: kraft board (ink only on it: pencil is too light), its darker bound edge and its flecks. */
+  --kraft: #d9bf93;
+  --kraft-edge: #b8935f;
+  --kraft-fleck: rgb(120 88 44 / 0.12);
   /* Paper laid over the canvas, letting the drawing show through. */
   --paper-veil: rgb(251 248 239 / 0.72);
   --paper-card-veil: rgb(255 254 250 / 0.85);
@@ -81,6 +85,9 @@
   --surface-2: var(--paper-card);
   --surface-3: var(--paper-shade);
   --surface-hover: #fff8d6;
+  --cover: var(--kraft);
+  --cover-edge: var(--kraft-edge);
+  --cover-fleck: var(--kraft-fleck);
 
   /* Lines. */
   --border: #ddd5c2;

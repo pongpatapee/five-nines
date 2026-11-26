@@ -184,6 +184,14 @@ const TEXT: Audit[] = [
   { selector: '.map-text--capstone', on: ['var(--paper)', 'var(--paper-card)'], scale: MAP_SCALE },
   { selector: '.map-text--all-hands', on: ['var(--paper)'], scale: MAP_SCALE },
   { selector: '.grade-card__promotion-title', on: ['var(--paper-card)'] },
+  // The title page: the label on the cover, the words printed on the kraft board, the founder's line and the way on.
+  { selector: '.cover__tagline', on: ['var(--paper-card)'] },
+  { selector: '.cover__starring', on: ['var(--cover)'] },
+  { selector: '.cover__company', on: ['var(--cover)'] },
+  { selector: '.cover__founder .cast-line__name', on: ['var(--cover)'], inheritsSize: 'var(--text-xs)' },
+  { selector: '.cover__founder .cast-line__bubble', on: ['var(--paper-card)'] },
+  { selector: '.cover__go', on: ['var(--cta)'] },
+  { selector: '.cover__contents', on: ['var(--cover)'] },
 ];
 
 /**

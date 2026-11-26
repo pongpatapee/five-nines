@@ -304,6 +304,21 @@ export interface AllHandsProps {
 }
 
 /**
+ * Props of the title page the game opens on: the notebook's cover. It introduces the world in a glance and offers one
+ * way on: "Start" for a new player, "Continue" with their title for anyone else.
+ */
+export interface TitlePageProps {
+  /** The player's title once they've begun (`hasStarted`), or null for a new player. */
+  playerTitle: string | null;
+  /** Where the way on leads: the first level (its chapter's all-hands comes first) for a new player, else the contents. */
+  goHref: string;
+  /** The contents, always reachable. */
+  contentsHref: string;
+  /** The sound toggle, for the page to place. */
+  sound: ReactNode;
+}
+
+/**
  * Props of the briefing card: the founder's line, the goal and the mentor's margin note, then the numbers as a picture
  * (a sparkline of the traffic, an icon per event, a badge per requirement), then everything else behind "more".
  */
@@ -330,6 +345,8 @@ export interface ThemeWords {
   /** The level select screen, short and long: "contents", "table of contents". */
   home: string;
   homeLong: string;
+  /** The title page, lower case: "cover". */
+  cover: string;
   /** The line under the wordmark. */
   tagline: string;
 }
@@ -569,6 +586,8 @@ export interface Theme {
   cast: CastScript;
   /** The story around the levels: products, memos, all-hands and promotions. */
   story: StoryScript;
+  /** The title page the game opens on. */
+  TitlePage: ComponentType<TitlePageProps>;
   /** A chapter's all-hands, as a page of its own. */
   AllHands: ComponentType<AllHandsProps>;
   /** The briefing card: the founder's line, the goal, the margin note and the numbers drawn, with the rest behind "more". */

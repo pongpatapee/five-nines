@@ -1,17 +1,17 @@
-import { CHAPTERS, isWritten, LEVELS, type Grade, type Level } from '@five-nines/sim';
+import { CHAPTERS, isWritten, LEVELS, type Level } from '@five-nines/sim';
 import { SoundToggle } from '../audio/SoundToggle.tsx';
 import { formatMs, formatUsd } from '../format.ts';
-import { NINES_FOR_GRADE, chapterThreshold, currentPromotionId, type LevelAccess } from '../progression/index.ts';
+import { NINES_FOR_GRADE, chapterThreshold, type LevelAccess } from '../progression/index.ts';
 import { tierPercent } from '../results/grading.ts';
 import { routeHref } from '../routing.ts';
 import { useBadges, usePeekedLevels } from '../state/index.ts';
 import { BadgeShelf, CampaignMap, cast, CastLine, lockSituation, marks, story, troublemakerTease, words } from '../theme/index.ts';
-import { useCampaign, type CampaignState } from './campaign.ts';
+import { playerTitle, useCampaign, type CampaignState } from './campaign.ts';
 import { LevelProduct } from './LevelProduct.tsx';
 
 const { Arrow, Checkbox } = marks;
 
-/** `#/`: the level select screen. Levels open as the player passes them; chapters open with nines. */
+/** `#/contents`: the level select screen. Levels open as the player passes them; chapters open with nines. */
 export function LevelSelect() {
   const campaign = useCampaign();
   const badges = useBadges();
@@ -24,11 +24,13 @@ export function LevelSelect() {
       <header className="contents__header">
         <div className="contents__title-block">
           <h1 className="contents__wordmark">
-            <marks.Logo size={56} />
-            <span className="contents__name">
-              <span className="contents__swash" aria-hidden />
-              <span className="hand">Five Nines</span>
-            </span>
+            <a className="contents__home" href={routeHref({ name: 'title' })} title={`Back to the ${words.cover}`}>
+              <marks.Logo size={56} />
+              <span className="contents__name">
+                <span className="contents__swash" aria-hidden />
+                <span className="hand">Five Nines</span>
+              </span>
+            </a>
           </h1>
           <p className="contents__tagline">
             {words.tagline} · <span className="contents__underline">{words.homeLong}</span>
@@ -50,7 +52,7 @@ export function LevelSelect() {
             <span className="contents__title-label">
               {story.words.titleLabel} at {story.company}:
             </span>
-            <span className="contents__job-title">{jobTitle(best)}</span>
+            <span className="contents__job-title">{playerTitle(best)}</span>
           </p>
         </div>
       </header>
@@ -78,12 +80,6 @@ export function LevelSelect() {
       </div>
     </main>
   );
-}
-
-/** The player's title: the latest promotion earned (`progression/promotion.ts`), or where everyone starts. */
-function jobTitle(best: Readonly<Record<string, Grade>>): string {
-  const promoted = currentPromotionId(CHAPTERS, best);
-  return (promoted ? story.promotions[promoted]?.title : undefined) ?? story.startingTitle;
 }
 
 function levelLabel(levelId: string): string {

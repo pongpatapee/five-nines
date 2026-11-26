@@ -7,6 +7,7 @@ import { LevelScreen } from './screens/LevelScreen.tsx';
 import { LevelSelect } from './screens/LevelSelect.tsx';
 import { LockedLevel } from './screens/LockedLevel.tsx';
 import { NotFound } from './screens/NotFound.tsx';
+import { TitleScreen } from './screens/TitleScreen.tsx';
 import { progressStore, useBestGrades } from './state/index.ts';
 import { Shell, story } from './theme/index.ts';
 import { routeHref, useRoute } from './routing.ts';
@@ -23,6 +24,8 @@ function Screen() {
   const route = useRoute();
   usePageTurn(routeHref(route));
   switch (route.name) {
+    case 'title':
+      return <TitleScreen />;
     case 'levels':
       return <LevelSelect />;
     case 'allHands':

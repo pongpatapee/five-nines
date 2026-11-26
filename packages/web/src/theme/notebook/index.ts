@@ -21,6 +21,7 @@ import { PostmortemCard } from './PostmortemCard.tsx';
 import { Shell } from './Shell.tsx';
 import { NOTEBOOK_STORY } from './story.ts';
 import { AllHands, BriefingCard } from './Story.tsx';
+import { TitlePage } from './TitlePage.tsx';
 import { NOTEBOOK_SOUNDS } from './sounds.ts';
 import { UtilizationGauge } from './UtilizationGauge.tsx';
 // In cascade order: later sheets override earlier ones at equal specificity.
@@ -34,11 +35,13 @@ import './styles/results.css';
 import './styles/screens.css';
 import './styles/rewards.css';
 import './styles/story.css';
+import './styles/title.css';
 
 export const notebookTheme: Theme = {
   Shell,
   cast: NOTEBOOK_SCRIPT,
   story: NOTEBOOK_STORY,
+  TitlePage,
   AllHands,
   BriefingCard,
   CastLine,
@@ -47,6 +50,7 @@ export const notebookTheme: Theme = {
     levelShort: (levelNumber) => `p.${levelNumber}`,
     home: 'contents',
     homeLong: 'table of contents',
+    cover: 'cover',
     tagline: "an engineer's field notebook",
   },
   componentNames: COMPONENT_NAMES,

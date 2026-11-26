@@ -222,6 +222,21 @@ const PROMOTIONS: Readonly<Record<string, Promotion>> = {
   },
 };
 
+/**
+ * The title page: the notebook's cover. A glance at the world before the first page (docs/design.md, "Title page"),
+ * kept to about 25 words beyond the title (`test/word-budget.test.ts`).
+ */
+export const TITLE_PAGE = {
+  tagline: "An engineer's notebook on scale",
+  /** A credit, as on a poster: "Starring" small, the company large. */
+  starring: 'Starring',
+  /** The founder's one line. A pun on the title, and no number: "five nines" is the game's name, not a figure. */
+  hype: "I don't want five nines. I want all the nines.",
+  start: 'Start your first day',
+  continueAs: (title: string) => `Continue as ${title}`,
+  contents: 'Contents',
+} as const;
+
 function memo(levelId: string, numbers: LevelNumbers): LevelMemo | null {
   const story = LEVELS[levelId];
   return story

@@ -160,11 +160,21 @@ Later levels: retry storms (retries multiply load during an outage), a rate limi
 
 ## 3. UX
 
+### Title page (built)
+
+The game opens on the notebook's cover, a glance at the world before the first page (`TitlePage` in the theme contract; screen `screens/TitleScreen.tsx`).
+
+- **What it shows.** A kraft cover with a paper label: the sticky-grade logo, large, and "Five Nines"; under it "An engineer's notebook on scale". Printed on the board, a poster credit: "Starring" small, "Everything Labs" large. Chad Visionary with one line, "I don't want five nines. I want all the nines.", with Ms. Tally, Erasmus and Smudge doodled small beside him. About 25 words beyond the title (26 or 27 with the buttons, budget 28).
+- **One way on.** A new player gets "Start your first day", which opens page 1; its chapter's all-hands opens first by itself, as it would from the contents, so there is one way into the story. Anyone who has begun (graded a run or seen an all-hands: `hasStarted` in `screens/campaign.ts`) gets "Continue as <their title>", to the contents. The button has the focus as the page opens, so Enter takes it. A "Contents" link is always beside it, and the sound toggle sits at the top of the page.
+- **Routes.** The root (no hash or `#/`) is the title page, and the contents moved to `#/contents`. Deep links (`#/level/…`, `#/all-hands/…`) go straight to their screen, and `?unlock=all` still works. The contents page's wordmark leads back to the cover; the level screen's top-bar logo still leads to the contents. No save fields: whether the player has begun is read from the save as it is.
+- **Motion.** The cover settles in and the bubble pops in, in under half a second, and neither waits for the other or holds up Enter. Both are off under `prefers-reduced-motion`.
+- **Narrow screens.** The cover's single column may shrink below its content; under 640px the elastic band and the side doodles drop, and under 400px the founder stands above his bubble. Checked at 320, 375 and 606px with no sideways scroll.
+
 ### Play first (built for chapter 1)
 
 Players should reach the canvas and press Run within seconds, and learn each idea where it bites: after a failed run, on the canvas, in the debrief and in the field guide, not in a wall of briefing prose.
 
-- **The flow.** All-hands (one panel, Enter or Esc skips it) → the level, straight onto the canvas → build and Run → a failed run's result opens on the mentor's callout → a pass shows how the design compares with the other designs that pass. Napkin math is opt-in, never a gate. Measured in Chrome: Enter on the all-hands puts the canvas and its Run button on screen in about 70 ms.
+- **The flow.** Title page ("Start your first day", Enter takes it) → all-hands (one panel, Enter or Esc skips it) → the level, straight onto the canvas → build and Run → a failed run's result opens on the mentor's callout → a pass shows how the design compares with the other designs that pass. Napkin math is opt-in, never a gate. Measured in Chrome: Enter on the all-hands puts the canvas and its Run button on screen in about 70 ms.
 - **The all-hands** is one panel: the founder's doodle, Doug's stamp, two or three speech bubbles, and a big "Let's go" that names where it leads. Later chapters' stage directions and margin notes sit small among the bubbles.
 - **The briefing card** (`BriefingCard` in the theme contract): one line from the founder, one goal line, one margin line from Erasmus, then the numbers drawn (`NumbersCard`): a sparkline of the level's traffic with its start and peak rates, a chip for the work per request (CPU, the read share, the provider's limit), an icon per event, named never timed, and a badge per requirement (p99, availability, budget, plus staleness, own writes and charging where the level has them). Behind a "more" toggle: a coworker's sticky note, the boss's brief, the plain briefing, the full numbers box, the troublemaker's tease and the component reference card. A level whose memo has no goal line (chapters 2 and 3 today) keeps "more" open, so its longer briefing stays in view; adding a goal line in `story.ts` moves a level onto the play-first card with no code change.
 - **The napkin challenge** is a button on the briefing card, "Estimate first for a bonus", which becomes "Napkin bonus earned" once it is. Closing the step unanswered (Esc or "Not now") records nothing; "Skip" still shows the working. The bonus and the Napkin Wizard badge work as before.
@@ -183,6 +193,7 @@ Players should reach the canvas and press Run within seconds, and learn each ide
 | All-hands bubbles | ≤ 45 words in all | 40 (was 102 words of scene) |
 | The failure callout, on every known wrong answer | ≤ 25 words | 10 to 21 |
 | The debrief | ≤ 3 bullets of ≤ 30 words | 3 bullets, 21 to 30 words (was 3 to 5 paragraphs of up to 71) |
+| The title page, beyond "Five Nines" (rendered, buttons included, the sound toggle not) | ≤ 28 words | 26 or 27, by the player's title |
 
 Plain American English, short and concrete; only the founder is funny. Later chapters may keep their longer copy until they get goal lines.
 
@@ -297,7 +308,7 @@ This should feel like Poly Bridge's slow-motion collapse.
 
 **The engineer's notebook.** Every screen is a page in a spiral-bound notebook: graph paper, ink doodles of real components, hand-lettered headings. The error budget is a row of tally marks crossed out as requests fail, the postmortem is a sticky note with the root cause circled in red pen, the result is a marked page, and the campaign map is a hand-drawn trail through the chapters. Real component names stay visible next to every doodle: each component is labelled with a real-world AWS example (EC2, ALB, ElastiCache, RDS, SQS; Stripe for the payment provider), with the generic concept it teaches (app server, load balancer, cache…) in smaller pencil beside it. Copy that explains a concept keeps the concept's words. The doodles are the silhouettes of the things themselves, and each canvas node's frame follows its doodle: a rack unit, a drum, a chip with pins, a conveyor, a bucket. A node standing for more than one machine (instances, replicas, shards, a replicated cache) has copies of its frame stacked behind it, one card for two and two for three or more.
 
-Text in the notebook is at least 12px as rendered and 4.5:1 against its paper; `test/contrast.test.ts` measures the rewards screens, the chapter 3 readouts and the story's pages from the stylesheets and tokens.
+Text in the notebook is at least 12px as rendered and 4.5:1 against its paper; `test/contrast.test.ts` measures the rewards screens, the chapter 3 readouts, the story's pages and the title page from the stylesheets and tokens. The title page's kraft cover takes ink only: pencil is too light on it.
 
 **The cast, by role.** The game only ever asks for a role; the notebook supplies the character:
 
@@ -310,7 +321,7 @@ Text in the notebook is at least 12px as rendered and 4.5:1 against its paper; `
 
 Lines are always worded from what actually happened: the game derives the situation (the level's first crash or spike, the check that failed), the theme only words it.
 
-**The theme boundary.** Everything style-specific (art, character names and lines, words such as "page" for a level, and all CSS, with raw colours only in its tokens) lives in one folder, `packages/web/src/theme/notebook/`. Screens reach it only through `theme/index.ts`, which selects it statically and exposes the slots of the `Theme` contract (`theme/contract.ts`): the cast script and speech bubble, the story script (products, memos, all-hands, promotions) and its all-hands page and memo note, component names and art, budget meter, postmortem card, grade card, campaign map, badge shelf, small marks and sounds. A new art style is a new folder implementing that contract, plus its favicon and font links in `index.html`. There is no runtime theme switching.
+**The theme boundary.** Everything style-specific (art, character names and lines, words such as "page" for a level, and all CSS, with raw colours only in its tokens) lives in one folder, `packages/web/src/theme/notebook/`. Screens reach it only through `theme/index.ts`, which selects it statically and exposes the slots of the `Theme` contract (`theme/contract.ts`): the cast script and speech bubble, the title page, the story script (products, memos, all-hands, promotions) and its all-hands page and memo note, component names and art, budget meter, postmortem card, grade card, campaign map, badge shelf, small marks and sounds. A new art style is a new folder implementing that contract, plus its favicon and font links in `index.html`. There is no runtime theme switching.
 
 ---
 

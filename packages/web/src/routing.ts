@@ -1,10 +1,15 @@
 /**
- * Hash routing: `#/` is level select, `#/level/<id>` is a level, `#/all-hands/<chapter id>` a chapter's all-hands.
- * Hash routes work on any static host without server rewrites.
+ * Hash routing: the root (no hash, or `#/`) is the title page, `#/contents` the level select, `#/level/<id>` a level,
+ * `#/all-hands/<chapter id>` a chapter's all-hands. Anything else is the root. Hash routes work on any static host
+ * without server rewrites.
  */
 import { useSyncExternalStore } from 'react';
 
-export type Route = { name: 'levels' } | { name: 'level'; levelId: string } | { name: 'allHands'; chapterId: string };
+export type Route =
+  | { name: 'title' }
+  | { name: 'levels' }
+  | { name: 'level'; levelId: string }
+  | { name: 'allHands'; chapterId: string };
 
 export function parseHash(hash: string): Route {
   const path = hash.replace(/^#/, '');
@@ -12,7 +17,8 @@ export function parseHash(hash: string): Route {
   if (match) return { name: 'level', levelId: decodeURIComponent(match[1]!) };
   const allHands = /^\/all-hands\/([^/?#]+)\/?$/.exec(path);
   if (allHands) return { name: 'allHands', chapterId: decodeURIComponent(allHands[1]!) };
-  return { name: 'levels' };
+  if (/^\/contents\/?$/.test(path)) return { name: 'levels' };
+  return { name: 'title' };
 }
 
 export function routeHref(route: Route): string {
@@ -22,6 +28,8 @@ export function routeHref(route: Route): string {
     case 'allHands':
       return `#/all-hands/${encodeURIComponent(route.chapterId)}`;
     case 'levels':
+      return '#/contents';
+    case 'title':
       return '#/';
   }
 }

@@ -13,6 +13,7 @@ export const {
   Shell,
   cast,
   story,
+  TitlePage,
   AllHands,
   BriefingCard,
   CastLine,

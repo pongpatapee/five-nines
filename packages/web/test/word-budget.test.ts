@@ -2,13 +2,14 @@
  * Chapter 1's word budgets (docs/design.md, "Word budgets"): the player should reach the canvas and press Run within
  * seconds, so every piece of text on the way is short. Measured from what the game actually shows: the briefing card
  * as rendered (outside "more", without the numbers drawn), the all-hands bubbles, the mentor's callout on every known
- * wrong answer, and the debrief. Later chapters may keep their longer copy.
+ * wrong answer, and the debrief. Later chapters may keep their longer copy. The title page the game opens on is held to
+ * the same spirit: a glance at the world, then one way on.
  */
 import { CHAPTERS, evaluateDesign, getLevel, levelNumbers, type Level } from '@five-nines/sim';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { BriefingCard, cast, failureStory, story } from '../src/theme/index.ts';
+import { BriefingCard, cast, failureStory, story, TitlePage } from '../src/theme/index.ts';
 
 const CHAPTER_1 = CHAPTERS[0]!;
 const LEVELS_1 = CHAPTER_1.levelIds.map((id) => [id, getLevel(id)!] as const);
@@ -24,6 +25,7 @@ const BUDGET = {
   callout: 25,
   debriefBullets: 3,
   debriefBullet: 30,
+  titlePage: 28,
 };
 
 const memoOf = (level: Level) => story.memo(level.id, levelNumbers(level))!;
@@ -98,5 +100,27 @@ describe("chapter 1's word budgets", () => {
   it.each(LEVELS_1)(`%s: debriefs in at most ${BUDGET.debriefBullets} bullets of ${BUDGET.debriefBullet} words`, (_, level) => {
     expect(level.debrief.length).toBeLessThanOrEqual(BUDGET.debriefBullets);
     for (const bullet of level.debrief) expect(words(bullet), bullet).toBeLessThanOrEqual(BUDGET.debriefBullet);
+  });
+});
+
+/** The title page's visible words beyond the title itself: rendered, without its heading, art or screen-reader text. */
+function titlePageWords(playerTitle: string | null): string {
+  const html = renderToStaticMarkup(createElement(TitlePage, { playerTitle, goHref: '#/', contentsHref: '#/contents', sound: null }));
+  return html
+    .replace(/<h1[\s\S]*?<\/h1>/, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/g, ' ')
+    .replace(/<span class="visually-hidden">[^<]*<\/span>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z#0-9]+;/gi, "'");
+}
+
+describe("the title page's word budget", () => {
+  const titles = [null, story.startingTitle, ...Object.values(story.promotions).map((promotion) => promotion.title)];
+
+  it.each(titles)(`shows at most ${BUDGET.titlePage} words beyond the title, as %s`, (playerTitle) => {
+    const text = titlePageWords(playerTitle);
+    expect(text).toContain(story.company);
+    if (playerTitle) expect(text).toContain(playerTitle);
+    expect(words(text), text).toBeLessThanOrEqual(BUDGET.titlePage);
   });
 });

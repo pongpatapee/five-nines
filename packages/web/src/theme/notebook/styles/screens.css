@@ -40,6 +40,20 @@
   flex: none;
 }
 
+/* The wordmark leads back to the cover. */
+.contents__home {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  border-radius: var(--radius-hand);
+  color: inherit;
+  text-decoration: none;
+}
+
+.contents__home:hover .logo-mark {
+  transform: rotate(-4deg);
+}
+
 /* The name and its highlighter swipe, without the logo mark. */
 .contents__name {
   position: relative;

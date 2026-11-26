@@ -3,6 +3,7 @@ import { CHAPTERS, LEVELS, type Grade } from '@five-nines/sim';
 import { useMemo } from 'react';
 import {
   chapterAccess,
+  currentPromotionId,
   devUnlockAll,
   levelAccess,
   nextUpLevelId,
@@ -12,6 +13,7 @@ import {
   type NinesTotal,
 } from '../progression/index.ts';
 import { useBestGrades } from '../state/index.ts';
+import { story } from '../theme/index.ts';
 
 /** Read once: the address's query string doesn't change while the game runs (routes live in the hash). */
 export const UNLOCK_ALL = devUnlockAll();
@@ -48,4 +50,18 @@ export function useCampaign(): CampaignState {
 /** Whether a level may be opened now. */
 export function useLevelAccess(levelId: string): LevelAccess {
   return useCampaign().access[levelId] ?? { kind: 'open' };
+}
+
+/** The player's title: the latest promotion earned (`progression/promotion.ts`), or where everyone starts. */
+export function playerTitle(best: Readonly<Record<string, Grade>>): string {
+  const promoted = currentPromotionId(CHAPTERS, best);
+  return (promoted ? story.promotions[promoted]?.title : undefined) ?? story.startingTitle;
+}
+
+/**
+ * Whether the player has begun the campaign: graded a run or sat through an all-hands. The title page offers a new
+ * player "Start" (into chapter 1's all-hands, then its first level) and anyone else "Continue" (to the contents).
+ */
+export function hasStarted(best: Readonly<Record<string, Grade>>, seenAllHands: Readonly<Record<string, true>>): boolean {
+  return Object.keys(best).length > 0 || Object.keys(seenAllHands).length > 0;
 }

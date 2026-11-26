@@ -1,9 +1,10 @@
 import { CHAPTERS, LEVELS, type Chapter, type Grade, type Level } from '@five-nines/sim';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { isPassingGrade } from '../format.ts';
 import { navigate, routeHref } from '../routing.ts';
 import { progressStore } from '../state/index.ts';
 import { AllHands, story, words, type AllHandsScene } from '../theme/index.ts';
+import { useWayOnKeys } from './wayOn.ts';
 
 /** The chapter a level belongs to. */
 export function chapterOf(levelId: string): Chapter | undefined {
@@ -40,23 +41,8 @@ export function AllHandsScreen({
 }) {
   useEffect(() => progressStore.getState().markAllHandsSeen(chapter.id), [chapter.id]);
   const go = onContinue ?? (() => navigate({ name: 'level', levelId: next.id }));
-  // Enter or Esc skips straight to the level. A focused button or link keeps its own Enter.
-  const goRef = useRef(go);
-  useEffect(() => {
-    goRef.current = go;
-  });
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
-      const onControl = event.target instanceof HTMLElement && event.target.closest('a, button, input, textarea, select') !== null;
-      if (event.key === 'Escape' || (event.key === 'Enter' && !onControl)) {
-        event.preventDefault();
-        goRef.current();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  // Enter or Esc skips straight to the level.
+  useWayOnKeys(go, { escape: true });
   return (
     <AllHands
       scene={scene}
